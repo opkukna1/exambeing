@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout your code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -21,23 +23,31 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.24.0'
           channel: 'stable'
 
-      # FIX: Recreate the Android project to fix the unsupported Gradle project error
-      - name: Recreate platform files
-        run: flutter create .
+      - name: Clean old builds and cache
+        run: |
+          flutter clean
+          flutter pub cache repair
+          rm -rf android/.gradle
+          rm -rf android/build
+          rm -rf build
 
-      - name: Install dependencies
+      - name: Get dependencies
         run: flutter pub get
-      
+
+      - name: Verify pubspec
+        run: flutter pub deps
+
       - name: Generate App Icons
         run: flutter pub run flutter_launcher_icons
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Build Release APK
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
+          name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
