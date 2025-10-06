@@ -50,8 +50,6 @@ flutter:
   assets:
     - assets/logo.png
     - assets/icon/
-    - assets/notes_manifest.json
-    - assets/notes/
 
 flutter_launcher_icons:
   android: "launcher_icon"
