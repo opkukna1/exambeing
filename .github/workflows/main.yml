@@ -40,23 +40,17 @@ jobs:
       - name: Clean project
         run: flutter clean
 
+      # ✅ FIXED: Converted to a single-line command
       - name: Force-Regenerate Android Project
-        run: |
-          echo "Deleting old Android project to ensure compatibility..."
-          rm -rf android
-          echo "Creating a fresh Android project..."
-          flutter create --platforms=android .
+        run: echo "Deleting old Android project..." && rm -rf android && echo "Creating fresh Android project..." && flutter create --platforms=android .
 
-      # ✅ THIS STEP IS NOW FIXED with a single-line command
+      # ✅ FIXED: Using the simple single-line command
       - name: Update Kotlin version
         run: chmod +x .github/scripts/update_kotlin.sh && ./.github/scripts/update_kotlin.sh
 
+      # ✅ FIXED: Converted to a single-line command
       - name: ⚠️ TEMPORARY FIX: Remove problem plugins
-        run: |
-          PUBSPEC="pubspec.yaml"
-          sed -i "/pdfx/d" $PUBSPEC
-          sed -i "/smart_auth/d" $PUBSPEC
-          echo "Removed pdfx and smart_auth plugins to avoid build errors."
+        run: sed -i -e '/pdfx/d' -e '/smart_auth/d' pubspec.yaml && echo "Removed pdfx and smart_auth plugins."
 
       - name: Get Flutter dependencies
         run: flutter pub get
