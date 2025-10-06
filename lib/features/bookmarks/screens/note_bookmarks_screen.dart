@@ -2,7 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../helpers/database_helper.dart'; // FIX: इम्पोर्ट जोड़ा गया
+import '../../../helpers/database_helper.dart';
+import '../../../models/bookmark_model.dart'; // ✅ FIX: Added import for your model
 
 class NoteBookmarksScreen extends StatefulWidget {
   const NoteBookmarksScreen({super.key});
