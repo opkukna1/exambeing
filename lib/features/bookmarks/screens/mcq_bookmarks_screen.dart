@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import '../../../helpers/database_helper.dart';
+import '../../../models/mcq_bookmark_model.dart'; // ✅ FIX: Added import for your model
 
 class McqBookmarksScreen extends StatefulWidget {
   const McqBookmarksScreen({super.key});
