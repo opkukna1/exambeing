@@ -23,7 +23,7 @@ dependencies:
   pinput: ^4.0.0
   google_fonts: ^5.1.0
   pdfx: ^2.5.0
-  screenshot: ^3.0.0      # FIX: Upgraded to a compatible version
+  screenshot: ^2.1.0-nullsafety.1
   share_plus: ^7.2.2
 
   # Firebase Packages
