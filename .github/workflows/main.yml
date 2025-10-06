@@ -47,11 +47,9 @@ jobs:
           echo "Creating a fresh Android project..."
           flutter create --platforms=android .
 
-      # ✅ THIS STEP IS NOW FIXED by running an external script
+      # ✅ THIS STEP IS NOW FIXED with a single-line command
       - name: Update Kotlin version
-        run: |
-          chmod +x .github/scripts/update_kotlin.sh
-          ./.github/scripts/update_kotlin.sh
+        run: chmod +x .github/scripts/update_kotlin.sh && ./.github/scripts/update_kotlin.sh
 
       - name: ⚠️ TEMPORARY FIX: Remove problem plugins
         run: |
