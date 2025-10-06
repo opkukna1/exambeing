@@ -22,7 +22,6 @@ dependencies:
   percent_indicator: ^4.2.3
   pinput: ^4.0.0
   google_fonts: ^5.1.0
-  pdfx: ^2.5.0
   screenshot: ^3.0.0      # FIX: Upgraded to a compatible version
   share_plus: ^7.2.2
 
