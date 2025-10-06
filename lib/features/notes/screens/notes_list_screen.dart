@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:history_metallum/core/local_data_service.dart'; // FIX: Corrected the import path
+import 'package:exambeing/core/local_data_service.dart'; // FIX: Corrected the import path
 
 class NotesListScreen extends StatelessWidget {
   final Map<String, dynamic> subject;
