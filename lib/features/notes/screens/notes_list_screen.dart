@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/local_data_service.dart'; // Ab hum local data service use karenge
+import 'package:history_metallum/core/local_data_service.dart'; // FIX: Corrected the import path
 
 class NotesListScreen extends StatelessWidget {
   final Map<String, dynamic> subject;
@@ -7,7 +7,7 @@ class NotesListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Data ab local service se aayega
+    // Data now comes from the local service
     final relevantTopics = localDataService.getTopics(subject['name'] as String);
 
     return Scaffold(
