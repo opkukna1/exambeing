@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart'; // FIX: Import Google Mobile Ads package
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:history_metallum/navigation/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  // FIX: Initialize the Mobile Ads SDK
   await MobileAds.instance.initialize(); 
 
   runApp(const HistoryMetallumApp());
@@ -35,7 +34,7 @@ class HistoryMetallumApp extends StatelessWidget {
         ),
       ),
       
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme( // This line is now fixed
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
@@ -63,7 +62,7 @@ class HistoryMetallumApp extends StatelessWidget {
     );
 
     return MaterialApp.router(
-      title: 'Exambeing', // FIX: Updated app title
+      title: 'Exambeing',
       theme: theme,
       debugShowCheckedModeBanner: false,
       routerConfig: router,
