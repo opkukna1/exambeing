@@ -14,10 +14,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ✅ NEW DEBUGGING STEP
-      - name: List all files for debugging
-        run: ls -R
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -47,6 +43,10 @@ jobs:
       - name: Force-Regenerate Android Project
         run: echo "Regenerating Android project..." && rm -rf android && flutter create --platforms=android .
 
+      # ✅ FIX: Immediately remove the test folder that flutter create just made
+      - name: Remove auto-generated test folder
+        run: rm -rf test
+
       - name: Update Kotlin version
         run: chmod +x .github/scripts/update_kotlin.sh && ./.github/scripts/update_kotlin.sh
 
@@ -61,9 +61,6 @@ jobs:
 
       - name: Run widget tests
         run: flutter test
-
-      - name: Generate App Icons
-        run: flutter pub run flutter_launcher_icons
 
       - name: Build Release APK
         run: flutter build apk --release --no-tree-shake-icons
