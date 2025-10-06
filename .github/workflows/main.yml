@@ -40,7 +40,6 @@ jobs:
       - name: Clean project
         run: flutter clean
 
-      # ✅ THIS IS THE FIX: Replaced the old step with this one
       - name: Force-Regenerate Android Project
         run: |
           echo "Deleting old Android project to ensure compatibility..."
@@ -48,6 +47,7 @@ jobs:
           echo "Creating a fresh Android project..."
           flutter create --platforms=android .
 
+      # ✅ THIS STEP IS NOW FIXED
       - name: Update Kotlin version
         run: |
           BUILD_FILE="android/build.gradle"
