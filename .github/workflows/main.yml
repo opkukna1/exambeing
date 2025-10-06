@@ -25,26 +25,29 @@ jobs:
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
+          cache: true
 
-      - name: Clean old builds and cache
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Clean project
+        run: flutter clean
+
+      # ✅ THIS IS THE FIX: Replaced the old step with this one
+      - name: Force-Regenerate Android Project
         run: |
-          flutter clean
-          flutter pub cache repair
-          rm -rf android/.gradle
-          rm -rf android/build
-          rm -rf build
+          echo "Deleting old Android project to ensure compatibility..."
+          rm -rf android
+          echo "Creating a fresh Android project..."
+          flutter create --platforms=android .
 
-      # 🧩 Recreate Android folder if missing
-      - name: Recreate platform files if missing
-        run: |
-          if [ ! -d "android" ]; then
-            echo "Android folder missing. Creating new platform files..."
-            flutter create .
-          else
-            echo "Android folder exists. Skipping recreate."
-          fi
-
-      # 🧩 Update Kotlin version to 1.9.22
       - name: Update Kotlin version
         run: |
           BUILD_FILE="android/build.gradle"
@@ -56,30 +59,28 @@ jobs:
             echo "Added Kotlin version 1.9.22"
           fi
 
-      # 🧹 Remove problem plugins from pubspec.yaml
-      - name: Remove pdfx & smart_auth plugins
+      - name: ⚠️ TEMPORARY FIX: Remove problem plugins
         run: |
           PUBSPEC="pubspec.yaml"
           sed -i "/pdfx/d" $PUBSPEC
           sed -i "/smart_auth/d" $PUBSPEC
           echo "Removed pdfx and smart_auth plugins to avoid build errors."
 
-      # 📦 Get dependencies
       - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: Verify pubspec
-        run: flutter pub deps
+      - name: Analyze project source
+        run: flutter analyze
 
-      # 🖼 Generate App Icons
+      - name: Run widget tests
+        run: flutter test
+
       - name: Generate App Icons
         run: flutter pub run flutter_launcher_icons
 
-      # ⚡ Build release APK
       - name: Build Release APK
         run: flutter build apk --release --no-tree-shake-icons
 
-      # 📤 Upload APK as artifact
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
