@@ -34,17 +34,11 @@ jobs:
           rm -rf android/build
           rm -rf build
 
-      # 🧩 Recreate platform files if missing
-      - name: Recreate platform files if missing
-        run: |
-          if [ ! -d "android" ]; then
-            echo "Android folder missing. Creating new platform files..."
-            flutter create .
-          else
-            echo "Android folder already exists. Skipping create step."
-          fi
+      # 🧩 Always ensure platform files exist
+      - name: Ensure platform files exist
+        run: flutter create .
 
-      # 🧩 Update Kotlin version to 1.9.22 for Flutter 3.24+
+      # 🧩 Update Kotlin version for Flutter 3.24+
       - name: Update Kotlin version
         run: |
           BUILD_FILE="android/build.gradle"
@@ -59,9 +53,8 @@ jobs:
       # 🧹 Remove problem plugins from pubspec.yaml
       - name: Remove pdfx & smart_auth plugins
         run: |
-          PUBSPEC="pubspec.yaml"
-          sed -i "/pdfx/d" $PUBSPEC
-          sed -i "/smart_auth/d" $PUBSPEC
+          sed -i "/pdfx/d" pubspec.yaml
+          sed -i "/smart_auth/d" pubspec.yaml
           echo "Removed pdfx and smart_auth plugins to avoid build errors."
 
       - name: Get dependencies
@@ -70,12 +63,15 @@ jobs:
       - name: Verify pubspec
         run: flutter pub deps
 
+      # 🖼 Generate App Icons after android folder exists
       - name: Generate App Icons
         run: flutter pub run flutter_launcher_icons
 
+      # 📦 Build APK
       - name: Build Release APK
         run: flutter build apk --release --no-tree-shake-icons
 
+      # 📤 Upload APK
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
