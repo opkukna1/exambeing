@@ -34,11 +34,17 @@ jobs:
           rm -rf android/build
           rm -rf build
 
-      # 🧩 Always ensure platform files exist
-      - name: Ensure platform files exist
-        run: flutter create .
+      # 🧩 Recreate Android folder if missing
+      - name: Recreate platform files if missing
+        run: |
+          if [ ! -d "android" ]; then
+            echo "Android folder missing. Creating new platform files..."
+            flutter create .
+          else
+            echo "Android folder exists. Skipping recreate."
+          fi
 
-      # 🧩 Update Kotlin version for Flutter 3.24+
+      # 🧩 Update Kotlin version to 1.9.22
       - name: Update Kotlin version
         run: |
           BUILD_FILE="android/build.gradle"
@@ -46,32 +52,34 @@ jobs:
             sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '1.9.22'/" "$BUILD_FILE"
             echo "Kotlin version updated to 1.9.22"
           else
-            echo "ext.kotlin_version not found, adding it..."
             sed -i "1i ext.kotlin_version = '1.9.22'" "$BUILD_FILE"
+            echo "Added Kotlin version 1.9.22"
           fi
 
       # 🧹 Remove problem plugins from pubspec.yaml
       - name: Remove pdfx & smart_auth plugins
         run: |
-          sed -i "/pdfx/d" pubspec.yaml
-          sed -i "/smart_auth/d" pubspec.yaml
+          PUBSPEC="pubspec.yaml"
+          sed -i "/pdfx/d" $PUBSPEC
+          sed -i "/smart_auth/d" $PUBSPEC
           echo "Removed pdfx and smart_auth plugins to avoid build errors."
 
-      - name: Get dependencies
+      # 📦 Get dependencies
+      - name: Get Flutter dependencies
         run: flutter pub get
 
       - name: Verify pubspec
         run: flutter pub deps
 
-      # 🖼 Generate App Icons after android folder exists
+      # 🖼 Generate App Icons
       - name: Generate App Icons
         run: flutter pub run flutter_launcher_icons
 
-      # 📦 Build APK
+      # ⚡ Build release APK
       - name: Build Release APK
         run: flutter build apk --release --no-tree-shake-icons
 
-      # 📤 Upload APK
+      # 📤 Upload APK as artifact
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
