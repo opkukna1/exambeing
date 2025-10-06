@@ -34,6 +34,16 @@ jobs:
           rm -rf android/build
           rm -rf build
 
+      # 🧩 Recreate platform files if missing (Main fix)
+      - name: Recreate platform files if missing
+        run: |
+          if [ ! -d "android" ]; then
+            echo "Android folder missing. Creating new platform files..."
+            flutter create .
+          else
+            echo "Android folder already exists. Skipping create step."
+          fi
+
       - name: Get dependencies
         run: flutter pub get
 
