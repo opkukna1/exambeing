@@ -1,8 +1,8 @@
 // lib/features/notes/screens/note_viewer_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:pdfx/pdfx.dart';
-import '../../../helpers/database_helper.dart'; // FIX: इम्पोर्ट जोड़ा गया
+// import 'package:pdfx/pdfx.dart'; // REMOVED: PDFX import
+import '../../../helpers/database_helper.dart';
 
 class NoteViewerScreen extends StatefulWidget {
   final Map<String, dynamic> topicData;
@@ -14,90 +14,38 @@ class NoteViewerScreen extends StatefulWidget {
 }
 
 class _NoteViewerScreenState extends State<NoteViewerScreen> {
-  late PdfControllerPinch _pdfController;
-  final dbHelper = DatabaseHelper.instance;
-  bool _isBookmarked = false;
-  int _currentPage = 1;
-  int _totalPages = 0;
-  bool _isNightMode = false;
+  // All state variables related to the PDF viewer have been removed.
 
   @override
   void initState() {
     super.initState();
-    _pdfController = PdfControllerPinch(
-      document: PdfDocument.openAsset(widget.topicData['filePath']),
-      initialPage: widget.initialPage ?? 1,
-    );
-    _loadDataForPage(widget.initialPage ?? 1);
-  }
-
-  Future<void> _loadDataForPage(int page) async {
-    final isBookmarkedFromDB = await dbHelper.isPageBookmarked(widget.topicData['filePath'], page);
-    if (mounted) {
-      setState(() {
-        _isBookmarked = isBookmarkedFromDB;
-        _currentPage = page;
-      });
-    }
-  }
-  
-  void _onToggleBookmark() async {
-    await dbHelper.toggleBookmark(widget.topicData['filePath'], widget.topicData['topicName'], _currentPage);
-    _loadDataForPage(_currentPage);
+    // All logic for initializing the PDF controller has been removed.
   }
 
   @override
   void dispose() {
-    _pdfController.dispose();
+    // All logic for disposing the PDF controller has been removed.
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget pdfView = ColorFiltered(
-      colorFilter: _isNightMode 
-        ? const ColorFilter.matrix([-1, 0, 0, 0, 255, 0,-1, 0, 0, 255, 0, 0,-1, 0, 255, 0, 0, 0, 1, 0])
-        : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
-      child: PdfViewPinch(
-        controller: _pdfController,
-        onPageChanged: (page) => _loadDataForPage(page),
-        onDocumentLoaded: (doc) => setState(() => _totalPages = doc.pagesCount),
-      ),
-    );
-
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.topicData['topicName']),
-        actions: [
-          IconButton(
-            icon: Icon(_isNightMode ? Icons.wb_sunny : Icons.nightlight_round),
-            tooltip: 'Toggle Night Mode',
-            onPressed: () => setState(() => _isNightMode = !_isNightMode),
-          ),
-          IconButton(
-            icon: Icon(_isBookmarked ? Icons.bookmark : Icons.bookmark_border),
-            tooltip: 'Bookmark this Page',
-            onPressed: _onToggleBookmark,
-          ),
-        ],
+        // REMOVED: Actions like bookmarking and night mode are no longer needed.
+        actions: const [],
       ),
-      body: Stack(
-        children: [
-          pdfView,
-          if (_totalPages > 0)
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text('$_currentPage / $_totalPages', style: const TextStyle(color: Colors.white, fontSize: 16)),
-              ),
-            ),
-        ],
+      // REPLACED: The PDF viewer has been replaced with a placeholder message.
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            'PDF viewing functionality is currently unavailable.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ),
       ),
     );
   }
