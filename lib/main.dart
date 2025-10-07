@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:history_metallum/navigation/app_router.dart';
+import 'package:exambeing/navigation/app_router.dart'; // ✅ FIX: Updated package name
 import 'package:google_fonts/google_fonts.dart';
 
 Future<void> main() async {
@@ -9,11 +9,11 @@ Future<void> main() async {
   await Firebase.initializeApp();
   await MobileAds.instance.initialize(); 
 
-  runApp(const HistoryMetallumApp());
+  runApp(const ExambeingApp()); // ✅ FIX: Renamed for consistency
 }
 
-class HistoryMetallumApp extends StatelessWidget {
-  const HistoryMetallumApp({super.key});
+class ExambeingApp extends StatelessWidget { // ✅ FIX: Renamed for consistency
+  const ExambeingApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +34,7 @@ class HistoryMetallumApp extends StatelessWidget {
         ),
       ),
       
-      cardTheme: CardTheme( // This line is now fixed
+      cardTheme: CardTheme(
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
