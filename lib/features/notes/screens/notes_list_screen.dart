@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:exambeing/core/local_data_service.dart'; // FIX: Corrected the import path
+import 'package:exambeing/services/local_data_service.dart'; // ✅ FIX: Corrected the folder path
 
 class NotesListScreen extends StatelessWidget {
   final Map<String, dynamic> subject;
