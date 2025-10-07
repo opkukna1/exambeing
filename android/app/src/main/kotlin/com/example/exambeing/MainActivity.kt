@@ -1,4 +1,4 @@
-package com.example.history_metallum
+package com.example.exambeing
 
 import io.flutter.embedding.android.FlutterActivity
 
