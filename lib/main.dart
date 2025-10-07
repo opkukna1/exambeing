@@ -1,4 +1,4 @@
-import 'package.flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:exambeing/navigation/app_router.dart'; // ✅ FIX: Updated package name
 import 'package:google_fonts/google_fonts.dart';
