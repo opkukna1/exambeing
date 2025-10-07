@@ -1,9 +1,9 @@
 // lib/features/bookmarks/screens/mcq_bookmarks_screen.dart
 
-import 'package:flutter/material.dart';
+import 'package.flutter/material.dart';
 import 'package:collection/collection.dart';
-import '../../../helpers/database_helper.dart';
-import '../../../models/mcq_bookmark_model.dart'; // ✅ FIX: Added import for your model
+import 'package:exambeing/helpers/database_helper.dart';     // ✅ FIX: Corrected import path
+import 'package:exambeing/models/mcq_bookmark_model.dart'; // ✅ FIX: Corrected import path
 
 class McqBookmarksScreen extends StatefulWidget {
   const McqBookmarksScreen({super.key});
