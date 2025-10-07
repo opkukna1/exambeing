@@ -1,5 +1,5 @@
-import 'dart.async';
-import 'package.flutter/material.dart';
+import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:exambeing/features/home/main_screen.dart';
