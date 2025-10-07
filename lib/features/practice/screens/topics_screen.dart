@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart'; // FIX: This import was missing
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:go_router/go_router.dart';
 import '../../../models/topic_model.dart';
 import '../../../models/question_model.dart';
 import '../../../services/firebase_data_service.dart';
@@ -20,8 +19,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
   late String subjectName;
   bool _isLoadingTest = false;
 
-  RewardedAd? _rewardedAd;
-  final String _rewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917'; // Test ID
+  // RewardedAd related variables and methods have been removed.
 
   @override
   void initState() {
@@ -29,50 +27,10 @@ class _TopicsScreenState extends State<TopicsScreen> {
     subjectId = widget.subjectData['subjectId']!;
     subjectName = widget.subjectData['subjectName']!;
     _topicsFuture = dataService.getTopics(subjectId);
-    _loadRewardedAd();
+    // _loadRewardedAd() call removed.
   }
 
-  void _loadRewardedAd() {
-    RewardedAd.load(
-      adUnitId: _rewardedAdUnitId,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (RewardedAd ad) {
-          print('Rewarded Ad loaded.');
-          _rewardedAd = ad;
-        },
-        onAdFailedToLoad: (LoadAdError error) {
-          print('Rewarded ad failed to load: $error');
-        },
-      ),
-    );
-  }
-
-  void _showRewardedAdAndStartTest(Topic topic, String mode) {
-    if (_rewardedAd != null) {
-      _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
-        onAdDismissedFullScreenContent: (RewardedAd ad) {
-          ad.dispose();
-          _loadRewardedAd();
-        },
-        onAdFailedToShowFullScreenContent: (RewardedAd ad, AdError error) {
-          ad.dispose();
-          _loadRewardedAd();
-          _navigateToQuiz(topic, mode);
-        },
-      );
-
-      _rewardedAd!.show(
-        onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
-          print('Reward earned: ${reward.amount}');
-          _navigateToQuiz(topic, mode);
-        },
-      );
-    } else {
-      print('Rewarded Ad not ready, proceeding to test.');
-      _navigateToQuiz(topic, mode);
-    }
-  }
+  // _loadRewardedAd() and _showRewardedAdAndStartTest() methods removed.
 
   void _navigateToQuiz(Topic topic, String mode) {
     if (mode == 'practice') {
@@ -144,7 +102,8 @@ class _TopicsScreenState extends State<TopicsScreen> {
                 subtitle: const Text('Practice in sets with solutions'),
                 onTap: () {
                   Navigator.pop(dialogContext);
-                  _showRewardedAdAndStartTest(topic, 'practice');
+                  // Directly navigate, bypassing the ad.
+                  _navigateToQuiz(topic, 'practice');
                 },
               ),
               const Divider(),
@@ -154,7 +113,8 @@ class _TopicsScreenState extends State<TopicsScreen> {
                 subtitle: const Text('Full test for this topic'),
                 onTap: () {
                   Navigator.pop(dialogContext);
-                  _showRewardedAdAndStartTest(topic, 'test');
+                  // Directly navigate, bypassing the ad.
+                  _navigateToQuiz(topic, 'test');
                 },
               ),
             ],
