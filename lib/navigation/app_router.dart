@@ -2,34 +2,30 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-// All Screen Imports
-import '../features/home/main_screen.dart';
-import '../features/home/home_screen.dart';
-import '../features/auth/screens/login_hub_screen.dart';
-import '../features/auth/screens/otp_screen.dart';
-import '../features/practice/screens/test_series_screen.dart';
-import '../features/practice/screens/subjects_screen.dart';
-import '../features/practice/screens/topics_screen.dart';
-import '../features/practice/screens/sets_screen.dart';
-import '../features/practice/screens/practice_mcq_screen.dart';
-import '../features/practice/screens/score_screen.dart';
-import '../features/offers/screens/offers_screen.dart';
-import '../features/bookmarks/screens/bookmarks_home_screen.dart';
-import '../features/practice/screens/solutions_screen.dart';
-import '../features/notes/screens/my_notes_screen.dart';
-import '../features/notes/screens/add_edit_note_screen.dart';
-import '../features/notes/screens/public_notes_screen.dart';
-import '../features/schedule/screens/schedules_screen.dart';
-import '../features/bookmarks/screens/bookmarked_question_detail_screen.dart';
-import '../features/bookmarks/screens/bookmarked_note_detail_screen.dart';
-import '../features/profile/screens/profile_screen.dart';
-
-// Model Imports
-import '../models/question_model.dart';
-import '../models/public_note_model.dart';
-import '../helpers/database_helper.dart';
-
+import 'package:exambeing/features/home/main_screen.dart';
+import 'package:exambeing/features/home/home_screen.dart';
+import 'package:exambeing/features/auth/screens/login_hub_screen.dart';
+import 'package:exambeing/features/auth/screens/otp_screen.dart';
+import 'package:exambeing/features/practice/screens/test_series_screen.dart';
+import 'package:exambeing/features/practice/screens/subjects_screen.dart';
+import 'package:exambeing/features/practice/screens/topics_screen.dart';
+import 'package:exambeing/features/practice/screens/sets_screen.dart';
+import 'package:exambeing/features/practice/screens/practice_mcq_screen.dart';
+import 'package:exambeing/features/practice/screens/score_screen.dart';
+// import '../features/offers/screens/offers_screen.dart'; // ✅ FIX: Removed unused import
+import 'package:exambeing/features/bookmarks/screens/bookmarks_home_screen.dart';
+import 'package:exambeing/features/practice/screens/solutions_screen.dart';
+import 'package:exambeing/features/notes/screens/my_notes_screen.dart';
+import 'package:exambeing/features/notes/screens/add_edit_note_screen.dart';
+import 'package:exambeing/features/notes/screens/public_notes_screen.dart';
+import 'package:exambeing/features/schedule/screens/schedules_screen.dart';
+import 'package:exambeing/features/bookmarks/screens/bookmarked_question_detail_screen.dart';
+import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_screen.dart';
+import 'package:exambeing/features/profile/screens/profile_screen.dart';
+import 'package:exambeing/models/question_model.dart';
+import 'package:exambeing/models/public_note_model.dart';
+import 'package:exambeing/helpers/database_helper.dart';
+import 'package:exambeing/models/my_note_model.dart'; // ✅ FIX: Added missing import
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -39,7 +35,6 @@ final GoRouter router = GoRouter(
   initialLocation: '/login-hub',
 
   routes: [
-    // Login Routes
     GoRoute(
       path: '/login-hub',
       builder: (context, state) => const LoginHubScreen(),
@@ -51,8 +46,6 @@ final GoRouter router = GoRouter(
         return OtpScreen(verificationId: verificationId);
       },
     ),
-
-    // ShellRoute for screens with Bottom Navigation Bar
     ShellRoute(
       builder: (context, state, child) {
         return MainScreen(child: child);
@@ -64,8 +57,6 @@ final GoRouter router = GoRouter(
         GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
       ],
     ),
-    
-    // Full-screen routes that are pushed on top
     GoRoute(
       path: '/subjects',
       builder: (context, state) {
@@ -154,8 +145,6 @@ final GoRouter router = GoRouter(
       },
     ),
   ],
-
-  // Login redirect logic is now active
   redirect: (BuildContext context, GoRouterState state) {
     final bool loggedIn = FirebaseAuth.instance.currentUser != null;
     final bool loggingIn = state.matchedLocation == '/login-hub' || state.matchedLocation == '/otp';
@@ -172,7 +161,6 @@ final GoRouter router = GoRouter(
   },
 );
 
-// FIX: This helper class has been corrected to use ChangeNotifier
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
     notifyListeners();
