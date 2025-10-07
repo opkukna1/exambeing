@@ -22,7 +22,7 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   bool _isSubmitted = false;
   
   Timer? _timer;
-  int _start = 0; // Timer will be initialized based on question count
+  int _start = 0;
   String _timerText = "00:00";
 
   @override
@@ -42,8 +42,7 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     });
     
     if (mode == 'test') {
-      // FIX: Timer is now set to 1 minute per question
-      _start = questions.length * 60; // Total seconds
+      _start = questions.length * 60;
       startTimer();
     }
   }
@@ -89,19 +88,22 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
       }
     }
 
-    context.go(
-      '/score',
-      extra: {
-        'totalQuestions': questions.length,
-        'finalScore': finalScore,
-        'correctCount': correctCount,
-        'wrongCount': wrongCount,
-        'unattemptedCount': unattemptedCount,
-        'topicName': topicName,
-        'questions': questions,
-        'userAnswers': _selectedAnswers,
-      },
-    );
+    // Use a mounted check for safety before navigating
+    if (mounted) {
+      context.go(
+        '/score',
+        extra: {
+          'totalQuestions': questions.length,
+          'finalScore': finalScore,
+          'correctCount': correctCount,
+          'wrongCount': wrongCount,
+          'unattemptedCount': unattemptedCount,
+          'topicName': topicName,
+          'questions': questions,
+          'userAnswers': _selectedAnswers,
+        },
+      );
+    }
   }
 
   void _handleAnswer(int questionIndex, String selectedOption) {
@@ -130,7 +132,8 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     );
   }
   
-  Future<bool> _onWillPop() async {
+  // ✅ FIX: This function now works with PopScope
+  Future<void> _showExitDialog() async {
     final shouldPop = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -140,15 +143,17 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Continue Test')),
           TextButton(
             onPressed: () {
-              Navigator.pop(context, true);
-              _submitQuiz();
+              Navigator.pop(context, true); 
             },
             child: const Text('Submit & Exit'),
           ),
         ],
       ),
     );
-    return shouldPop ?? false;
+    
+    if (shouldPop ?? false) {
+      _submitQuiz();
+    }
   }
 
   @override
@@ -160,8 +165,13 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: _onWillPop,
+    // ✅ FIX: Replaced WillPopScope with PopScope
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) {
+        if (didPop) return;
+        _showExitDialog();
+      },
       child: Scaffold(
         appBar: AppBar(
           title: Text(topicName),
@@ -209,7 +219,8 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                // ✅ FIX: Replaced deprecated surfaceVariant color
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -293,8 +304,7 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
 
           ElevatedButton(
             onPressed: isLastQuestion ? _submitQuiz : _goToNextPage,
-            style: ElevatedButton.styleFrom(backgroundColor: isLastQuestion ? Colors.green : Theme.of(context).colorScheme.primary),
-            child: Text(isLastQuestion ? 'Submit' : 'Next'),
+            style: ElevatedButton.styleFrom(backgroundColor: isLast"Submit" : 'Next'),
           ),
         ],
       ),
