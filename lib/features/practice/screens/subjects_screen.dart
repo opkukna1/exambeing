@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../../../models/subject_model.dart';
 import '../../../services/firebase_data_service.dart';
 
@@ -17,9 +16,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   late Future<List<Subject>> _subjectsFuture;
   late String seriesName;
 
-  NativeAd? _nativeAd;
-  bool _isNativeAdLoaded = false;
-  final String _nativeAdUnitId = 'ca-app-pub-3940256099942544/2247696110'; // Test ID
+  // NativeAd related variables and functions have been removed.
 
   @override
   void initState() {
@@ -27,34 +24,10 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     final seriesId = widget.seriesData['seriesId']!;
     seriesName = widget.seriesData['seriesName']!;
     _subjectsFuture = dataService.getSubjects(seriesId);
-    _loadNativeAd();
+    // _loadNativeAd() call removed.
   }
 
-  void _loadNativeAd() {
-    _nativeAd = NativeAd(
-      adUnitId: _nativeAdUnitId,
-      request: const AdRequest(),
-      factoryId: 'listTile',
-      listener: NativeAdListener(
-        onAdLoaded: (Ad ad) {
-          print('Native Ad loaded.');
-          setState(() {
-            _isNativeAdLoaded = true;
-          });
-        },
-        onAdFailedToLoad: (Ad ad, LoadAdError error) {
-          print('Native Ad failed to load: $error');
-          ad.dispose();
-        },
-      ),
-    )..load();
-  }
-
-  @override
-  void dispose() {
-    _nativeAd?.dispose();
-    super.dispose();
-  }
+  // _loadNativeAd() and dispose() methods for the ad have been removed.
 
   @override
   Widget build(BuildContext context) {
@@ -76,18 +49,11 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
           }
 
           final subjects = snapshot.data!;
-          final List<dynamic> items = List.from(subjects);
-          if (_isNativeAdLoaded) {
-            if (items.length >= 2) {
-              items.insert(2, _nativeAd!); 
-            } else {
-              items.add(_nativeAd!);
-            }
-          }
+          // The logic to insert the ad into the list has been removed.
           
           return GridView.builder(
             padding: const EdgeInsets.all(16.0),
-            itemCount: items.length,
+            itemCount: subjects.length, // Directly use the subjects list length.
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 16,
@@ -95,13 +61,9 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
               childAspectRatio: 0.8,
             ),
             itemBuilder: (context, index) {
-              final item = items[index];
-              if (item is Subject) {
-                return _buildSubjectCard(context, item, seriesName);
-              } else if (item is NativeAd) {
-                return Card(child: AdWidget(ad: item));
-              }
-              return const SizedBox.shrink();
+              final subject = subjects[index];
+              // The check for NativeAd is no longer needed.
+              return _buildSubjectCard(context, subject, seriesName);
             },
           );
         },
