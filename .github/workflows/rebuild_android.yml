@@ -6,6 +6,11 @@ on:
 jobs:
   rebuild:
     runs-on: ubuntu-latest
+
+    # ADD THIS PERMISSIONS BLOCK TO GRANT WRITE ACCESS
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
