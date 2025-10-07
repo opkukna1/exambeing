@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Required for Timestamp
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:exambeing/models/mcq_bookmark_model.dart'; // ✅ FIX: Import the new model
+import 'package:exambeing/models/question_model.dart';      // ✅ FIX: Using package import
+import 'package:exambeing/models/public_note_model.dart';  // ✅ FIX: Using package import
+import 'package:exambeing/models/schedule_model.dart';      // ✅ FIX: Using package import
 
-// Import all your data models
-import '../models/question_model.dart'; 
-import '../models/public_note_model.dart';
-import '../models/schedule_model.dart';
 
 // This is the model for your user-created notes
 class MyNote {
@@ -41,17 +41,13 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    // Version increased to 3 to add the new schedules table
     return await openDatabase(path, version: 3, onCreate: _createDB, onUpgrade: _upgradeDB);
   }
 
   Future _createDB(Database db, int version) async {
-    // This will run only once when the app is first installed
-    // It calls onUpgrade to create all tables from scratch
     await _upgradeDB(db, 0, version);
   }
   
-  // This runs when the database version number is increased
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
     const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
     const textType = 'TEXT NOT NULL';
@@ -168,19 +164,25 @@ class DatabaseHelper {
     final maps = await db.query('bookmarked_questions', where: 'questionText = ?', whereArgs: [questionText]);
     return maps.isNotEmpty;
   }
-
-  Future<List<Question>> getAllBookmarkedQuestions() async {
+  
+  // ✅ FIX: Added the new missing method
+  Future<List<McqBookmark>> getAllMcqBookmarks() async {
     final db = await instance.database;
     final maps = await db.query('bookmarked_questions');
-    
+
     return maps.map((json) {
-      return Question(
-        id: json['id'].toString(),
+      final options = List<String>.from(jsonDecode(json['options'] as String));
+      final correctIndex = json['correctAnswerIndex'] as int;
+      final correctOption = options[correctIndex];
+
+      return McqBookmark(
+        id: json['id'] as int,
         questionText: json['questionText'] as String,
-        options: List<String>.from(jsonDecode(json['options'] as String)),
-        correctAnswerIndex: json['correctAnswerIndex'] as int,
+        options: options,
+        correctOption: correctOption,
         explanation: json['explanation'] as String,
-        topicId: json['topicId'] as String,
+        topic: json['topicId'] as String, // Using topicId as a placeholder for topic name
+        subject: 'Placeholder Subject', // Subject name is not stored, so using a placeholder
       );
     }).toList();
   }
@@ -220,7 +222,7 @@ class DatabaseHelper {
   Future<void> bookmarkSchedule(Schedule schedule) async {
     final db = await instance.database;
     final row = {
-      'scheduleId': schedule.id, // Firestore ID
+      'scheduleId': schedule.id,
       'title': schedule.title,
       'content': schedule.content,
       'subjectId': schedule.subjectId,
@@ -243,7 +245,7 @@ class DatabaseHelper {
         title: json['title'] as String,
         content: json['content'] as String,
         subjectId: json['subjectId'] as String,
-        timestamp: Timestamp.now(), // Timestamp is not saved locally, providing a default
+        timestamp: Timestamp.now(),
       );
     }).toList();
   }
