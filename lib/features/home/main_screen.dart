@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // ✅ FIX: Added for SystemNavigator
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../services/auth_service.dart';
+import 'package:exambeing/services/auth_service.dart'; // ✅ FIX: Using package import
 
 class MainScreen extends StatefulWidget {
   final Widget child;
@@ -41,8 +42,12 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    // ✅ FIX: Replaced WillPopScope with the new PopScope widget
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) {
+        if (didPop) return;
+
         final now = DateTime.now();
         const maxDuration = Duration(seconds: 2);
         final isWarning = lastPressed == null || now.difference(lastPressed!) > maxDuration;
@@ -52,9 +57,9 @@ class _MainScreenState extends State<MainScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Press back again to exit'), duration: maxDuration),
           );
-          return false;
+        } else {
+          SystemNavigator.pop();
         }
-        return true;
       },
       child: Scaffold(
         appBar: AppBar(
@@ -124,8 +129,13 @@ class AppDrawer extends StatelessWidget {
               leading: const Icon(Icons.logout_outlined),
               title: const Text('Logout'),
               onTap: () async {
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
                 await authService.signOut();
-                if(context.mounted) context.go('/login-hub');
+                // Check if the widget is still in the tree before using context
+                if (scaffoldMessenger.mounted) {
+                  scaffoldMessenger.showSnackBar(const SnackBar(content: Text("Logged out.")));
+                  context.go('/login-hub');
+                }
               },
             )
           else
