@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../models/question_model.dart';
+import 'package:exambeing/models/question_model.dart'; // ✅ FIX: Using package import
 
 class BookmarkedQuestionDetailScreen extends StatelessWidget {
   final Question question;
@@ -42,7 +42,8 @@ class BookmarkedQuestionDetailScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (isCorrect) Icon(Icons.check_circle, color: Colors.green, size: 20),
+          // ✅ FIX: Added 'const' to the Icon for better performance
+          if (isCorrect) const Icon(Icons.check_circle, color: Colors.green, size: 20),
           if (isCorrect) const SizedBox(width: 8),
           Expanded(child: Text(option)),
         ],
