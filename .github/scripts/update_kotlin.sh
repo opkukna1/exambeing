@@ -16,6 +16,6 @@ if grep -q "ext.kotlin_version" "$BUILD_FILE"; then
     echo "Kotlin version updated to 1.9.24"
 else
     # This is a simpler and more reliable way to insert the line at the top.
-    sed -i "1i ext.kotlin_version = '1.9.22'" "$BUILD_FILE"
-    echo "Added Kotlin version 1.9.22"
+    sed -i "1i ext.kotlin_version = '1.9.24'" "$BUILD_FILE"
+    echo "Added Kotlin version 1.9.24"
 fi
