@@ -1,3 +1,9 @@
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+    id 'dev.flutter.flutter-gradle-plugin'
+}
+
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
@@ -17,25 +23,11 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "com.example.exambeing" // <<< MAKE SURE THIS IS YOUR PACKAGE NAME
+    namespace "com.example.exambeing"
     compileSdk 34
-    ndkVersion flutter.ndkVersion
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = '1.8'
-    }
-
-    sourceSets {
-        main.java.srcDirs += 'src/main/kotlin'
-    }
 
     defaultConfig {
-        applicationId "com.example.exambeing" // <<< MAKE SURE THIS IS YOUR PACKAGE NAME
+        applicationId "com.example.exambeing"
         minSdkVersion 23
         targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()
@@ -45,7 +37,18 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
         }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
     }
 }
 
@@ -53,5 +56,6 @@ flutter {
     source '../..'
 }
 
-dependencies {}
-apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.23"
+}
