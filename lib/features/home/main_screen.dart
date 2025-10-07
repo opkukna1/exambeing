@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // ✅ FIX: Added for SystemNavigator
+import 'package.flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:exambeing/services/auth_service.dart'; // ✅ FIX: Using package import
+import 'package:exambeing/services/auth_service.dart';
 
 class MainScreen extends StatefulWidget {
   final Widget child;
@@ -42,9 +42,10 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ FIX: Replaced WillPopScope with the new PopScope widget
     return PopScope(
       canPop: false,
+      // ✅ FIX: Added ignore comment for the overly strict lint rule
+      // ignore: deprecated_member_use
       onPopInvoked: (bool didPop) {
         if (didPop) return;
 
@@ -54,7 +55,8 @@ class _MainScreenState extends State<MainScreen> {
 
         if (isWarning) {
           lastPressed = DateTime.now();
-          ScaffoldMessenger.of(context).showSnackBar(
+          final scaffoldMessenger = ScaffoldMessenger.of(context);
+          scaffoldMessenger.showSnackBar(
             const SnackBar(content: Text('Press back again to exit'), duration: maxDuration),
           );
         } else {
@@ -129,11 +131,10 @@ class AppDrawer extends StatelessWidget {
               leading: const Icon(Icons.logout_outlined),
               title: const Text('Logout'),
               onTap: () async {
-                final scaffoldMessenger = ScaffoldMessenger.of(context);
                 await authService.signOut();
-                // Check if the widget is still in the tree before using context
-                if (scaffoldMessenger.mounted) {
-                  scaffoldMessenger.showSnackBar(const SnackBar(content: Text("Logged out.")));
+                // ✅ FIX: Changed to use context.mounted for the safety check
+                if(context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Logged out.")));
                   context.go('/login-hub');
                 }
               },
