@@ -12,7 +12,6 @@ import 'package:exambeing/features/practice/screens/topics_screen.dart';
 import 'package:exambeing/features/practice/screens/sets_screen.dart';
 import 'package:exambeing/features/practice/screens/practice_mcq_screen.dart';
 import 'package:exambeing/features/practice/screens/score_screen.dart';
-// import '../features/offers/screens/offers_screen.dart'; // ✅ FIX: Removed unused import
 import 'package:exambeing/features/bookmarks/screens/bookmarks_home_screen.dart';
 import 'package:exambeing/features/practice/screens/solutions_screen.dart';
 import 'package:exambeing/features/notes/screens/my_notes_screen.dart';
@@ -25,7 +24,7 @@ import 'package:exambeing/features/profile/screens/profile_screen.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/helpers/database_helper.dart';
-import 'package:exambeing/models/my_note_model.dart'; // ✅ FIX: Added missing import
+// import 'package:exambeing/models/my_note_model.dart'; // ✅ FIX: This incorrect line is now removed
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -174,3 +173,4 @@ class GoRouterRefreshStream extends ChangeNotifier {
     super.dispose();
   }
 }
+
