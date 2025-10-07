@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:exambeing/services/firebase_data_service.dart'; // ✅ FIX: Using the correct service
+import 'package:exambeing/services/firebase_data_service.dart';
+import 'package:exambeing/models/topic_model.dart'; // ✅ FIX: Added import for Topic model
 
-// ✅ FIX: Converted to a StatefulWidget to load data from Firebase
 class NotesListScreen extends StatefulWidget {
   final Map<String, dynamic> subject;
   const NotesListScreen({super.key, required this.subject});
@@ -12,12 +12,11 @@ class NotesListScreen extends StatefulWidget {
 
 class _NotesListScreenState extends State<NotesListScreen> {
   final FirebaseDataService _dataService = FirebaseDataService();
-  late Future<List<Map<String, dynamic>>> _topicsFuture;
+  late Future<List<Topic>> _topicsFuture; // ✅ FIX: Changed type to Future<List<Topic>>
 
   @override
   void initState() {
     super.initState();
-    // ✅ FIX: Fetching data from Firebase when the screen loads
     _topicsFuture = _dataService.getTopics(widget.subject['name'] as String);
   }
 
@@ -27,8 +26,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
       appBar: AppBar(
         title: Text('${widget.subject['name']} Notes'),
       ),
-      // ✅ FIX: Using a FutureBuilder to display the data after it loads
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      body: FutureBuilder<List<Topic>>( // ✅ FIX: Changed type to FutureBuilder<List<Topic>>
         future: _topicsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -58,7 +56,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 8.0, top: 8.0, bottom: 8.0),
                         child: Text(
-                          topic['name'] as String,
+                          topic.name, // ✅ FIX: Using property from Topic model
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -68,7 +66,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
                         title: const Text('Chapter Notes (Hindi)'),
                         trailing: ElevatedButton(onPressed: () {}, child: const Text('View')),
                       ),
-                      ListTile(
+                       ListTile(
                         leading: const Icon(Icons.picture_as_pdf_rounded, color: Colors.red),
                         title: const Text('Chapter Notes (English)'),
                         trailing: ElevatedButton(onPressed: () {}, child: const Text('View')),
