@@ -2,10 +2,10 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform => const FirebaseOptions(
-    apiKey: "YOUR_API_KEY",
-    appId: "YOUR_APP_ID",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    apiKey: "AIzaSyCdB9TjSG-obv-_AN429UP6-XpiAM_SmJ0",
+    appId: "1:265258409167:android:e56ee5bf8cfbe7a46b6bba",
+    messagingSenderId: "265258409167",
+    projectId: "instaquiz-9cc2f",
+    storageBucket: "instaquiz-9cc2f.firebasestorage.app",
   );
 }
