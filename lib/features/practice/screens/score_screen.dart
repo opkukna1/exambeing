@@ -5,7 +5,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../../../models/question_model.dart';
 
 class ScoreScreen extends StatefulWidget {
@@ -37,33 +36,7 @@ class ScoreScreen extends StatefulWidget {
 class _ScoreScreenState extends State<ScoreScreen> {
   final ScreenshotController _screenshotController = ScreenshotController();
   
-  BannerAd? _bannerAd;
-  bool _isBannerAdLoaded = false;
-  final String _bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111'; // Test ID
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBannerAd();
-  }
-  
-  void _loadBannerAd() {
-    _bannerAd = BannerAd(
-      adUnitId: _bannerAdUnitId,
-      request: const AdRequest(),
-      size: AdSize.banner,
-      listener: BannerAdListener(
-        onAdLoaded: (Ad ad) {
-          setState(() {
-            _isBannerAdLoaded = true;
-          });
-        },
-        onAdFailedToLoad: (Ad ad, LoadAdError error) {
-          ad.dispose();
-        },
-      ),
-    )..load();
-  }
+  // Ad-related variables and functions have been removed.
 
   void _shareScoreCard(BuildContext context) async {
     final Uint8List? image = await _screenshotController.capture();
@@ -78,11 +51,7 @@ class _ScoreScreenState extends State<ScoreScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _bannerAd?.dispose();
-    super.dispose();
-  }
+  // initState and dispose methods related to the ad are also removed.
 
   Map<String, dynamic> _getFeedback(double score) {
     if (score >= 80) {
@@ -178,63 +147,49 @@ class _ScoreScreenState extends State<ScoreScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Center(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Screenshot(
-                        controller: _screenshotController,
-                        child: scoreCard,
-                      ),
-                      
-                      const SizedBox(height: 30),
+      // The main Column is replaced by a direct child since the ad widget is gone.
+      body: Center(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Screenshot(
+                  controller: _screenshotController,
+                  child: scoreCard,
+                ),
+                
+                const SizedBox(height: 30),
 
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.home),
-                          label: const Text('Go to Home'),
-                          onPressed: () => context.go('/'),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.list_alt_rounded),
-                          label: const Text('View Detailed Solution'),
-                          onPressed: () {
-                            context.push('/solutions', extra: {
-                              'questions': widget.questions,
-                              'userAnswers': widget.userAnswers,
-                            });
-                          },
-                        ),
-                      ),
-                    ],
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.home),
+                    label: const Text('Go to Home'),
+                    onPressed: () => context.go('/'),
                   ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.list_alt_rounded),
+                    label: const Text('View Detailed Solution'),
+                    onPressed: () {
+                      context.push('/solutions', extra: {
+                        'questions': widget.questions,
+                        'userAnswers': widget.userAnswers,
+                      });
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
-          
-          if (_isBannerAdLoaded)
-            Container(
-              color: Colors.white,
-              child: SizedBox(
-                height: _bannerAd!.size.height.toDouble(),
-                width: _bannerAd!.size.width.toDouble(),
-                child: AdWidget(ad: _bannerAd!),
-              ),
-            ),
-        ],
+        ),
       ),
+      // The ad banner container at the bottom has been removed.
     );
   }
 
@@ -247,3 +202,4 @@ class _ScoreScreenState extends State<ScoreScreen> {
     );
   }
 }
+
