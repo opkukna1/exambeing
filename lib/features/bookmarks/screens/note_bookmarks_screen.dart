@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:exambeing/helpers/database_helper.dart';     // ✅ FIX: Corrected import path
-import 'package:exambeing/models/bookmark_model.dart'; // ✅ FIX: Corrected import path
+import 'package:exambeing/helpers/database_helper.dart';
+import 'package:exambeing/models/public_note_model.dart'; // ✅ FIX: Imported the correct model
 
 class NoteBookmarksScreen extends StatefulWidget {
   const NoteBookmarksScreen({super.key});
@@ -14,12 +14,13 @@ class NoteBookmarksScreen extends StatefulWidget {
 
 class _NoteBookmarksScreenState extends State<NoteBookmarksScreen> {
   final dbHelper = DatabaseHelper.instance;
-  late Future<List<Bookmark>> _bookmarksFuture;
+  late Future<List<PublicNote>> _bookmarksFuture; // ✅ FIX: Changed type to PublicNote
 
   @override
   void initState() {
     super.initState();
-    _bookmarksFuture = dbHelper.getAllBookmarks();
+    // ✅ FIX: Called the correct database method
+    _bookmarksFuture = dbHelper.getAllBookmarkedNotes(); 
   }
 
   @override
@@ -31,7 +32,7 @@ class _NoteBookmarksScreenState extends State<NoteBookmarksScreen> {
         backgroundColor: Colors.white,
         elevation: 1,
       ),
-      body: FutureBuilder<List<Bookmark>>(
+      body: FutureBuilder<List<PublicNote>>( // ✅ FIX: Changed type to PublicNote
         future: _bookmarksFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -61,15 +62,14 @@ class _NoteBookmarksScreenState extends State<NoteBookmarksScreen> {
                     backgroundColor: Color(0xFFFFF3E0),
                     child: Icon(Icons.bookmark, color: Colors.orange),
                   ),
-                  title: Text(bookmark.topicName, style: const TextStyle(fontWeight: FontWeight.w500)),
-                  subtitle: Text('Page ${bookmark.pageNumber}'),
+                  // ✅ FIX: Using correct properties from the PublicNote model
+                  title: Text(bookmark.title, style: const TextStyle(fontWeight: FontWeight.w500)),
+                  subtitle: Text('Content: ${bookmark.content.substring(0, 20)}...'), // Example using .content
                   trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
                   onTap: () {
-                    context.push('/note_viewer', extra: {
-                      'topicName': bookmark.topicName,
-                      'filePath': bookmark.noteFilePath,
-                      'initialPage': bookmark.pageNumber,
-                    });
+                    // You may need to adjust the data you pass to the next screen
+                    // as pageNumber and noteFilePath are not in the PublicNote model.
+                    context.push('/bookmark-note-detail', extra: bookmark);
                   },
                 ),
               );
