@@ -1,8 +1,7 @@
 // lib/features/notes/screens/note_viewer_screen.dart
 
 import 'package:flutter/material.dart';
-// import 'package:pdfx/pdfx.dart'; // REMOVED: PDFX import
-import '../../../helpers/database_helper.dart';
+// import '../../../helpers/database_helper.dart'; // ✅ FIX: Removed unused import
 
 class NoteViewerScreen extends StatefulWidget {
   final Map<String, dynamic> topicData;
@@ -14,17 +13,13 @@ class NoteViewerScreen extends StatefulWidget {
 }
 
 class _NoteViewerScreenState extends State<NoteViewerScreen> {
-  // All state variables related to the PDF viewer have been removed.
-
   @override
   void initState() {
     super.initState();
-    // All logic for initializing the PDF controller has been removed.
   }
 
   @override
   void dispose() {
-    // All logic for disposing the PDF controller has been removed.
     super.dispose();
   }
 
@@ -33,10 +28,8 @@ class _NoteViewerScreenState extends State<NoteViewerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.topicData['topicName']),
-        // REMOVED: Actions like bookmarking and night mode are no longer needed.
         actions: const [],
       ),
-      // REPLACED: The PDF viewer has been replaced with a placeholder message.
       body: const Center(
         child: Padding(
           padding: EdgeInsets.all(16.0),
