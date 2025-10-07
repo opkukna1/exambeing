@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:exambeing/navigation/app_router.dart';
-import 'package:exambeing/firebase_options.dart'; // 1. ADD THIS IMPORT
+import 'package:lib/services/firebase_data_service.dart'; // 1. ADD THIS IMPORT
 import 'package:google_fonts/google_fonts.dart';
 
 Future<void> main() async {
