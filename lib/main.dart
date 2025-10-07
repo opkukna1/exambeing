@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:exambeing/navigation/app_router.dart'; // ✅ FIX: Updated package name
+import 'package:exambeing/navigation/app_router.dart';
+import 'package:exambeing/firebase_options.dart'; // 1. ADD THIS IMPORT
 import 'package:google_fonts/google_fonts.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  // MobileAds.instance.initialize() has been removed.
+  // 2. ADD THE 'options' PARAMETER HERE
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
-  runApp(const ExambeingApp()); // ✅ FIX: Renamed for consistency
+  runApp(const ExambeingApp());
 }
 
-class ExambeingApp extends StatelessWidget { // ✅ FIX: Renamed for consistency
+class ExambeingApp extends StatelessWidget {
   const ExambeingApp({super.key});
 
   @override
