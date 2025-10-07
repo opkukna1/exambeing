@@ -1,5 +1,5 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
+import 'dart.async';
+import 'package.flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:exambeing/features/home/main_screen.dart';
@@ -23,8 +23,7 @@ import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_scre
 import 'package:exambeing/features/profile/screens/profile_screen.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
-import 'package:exambeing/helpers/database_helper.dart';
-// import 'package:exambeing/models/my_note_model.dart'; // ✅ FIX: This incorrect line is now removed
+import 'package:exambeing/helpers/database_helper.dart'; // ✅ This import makes MyNote available
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -173,4 +172,3 @@ class GoRouterRefreshStream extends ChangeNotifier {
     super.dispose();
   }
 }
-
