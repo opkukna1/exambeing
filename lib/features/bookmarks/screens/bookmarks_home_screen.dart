@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../helpers/database_helper.dart';
-import '../../../models/question_model.dart';
-import '../../../models/public_note_model.dart';
+import 'package:exambeing/helpers/database_helper.dart';    // ✅ FIX: Using package import
+import 'package:exambeing/models/question_model.dart';     // ✅ FIX: Using package import
+import 'package:exambeing/models/public_note_model.dart';  // ✅ FIX: Using package import
 
 class BookmarksHomeScreen extends StatelessWidget {
   const BookmarksHomeScreen({super.key});
@@ -77,14 +77,16 @@ class _McqBookmarksViewState extends State<_McqBookmarksView> {
                 trailing: IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () async {
+                    // ✅ FIX: Capture context-dependent objects before await
+                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+                    
                     await DatabaseHelper.instance.unbookmarkQuestion(question.questionText);
                     _loadBookmarks();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bookmark removed')));
-                    }
+
+                    // Use the captured object after await
+                    scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Bookmark removed')));
                   },
                 ),
-                // FIX: Added onTap to navigate to detail screen
                 onTap: () {
                   context.push('/bookmark-question-detail', extra: question);
                 },
@@ -142,14 +144,16 @@ class __NoteBookmarksViewState extends State<_NoteBookmarksView> {
                 trailing: IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () async {
+                    // ✅ FIX: Capture context-dependent objects before await
+                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
                     await DatabaseHelper.instance.unbookmarkNote(note.id);
                     _loadBookmarks();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bookmark removed')));
-                    }
+
+                    // Use the captured object after await
+                    scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Bookmark removed')));
                   },
                 ),
-                // FIX: Added onTap to navigate to detail screen
                 onTap: () {
                   context.push('/bookmark-note-detail', extra: note);
                 },
