@@ -7,7 +7,7 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.example.history_metallum"
+        applicationId "com.example.exambeing"
         minSdk 21
         targetSdk 34
         versionCode 1
