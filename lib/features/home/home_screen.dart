@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,82 +9,33 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  BannerAd? _bannerAd;
-  bool _isBannerAdLoaded = false;
-  final String _bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111'; // Test ID
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBannerAd();
-  }
-
-  void _loadBannerAd() {
-    _bannerAd = BannerAd(
-      adUnitId: _bannerAdUnitId,
-      request: const AdRequest(),
-      size: AdSize.banner,
-      listener: BannerAdListener(
-        onAdLoaded: (Ad ad) {
-          // print('Banner Ad loaded.'); // ✅ FIX: Removed print statement
-          setState(() {
-            _isBannerAdLoaded = true;
-          });
-        },
-        onAdFailedToLoad: (Ad ad, LoadAdError error) {
-          // print('Banner Ad failed to load: $error'); // ✅ FIX: Removed print statement
-          ad.dispose();
-        },
-      ),
-    )..load();
-  }
-  
-  @override
-  void dispose() {
-    _bannerAd?.dispose();
-    super.dispose();
-  }
+  // Ad se related sabhi variables aur functions hata diye gaye hain.
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    // Column aur Expanded ko hata diya gaya hai kyunki ab ad widget nahi hai.
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
       children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16.0),
-            children: [
-              _buildWelcomeCard(context),
-              const SizedBox(height: 24),
-              _buildActionCard(
-                context: context,
-                icon: Icons.calendar_month_outlined,
-                title: 'Schedules',
-                subtitle: 'View daily schedules and updates',
-                color: Colors.teal,
-                onTap: () => context.push('/schedules'),
-              ),
-              const SizedBox(height: 16),
-              _buildActionCard(
-                context: context,
-                icon: Icons.note_alt_outlined,
-                title: 'Notes',
-                subtitle: 'Read subject-wise short notes',
-                color: Colors.orange,
-                onTap: () => context.push('/public-notes'),
-              ),
-            ],
-          ),
+        _buildWelcomeCard(context),
+        const SizedBox(height: 24),
+        _buildActionCard(
+          context: context,
+          icon: Icons.calendar_month_outlined,
+          title: 'Schedules',
+          subtitle: 'View daily schedules and updates',
+          color: Colors.teal,
+          onTap: () => context.push('/schedules'),
         ),
-        
-        if (_isBannerAdLoaded)
-          Container(
-            color: Colors.white,
-            child: SizedBox(
-              height: _bannerAd!.size.height.toDouble(),
-              width: _bannerAd!.size.width.toDouble(),
-              child: AdWidget(ad: _bannerAd!),
-            ),
-          ),
+        const SizedBox(height: 16),
+        _buildActionCard(
+          context: context,
+          icon: Icons.note_alt_outlined,
+          title: 'Notes',
+          subtitle: 'Read subject-wise short notes',
+          color: Colors.orange,
+          onTap: () => context.push('/public-notes'),
+        ),
       ],
     );
   }
