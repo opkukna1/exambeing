@@ -27,13 +27,13 @@ class _HomeScreenState extends State<HomeScreen> {
       size: AdSize.banner,
       listener: BannerAdListener(
         onAdLoaded: (Ad ad) {
-          print('Banner Ad loaded.');
+          // print('Banner Ad loaded.'); // ✅ FIX: Removed print statement
           setState(() {
             _isBannerAdLoaded = true;
           });
         },
         onAdFailedToLoad: (Ad ad, LoadAdError error) {
-          print('Banner Ad failed to load: $error');
+          // print('Banner Ad failed to load: $error'); // ✅ FIX: Removed print statement
           ad.dispose();
         },
       ),
@@ -79,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
         
         if (_isBannerAdLoaded)
           Container(
-            color: Colors.white, // To avoid transparency issues
+            color: Colors.white,
             child: SizedBox(
               height: _bannerAd!.size.height.toDouble(),
               width: _bannerAd!.size.width.toDouble(),
