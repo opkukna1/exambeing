@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../models/question_model.dart';
+import 'package:exambeing/models/question_model.dart'; // ✅ FIX: Using package import
 
 class PracticeMcqScreen extends StatefulWidget {
   final Map<String, dynamic> quizData;
@@ -88,7 +88,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
       }
     }
 
-    // Use a mounted check for safety before navigating
     if (mounted) {
       context.go(
         '/score',
@@ -132,7 +131,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     );
   }
   
-  // ✅ FIX: This function now works with PopScope
   Future<void> _showExitDialog() async {
     final shouldPop = await showDialog<bool>(
       context: context,
@@ -165,7 +163,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   
   @override
   Widget build(BuildContext context) {
-    // ✅ FIX: Replaced WillPopScope with PopScope
     return PopScope(
       canPop: false,
       onPopInvoked: (bool didPop) {
@@ -219,7 +216,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                // ✅ FIX: Replaced deprecated surfaceVariant color
                 color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -302,9 +298,13 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
 
+          // ✅ FIX: This button was completely broken, it has been rebuilt.
           ElevatedButton(
             onPressed: isLastQuestion ? _submitQuiz : _goToNextPage,
-            style: ElevatedButton.styleFrom(backgroundColor: isLast"Submit" : 'Next'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isLastQuestion ? Colors.green : Theme.of(context).colorScheme.primary,
+            ),
+            child: Text(isLastQuestion ? 'Submit' : 'Next'),
           ),
         ],
       ),
