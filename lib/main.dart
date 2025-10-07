@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:exambeing/navigation/app_router.dart';
-import 'package:lib/services/firebase_data_service.dart'; // 1. ADD THIS IMPORT
+import 'package:exambeing/firebase_options.dart'; // ✅ सही import
 import 'package:google_fonts/google_fonts.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // 2. ADD THE 'options' PARAMETER HERE
+
+  // ✅ Firebase Initialize करो
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -35,14 +36,12 @@ class ExambeingApp extends StatelessWidget {
           color: Colors.black87,
         ),
       ),
-      
       cardTheme: CardTheme(
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
         ),
       ),
-
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           shape: RoundedRectangleBorder(
@@ -55,7 +54,6 @@ class ExambeingApp extends StatelessWidget {
           ),
         ),
       ),
-      
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         selectedItemColor: Colors.deepPurple,
         unselectedItemColor: Colors.grey,
