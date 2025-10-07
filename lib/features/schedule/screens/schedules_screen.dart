@@ -1,13 +1,13 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+// import 'package:go_router/go_router.dart'; // ✅ FIX: Removed unused import
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import 'package:screenshot/screenshot.dart';
-import '../../../models/schedule_model.dart';
-import '../../../models/subject_model.dart'; // Import Subject model
-import '../../../services/firebase_data_service.dart';
+import 'package:exambeing/models/schedule_model.dart';    // ✅ FIX: Using package import
+import 'package:exambeing/models/subject_model.dart';       // ✅ FIX: Using package import
+import 'package:exambeing/services/firebase_data_service.dart'; // ✅ FIX: Using package import
 
 class SchedulesScreen extends StatefulWidget {
   const SchedulesScreen({super.key});
@@ -19,30 +19,25 @@ class SchedulesScreen extends StatefulWidget {
 class _SchedulesScreenState extends State<SchedulesScreen> {
   final FirebaseDataService _dataService = FirebaseDataService();
   late Future<List<Schedule>> _schedulesFuture;
-  late Future<List<Subject>> _subjectsFuture; // To hold the list of subjects for the filter
+  late Future<List<Subject>> _subjectsFuture;
   String _currentFilterTitle = 'Latest Schedules';
 
   @override
   void initState() {
     super.initState();
-    // Initially, fetch all latest schedules
     _schedulesFuture = _dataService.getSchedules();
-    // Fetch all subjects for the filter menu
     _subjectsFuture = _dataService.getAllSubjects();
   }
 
   Future<void> _refreshData() async {
     setState(() {
-      // Re-fetch both schedules and subjects on refresh
       _schedulesFuture = _dataService.getSchedules(subjectId: _selectedSubjectId);
       _subjectsFuture = _dataService.getAllSubjects();
     });
   }
   
-  // Variable to hold the selected subject ID for filtering
   String? _selectedSubjectId;
 
-  // Function to apply a filter
   void _applyFilter({Subject? subject}) {
     setState(() {
       if (subject == null) {
@@ -57,7 +52,6 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     });
   }
   
-  // Function to show the filter options in a bottom sheet
   void _showFilterSheet(List<Subject> subjects) {
     showModalBottomSheet(
       context: context,
@@ -75,7 +69,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 title: const Text('All Schedules', style: TextStyle(fontWeight: FontWeight.bold)),
                 onTap: () {
                   Navigator.pop(context);
-                  _applyFilter(); // No subject = show all
+                  _applyFilter();
                 },
               ),
               Expanded(
@@ -106,7 +100,6 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
       appBar: AppBar(
         title: Text(_currentFilterTitle),
         actions: [
-          // Filter button now uses a FutureBuilder to get the list of subjects
           FutureBuilder<List<Subject>>(
             future: _subjectsFuture,
             builder: (context, snapshot) {
@@ -195,7 +188,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
 
   void _shareCardAsImage(BuildContext context, ScreenshotController controller) async {
     final Uint8List? image = await controller.capture(pixelRatio: 2.0);
-    if (image == null) return;
+    if (image == null || !mounted) return;
     try {
       final directory = await getTemporaryDirectory();
       final imagePath = await File('${directory.path}/schedule.png').writeAsBytes(image);
