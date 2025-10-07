@@ -27,10 +27,10 @@ dependencies:
   screenshot: ^3.0.0
   share_plus: ^7.2.2
 
-  # Firebase Packages
-  firebase_core: ^2.32.0
-  cloud_firestore: ^4.17.5
-  firebase_auth: ^4.2.0
+  # Firebase Packages (Latest and Compatible)
+  firebase_core: ^3.4.0
+  cloud_firestore: ^5.4.4
+  firebase_auth: ^5.3.1
   google_sign_in: ^6.2.1
 
   # Local Database
@@ -39,7 +39,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^3.0.2
   flutter_launcher_icons: ^0.13.1
   change_app_package_name: ^1.1.0
 
