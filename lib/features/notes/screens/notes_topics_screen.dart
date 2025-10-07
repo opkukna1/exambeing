@@ -1,8 +1,7 @@
-// lib/features/notes/screens/notes_topics_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../helpers/database_helper.dart'; // FIX: इम्पोर्ट जोड़ा गया
+import 'package:exambeing/helpers/database_helper.dart';
+import 'package:exambeing/models/public_note_model.dart'; // ✅ FIX: Imported the correct model
 
 class NotesTopicsScreen extends StatefulWidget {
   final Map<String, dynamic> subjectData;
@@ -14,7 +13,8 @@ class NotesTopicsScreen extends StatefulWidget {
 
 class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
   final dbHelper = DatabaseHelper.instance;
-  List<Bookmark> _bookmarkedPages = [];
+  // ✅ FIX: Changed type to PublicNote
+  List<PublicNote> _bookmarkedPages = []; 
 
   @override
   void initState() {
@@ -22,15 +22,21 @@ class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
     _loadBookmarks();
   }
 
+  // ✅ FIX: Rewrote this method to use the correct database call and filter the results
   Future<void> _loadBookmarks() async {
-    final List<String> topicFilePaths = (widget.subjectData['topics'] as List<dynamic>)
-      .map((topic) => topic['filePath'] as String)
-      .toList();
-      
-    final bookmarks = await dbHelper.getBookmarksForSubject(topicFilePaths);
-    setState(() {
-      _bookmarkedPages = bookmarks;
-    });
+    final allBookmarkedNotes = await dbHelper.getAllBookmarkedNotes();
+    final subjectId = widget.subjectData['id'];
+
+    // Filter the bookmarks to only show ones relevant to the current subject
+    final filteredBookmarks = allBookmarkedNotes.where((bookmark) {
+      return bookmark.subjectId == subjectId;
+    }).toList();
+    
+    if (mounted) {
+      setState(() {
+        _bookmarkedPages = filteredBookmarks;
+      });
+    }
   }
 
   @override
@@ -97,20 +103,18 @@ class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
             style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
+          // ✅ FIX: Updated this section to use the PublicNote model correctly
           ..._bookmarkedPages.map((bookmark) {
             return Card(
               color: Colors.yellow[100],
               margin: const EdgeInsets.symmetric(vertical: 4.0),
               child: ListTile(
                 leading: const Icon(Icons.bookmark, color: Colors.orange),
-                title: Text(bookmark.topicName),
-                subtitle: Text('Page ${bookmark.pageNumber}'),
+                title: Text(bookmark.title),
+                // The PublicNote model does not have a page number, so the subtitle is removed.
                 onTap: () {
-                  context.push('/note_viewer', extra: {
-                    'topicName': bookmark.topicName,
-                    'filePath': bookmark.noteFilePath,
-                    'initialPage': bookmark.pageNumber,
-                  },);
+                  // Navigate to the detail screen, passing the whole bookmark object.
+                  context.push('/bookmark-note-detail', extra: bookmark);
                 },
               ),
             );
