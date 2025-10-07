@@ -13,5 +13,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = 'history_metallum'
+rootProject.name = 'exambeing'
 include ':app'
