@@ -25,38 +25,16 @@ jobs:
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
-          cache: true
-
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          cache: true # This enables smart caching for Flutter dependencies
 
       - name: Clean project
         run: flutter clean
-
-      - name: Force-Regenerate Android Project
-        run: echo "Regenerating Android project..." && rm -rf android && flutter create --platforms=android .
-
-      - name: Remove auto-generated test folder
-        run: rm -rf test
-
-      - name: Update Kotlin version
-        run: chmod +x .github/scripts/update_kotlin.sh && ./.github/scripts/update_kotlin.sh
-
-      - name: TEMPORARY FIX - Remove problem plugins
-        run: sed -i -e '/pdfx/d' -e '/smart_auth/d' pubspec.yaml && echo "Removed pdfx and smart_auth plugins."
 
       - name: Get Flutter dependencies
         run: flutter pub get
 
       - name: Analyze project source
-        run: flutter analyze --no-fatal-infos # ✅ FINAL FIX: Added flag to prevent failure on infos
+        run: flutter analyze --no-fatal-infos
 
       - name: Generate App Icons
         run: flutter pub run flutter_launcher_icons
