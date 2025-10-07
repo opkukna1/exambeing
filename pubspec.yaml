@@ -16,6 +16,7 @@ dependencies:
   go_router: ^10.0.0
   provider: ^6.0.5
   path: ^1.9.0
+  path_provider: ^2.1.3      # ✅ FIX: Added the missing package
   permission_handler: ^11.0.1
   collection: ^1.18.0
 
@@ -23,7 +24,7 @@ dependencies:
   percent_indicator: ^4.2.3
   pinput: ^4.0.0
   google_fonts: ^5.1.0
-  screenshot: ^3.0.0      # FIX: Upgraded to a compatible version
+  screenshot: ^3.0.0
   share_plus: ^7.2.2
 
   # Firebase Packages
