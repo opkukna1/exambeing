@@ -2,11 +2,10 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:exambeing/models/mcq_bookmark_model.dart'; // ✅ FIX: Import the new model
-import 'package:exambeing/models/question_model.dart';      // ✅ FIX: Using package import
-import 'package:exambeing/models/public_note_model.dart';  // ✅ FIX: Using package import
-import 'package:exambeing/models/schedule_model.dart';      // ✅ FIX: Using package import
-
+import 'package:exambeing/models/mcq_bookmark_model.dart';
+import 'package:exambeing/models/question_model.dart';
+import 'package:exambeing/models/public_note_model.dart';
+import 'package:exambeing/models/schedule_model.dart';
 
 // This is the model for your user-created notes
 class MyNote {
@@ -165,7 +164,6 @@ class DatabaseHelper {
     return maps.isNotEmpty;
   }
   
-  // ✅ FIX: Added the new missing method
   Future<List<McqBookmark>> getAllMcqBookmarks() async {
     final db = await instance.database;
     final maps = await db.query('bookmarked_questions');
@@ -181,8 +179,25 @@ class DatabaseHelper {
         options: options,
         correctOption: correctOption,
         explanation: json['explanation'] as String,
-        topic: json['topicId'] as String, // Using topicId as a placeholder for topic name
-        subject: 'Placeholder Subject', // Subject name is not stored, so using a placeholder
+        topic: json['topicId'] as String,
+        subject: 'Placeholder Subject',
+      );
+    }).toList();
+  }
+
+  // ✅ FIX: Added the missing method back in.
+  Future<List<Question>> getAllBookmarkedQuestions() async {
+    final db = await instance.database;
+    final maps = await db.query('bookmarked_questions');
+    
+    return maps.map((json) {
+      return Question(
+        id: json['id'].toString(),
+        questionText: json['questionText'] as String,
+        options: List<String>.from(jsonDecode(json['options'] as String)),
+        correctAnswerIndex: json['correctAnswerIndex'] as int,
+        explanation: json['explanation'] as String,
+        topicId: json['topicId'] as String,
       );
     }).toList();
   }
