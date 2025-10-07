@@ -1,0 +1,13 @@
+# This file configures the static analysis tools.
+# It tells the analyzer to use the standard set of Flutter's recommended rules.
+include: package:flutter_lints/flutter.yaml
+
+# By not adding any other rules, we are accepting the defaults,
+# which means 'info' messages will be treated as suggestions, not fatal errors.
+# This will allow your workflow to pass.
+
+linter:
+  rules:
+    # You can customize rules here in the future if you want.
+    # For example, to disable a rule, you would write:
+    # avoid_print: false
