@@ -1,10 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.history_metallum">
-
-    <application
+    package="com.example.exambeing">  <application
         android:name="${applicationName}"
-        android:label="History Metallum"
+        android:label="exambeing"  
         android:icon="@mipmap/ic_launcher">
+
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-1310160958851625~5342483368"/>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
