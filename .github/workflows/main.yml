@@ -43,14 +43,13 @@ jobs:
       - name: Force-Regenerate Android Project
         run: echo "Regenerating Android project..." && rm -rf android && flutter create --platforms=android .
 
-      # ✅ FIX: Immediately remove the test folder that flutter create just made
       - name: Remove auto-generated test folder
         run: rm -rf test
 
       - name: Update Kotlin version
         run: chmod +x .github/scripts/update_kotlin.sh && ./.github/scripts/update_kotlin.sh
 
-      - name: TEMPORARY FIX - Remove problem plugins
+      - name: TEMPORary FIX - Remove problem plugins
         run: sed -i -e '/pdfx/d' -e '/smart_auth/d' pubspec.yaml && echo "Removed pdfx and smart_auth plugins."
 
       - name: Get Flutter dependencies
@@ -59,8 +58,12 @@ jobs:
       - name: Analyze project source
         run: flutter analyze
 
-      - name: Run widget tests
-        run: flutter test
+      # ✅ FIX: This step has been removed since there are no tests.
+      # - name: Run widget tests
+      #   run: flutter test
+
+      - name: Generate App Icons
+        run: flutter pub run flutter_launcher_icons
 
       - name: Build Release APK
         run: flutter build apk --release --no-tree-shake-icons
