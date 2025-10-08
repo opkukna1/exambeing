@@ -18,13 +18,22 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+      
+      # This is a new, manually controlled cache step
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}-v1 # The "-v1" is our cache buster
+          restore-keys: |
+            ${{ runner.os }}-pub-
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
-          cache: true
+          cache: false # We disable the default cache to use our own
 
       - name: Clean project
         run: flutter clean
