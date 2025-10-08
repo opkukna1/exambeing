@@ -16,7 +16,12 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = "1.8" // Changed for clarity
+    }
+
+    // This block is important for Kotlin projects
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
     }
 
     defaultConfig {
@@ -24,10 +29,10 @@ android {
         applicationId = "com.example.exambeing"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 23 // <<< THIS IS THE CRITICAL CHANGE
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        versionCode = 1 // Using a static version code for now
+        versionName = "1.0" // Using a static version name for now
     }
 
     buildTypes {
@@ -41,4 +46,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Dependencies are now managed by Flutter plugins, so this is usually empty.
 }
