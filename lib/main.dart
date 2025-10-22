@@ -36,8 +36,9 @@ class ExambeingApp extends StatelessWidget {
           color: Colors.black87,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 2,
+        color: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
         ),
