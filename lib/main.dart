@@ -4,7 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 // 2. ⬇️ FIX: Path 'app_router.dart' hona chahiye
-import 'app_router.dart'; // Apni router file ko import karein
+import 'router.dart'; // Apni router file ko import karein
 
 // Agar aapne FlutterFire CLI ka istemal kiya hai, to ise uncomment karein
 // import 'firebase_options.dart';
