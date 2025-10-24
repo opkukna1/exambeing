@@ -1,13 +1,13 @@
 import org.gradle.api.JavaVersion
 
-// 'plugins' block ko pehle rakhein
+// 1. 'plugins' block ko pehle rakhein
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// 'gradle.properties' se values lene ka KTS tareeka
+// 2. 'gradle.properties' se values lene ka KTS tareeka
 val flutterNdkVersion: String by extra
 val flutterMinSdkVersion: String by extra
 val flutterVersionCode: String by extra
@@ -48,7 +48,7 @@ android {
     }
 }
 
-// 'flutter' block ko configure karne ka KTS tareeka
-configure<dev.flutter.plugins.gradle.FlutterExtension> {
+// 3. ⬇️ FIX: 'flutter' block ko KTS syntax mein likhne ka sahi tareeka
+flutter {
     source.set(file("../.."))
 }
