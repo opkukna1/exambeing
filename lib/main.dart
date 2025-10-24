@@ -1,10 +1,9 @@
-// 1. ⬇️ FIX: Path 'package:flutter/material.dart' hona chahiye
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
-// 2. ⬇️ FIX: Path 'app_router.dart' hona chahiye
-import 'router.dart'; // Apni router file ko import karein
+// ⚠️ FIX: Yahi main fix hai. Import ka tareeka badal diya hai.
+import 'package:exambeing/router.dart'; 
 
 // Agar aapne FlutterFire CLI ka istemal kiya hai, to ise uncomment karein
 // import 'firebase_options.dart';
@@ -41,7 +40,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      routerConfig: router, // Aapka GoRouter config
+      routerConfig: router, // Ab yeh 'router' variable mil jayega
     );
   }
 }
