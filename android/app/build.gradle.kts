@@ -1,4 +1,4 @@
-plugins {
+Plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.chetegram"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35 // ⬅️ FIX: Yahaan 35 kar diya
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -25,7 +25,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 35 // ⬅️ FIX: Yahaan bhi 35 kar diya
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -42,3 +42,4 @@ android {
 flutter {
     source = "../.."
 }
+
