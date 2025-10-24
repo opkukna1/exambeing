@@ -48,7 +48,7 @@ android {
     }
 }
 
-// 3. ⬇️ FIX: 'flutter' block ko KTS syntax mein likhne ka sahi tareeka
+// 3. ⬇️ FIX: 'flutter' block ka KTS syntax (simple assignment)
 flutter {
-    source.set(file("../.."))
+    source = file("../..")
 }
