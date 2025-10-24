@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
-// ⚠️ FIX: Yahi main fix hai. Import ka tareeka badal diya hai.
-import 'package:exambeing/router.dart'; 
+// ⚠️ FIX: Yeh hai aapka sahi router path
+import 'package:exambeing/navigation/app_router.dart'; 
 
 // Agar aapne FlutterFire CLI ka istemal kiya hai, to ise uncomment karein
 // import 'firebase_options.dart';
