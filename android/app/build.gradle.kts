@@ -1,14 +1,26 @@
-Plugins {
+import org.gradle.api.JavaVersion
+import dev.flutter.plugins.gradle.FlutterExtension
+
+// 'plugins' block (lowercase 'p')
+plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Flutter se properties padhne ka Kotlin tareeka
+val flutterNdkVersion: String by extra
+val flutterMinSdkVersion: String by extra
+val flutterVersionCode: String by extra
+val flutterVersionName: String by extra
+
 android {
     namespace = "com.example.chetegram"
-    compileSdk = 35 // ⬅️ Yahaan 35 kar diya
-    ndkVersion = flutter.ndkVersion
+    
+    // ⬇️ API Level 35 yahaan set kiya hai
+    compileSdk = 35
+    
+    ndkVersion = flutterNdkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -20,25 +32,25 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.chetegram"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = 35 // ⬅️ Yahaan bhi 35 kar diya
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        minSdk = flutterMinSdkVersion.toInt()
+        
+        // ⬇️ API Level 35 yahaan set kiya hai
+        targetSdk = 35 
+        
+        versionCode = flutterVersionCode.toInt()
+        versionName = flutterVersionName
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        // 'release' block likhne ka Kotlin tareeka
+        getByName("release") {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
 
-flutter {
-    source = "../.."
+// 'flutter' block likhne ka Kotlin tareeka
+configure<FlutterExtension> {
+    source = file("../..")
 }
