@@ -48,7 +48,7 @@ android {
     }
 }
 
-// 3. ⬇️ FIX: 'flutter' block ka KTS syntax (simple assignment)
+// 3. ⬇️ FIX: 'source' ko 'File' object ke bajaye 'String' path chahiye
 flutter {
-    source = file("../..")
+    source = "../.."
 }
