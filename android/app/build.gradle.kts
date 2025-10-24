@@ -1,17 +1,14 @@
 import org.gradle.api.JavaVersion
 
-// 1. 'plugins' block ko pehle rakhein
+// 1. 'plugins' block
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// 2. 'gradle.properties' se values lene ka KTS tareeka
-val flutterNdkVersion: String by extra
-val flutterMinSdkVersion: String by extra
-val flutterVersionCode: String by extra
-val flutterVersionName: String by extra
+// 2. ⬇️ FIX: 'by extra' wali sabhi lines hata di hain, kyonki 
+// aapki 'gradle.properties' file mein woh values nahi hain.
 
 android {
     namespace = "com.example.chetegram"
@@ -19,7 +16,8 @@ android {
     // ⬇️ API Level 35 yahaan set hai
     compileSdk = 35
     
-    ndkVersion = flutterNdkVersion
+    // ⬇️ FIX: NDK version seedhe (hardcode) likh diya hai
+    ndkVersion = "25.1.8937393" // (Standard Flutter NDK version)
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -32,13 +30,12 @@ android {
 
     defaultConfig {
         applicationId = "com.example.chetegram"
-        minSdk = flutterMinSdkVersion.toInt()
         
-        // ⬇️ API Level 35 yahaan set hai
-        targetSdk = 35 
-        
-        versionCode = flutterVersionCode.toInt()
-        versionName = flutterVersionName
+        // ⬇️ FIX: Baaki values bhi seedhe (hardcode) likh di hain
+        minSdk = 21 
+        targetSdk = 35 // API 35
+        versionCode = 1
+        versionName = "1.0.0"
     }
 
     buildTypes {
@@ -48,7 +45,7 @@ android {
     }
 }
 
-// 3. ⬇️ FIX: 'source' ko 'File' object ke bajaye 'String' path chahiye
+// 3. 'flutter' block 
 flutter {
     source = "../.."
 }
