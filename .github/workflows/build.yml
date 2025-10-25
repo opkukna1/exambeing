@@ -1,4 +1,4 @@
-name: Build Flutter App
+name: Build Flutter App Bundle
 
 on:
   push:
@@ -25,12 +25,37 @@ jobs:
 
       - name: 4. Get Flutter dependencies
         run: flutter pub get
+      
+      # ⬇️===== YEH HAIN NYE STEPS (AAB SIGN KARNE KE LIYE) =====⬇️
 
-      - name: 5. Build APK
-        run: flutter build apk --release
+      - name: 5. Decode Keystore
+        # Yeh aapke KEYSTORE_BASE64 secret ko vapas .jks file mein badlega
+        run: |
+          echo "Decoding Keystore..."
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: 6. Upload APK as Artifact
+      - name: 6. Create key.properties file
+        # Yeh aapki build.gradle.kts file ke liye key.properties file banayega
+        run: |
+          echo "Creating key.properties file..."
+          echo "storeFile=upload-keystore.jks" > android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/key.properties
+        env:
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+
+      - name: 7. Build Signed App Bundle
+        # Command ko 'apk' se 'appbundle' kar diya hai
+        run: flutter build appbundle --release
+
+      - name: 8. Upload AAB as Artifact
+        # Path ko .aab file ke liye update kar diya hai
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: release-appbundle
+          path: build/app/outputs/bundle/release/app-release.aab
