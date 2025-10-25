@@ -1,8 +1,9 @@
-name: Build Flutter App Bundle
+name: Build Signed AAB (with Name Change)
 
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch: 
 
 jobs:
   build:
@@ -23,21 +24,24 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: 4. Get Flutter dependencies
+      # ⬇️===== YEH HAI NYA STEP (PACKAGE NAME BADALNE KE LIYE) =====⬇️
+      - name: 4. Change Package Name
+        run: |
+          echo "Changing package name from com.example.chetegram to com.opkukna1.exambeing..."
+          sed -i 's/com.example.chetegram/com.opkukna1.exambeing/g' android/app/build.gradle.kts
+        working-directory: ${{ github.workspace }}
+
+      - name: 5. Get Flutter dependencies
         run: flutter pub get
       
-      # ⬇️===== YEH HAIN NYE STEPS (AAB SIGN KARNE KE LIYE) =====⬇️
-
-      - name: 5. Decode Keystore
-        # Yeh aapke KEYSTORE_BASE64 secret ko vapas .jks file mein badlega
+      - name: 6. Decode Keystore
         run: |
           echo "Decoding Keystore..."
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: 6. Create key.properties file
-        # Yeh aapki build.gradle.kts file ke liye key.properties file banayega
+      - name: 7. Create key.properties file
         run: |
           echo "Creating key.properties file..."
           echo "storeFile=upload-keystore.jks" > android/key.properties
@@ -49,12 +53,10 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
 
-      - name: 7. Build Signed App Bundle
-        # Command ko 'apk' se 'appbundle' kar diya hai
+      - name: 8. Build Signed App Bundle
         run: flutter build appbundle --release
 
-      - name: 8. Upload AAB as Artifact
-        # Path ko .aab file ke liye update kar diya hai
+      - name: 9. Upload AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: release-appbundle
