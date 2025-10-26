@@ -24,13 +24,9 @@ jobs:
         with:
           channel: 'stable'
 
-      # ⬇️===== FIX: Ab yeh KEYSTORE_PASSWORD check karega =====⬇️
-      - name: 4. Check Secrets
+      # ⬇️===== FIX: Ab yeh KEYSTORE_BASE64 ko check nahi karega =====⬇️
+      - name: 4. Check Secrets (Passwords Only)
         run: |
-          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "::error:: SECRET 'KEYSTORE_BASE64' NOT SET."
-            exit 1
-          fi
           if [ -z "${{ secrets.KEY_ALIAS }}" ]; then
             echo "::error:: SECRET 'KEY_ALIAS' NOT SET."
             exit 1
@@ -43,7 +39,7 @@ jobs:
             echo "::error:: SECRET 'KEYSTORE_PASSWORD' NOT SET."
             exit 1
           fi
-          echo "All secrets are set. Proceeding with build."
+          echo "Password secrets are set. Proceeding with build."
 
       - name: 5. Change Package Name
         run: |
@@ -54,31 +50,25 @@ jobs:
       - name: 6. Get Flutter dependencies
         run: flutter pub get
       
-      - name: 7. Decode Keystore
-        run: |
-          echo "Decoding Keystore..."
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      # ⬇️===== STEP 7 (Decode Keystore) HATA DIYA GAYA HAI =====⬇️
+      # Ab yeh aapki committed 'upload-keystore.jks' file ka istemal karega
 
-      - name: 8. Create key.properties file
+      - name: 7. Create key.properties file
         run: |
           echo "Creating key.properties file..."
           echo "storeFile=upload-keystore.jks" > android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          # ⬇️===== FIX: Ab yeh KEYSTORE_PASSWORD ka istemal karega =====⬇️
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
         env:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          # ⬇️===== FIX: Yahaan bhi badal diya =====⬇️
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }} 
 
-      - name: 9. Build Signed App Bundle
+      - name: 8. Build Signed App Bundle
         run: flutter build appbundle --release
 
-      - name: 10. Upload AAB as Artifact
+      - name: 9. Upload AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: release-appbundle
