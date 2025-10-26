@@ -24,24 +24,44 @@ jobs:
         with:
           channel: 'stable'
 
-      # ⬇️===== YEH HAI NYA STEP (PACKAGE NAME BADALNE KE LIYE) =====⬇️
-      - name: 4. Change Package Name
+      # ⬇️===== YEH HAI ASLI FIX (DEBUG STEP) =====⬇️
+      - name: 4. Check Secrets
+        run: |
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "::error:: SECRET 'KEYSTORE_BASE64' NOT SET."
+            exit 1
+          fi
+          if [ -z "${{ secrets.KEY_ALIAS }}" ]; then
+            echo "::error:: SECRET 'KEY_ALIAS' NOT SET."
+            exit 1
+          fi
+          if [ -z "${{ secrets.KEY_PASSWORD }}" ]; then
+            echo "::error:: SECRET 'KEY_PASSWORD' NOT SET."
+            exit 1
+          fi
+          if [ -z "${{ secrets.STORE_PASSWORD }}" ]; then
+            echo "::error:: SECRET 'STORE_PASSWORD' NOT SET."
+            exit 1
+          fi
+          echo "All secrets are set. Proceeding with build."
+
+      - name: 5. Change Package Name
         run: |
           echo "Changing package name from com.example.chetegram to com.opkukna1.exambeing..."
           sed -i 's/com.example.chetegram/com.opkukna1.exambeing/g' android/app/build.gradle.kts
         working-directory: ${{ github.workspace }}
 
-      - name: 5. Get Flutter dependencies
+      - name: 6. Get Flutter dependencies
         run: flutter pub get
       
-      - name: 6. Decode Keystore
+      - name: 7. Decode Keystore
         run: |
           echo "Decoding Keystore..."
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: 7. Create key.properties file
+      - name: 8. Create key.properties file
         run: |
           echo "Creating key.properties file..."
           echo "storeFile=upload-keystore.jks" > android/key.properties
@@ -53,10 +73,10 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
 
-      - name: 8. Build Signed App Bundle
+      - name: 9. Build Signed App Bundle
         run: flutter build appbundle --release
 
-      - name: 9. Upload AAB as Artifact
+      - name: 10. Upload AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: release-appbundle
