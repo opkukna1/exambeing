@@ -47,7 +47,7 @@ jobs:
       - name: 5. Change Package Name
         run: |
           echo "Changing package name..."
-          sed -i 's/com.example.chetegram/com.opkukna1.exambeing/g' android/app/build.gradle.kts
+          sed -i 's/com.example.chetegram/com.opkukna.exambeing/g' android/app/build.gradle.kts
 
       - name: 6. Get Flutter dependencies
         run: flutter pub get
