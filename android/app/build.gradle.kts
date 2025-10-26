@@ -15,7 +15,7 @@ if (keyPropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.chetegram"
+    namespace = "com.opkukna.exambeing"
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 
@@ -38,7 +38,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.chetegram"
+        applicationId = "com.opkukna.exambeing"
         minSdk = 23
         targetSdk = 36
         versionCode = 2
