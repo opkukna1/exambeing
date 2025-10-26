@@ -19,8 +19,8 @@ android {
     // 3. Aapka original package name (jise workflow badlega)
     namespace = "com.example.chetegram"
     
-    // 4. API 35 (jaisa aapne maanga tha)
-    compileSdk = 35
+    // 4. API 36 (Plugins ki warning fix karne ke liye)
+    compileSdk = 36
     
     // 5. NDK version (pichhle build log se)
     ndkVersion = "27.0.12077973"
@@ -50,7 +50,7 @@ android {
         
         // 8. Hardcoded values (pichhle 'by extra' error ko fix karne ke liye)
         minSdk = 23
-        targetSdk = 35 
+        targetSdk = 36 
         versionCode = 1
         versionName = "1.0"
     }
