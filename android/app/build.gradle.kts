@@ -1,31 +1,24 @@
 import org.gradle.api.JavaVersion
-import java.util.Properties // ⬅️ YEH HAI ASLI FIX
+import java.util.Properties
 
-// 1. 'plugins' block
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// 2. key.properties file ko load karne ke liye
-val keyPropertiesFile = rootProject.file("android/key.properties")
-val keyProperties = Properties() // Ab 'java.util.' ki zaroorat nahi
+// 🧩 FIX: Correct key.properties path
+val keyPropertiesFile = rootProject.file("key.properties")
+val keyProperties = Properties()
 if (keyPropertiesFile.exists()) {
     keyProperties.load(keyPropertiesFile.inputStream())
 }
 
 android {
-    // 3. Aapka original package name (jise workflow badlega)
     namespace = "com.example.chetegram"
-    
-    // 4. API 36 (Plugins ki warning fix karne ke liye)
     compileSdk = 36
-    
-    // 5. NDK version (pichhle build log se)
     ndkVersion = "27.0.12077973"
 
-    // 6. Release key ko load karne ka setup
     signingConfigs {
         create("release") {
             keyAlias = keyProperties["keyAlias"] as String?
@@ -45,25 +38,20 @@ android {
     }
 
     defaultConfig {
-        // 7. Aapka original package name (jise workflow badlega)
         applicationId = "com.example.chetegram"
-        
-        // 8. Hardcoded values (pichhle 'by extra' error ko fix karne ke liye)
         minSdk = 23
-        targetSdk = 36 
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
     }
 
     buildTypes {
         getByName("release") {
-            // 9. Release build ko 'release' key istemal karne ke liye kehna
             signingConfig = signingConfigs.getByName("release")
         }
     }
 }
 
-// 10. 'flutter' block
 flutter {
     source = "../.."
 }
