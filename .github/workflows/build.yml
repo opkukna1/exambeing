@@ -24,7 +24,7 @@ jobs:
         with:
           channel: 'stable'
 
-      # ⬇️===== YEH HAI ASLI FIX (DEBUG STEP) =====⬇️
+      # ⬇️===== FIX: Ab yeh KEYSTORE_PASSWORD check karega =====⬇️
       - name: 4. Check Secrets
         run: |
           if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
@@ -39,8 +39,8 @@ jobs:
             echo "::error:: SECRET 'KEY_PASSWORD' NOT SET."
             exit 1
           fi
-          if [ -z "${{ secrets.STORE_PASSWORD }}" ]; then
-            echo "::error:: SECRET 'STORE_PASSWORD' NOT SET."
+          if [ -z "${{ secrets.KEYSTORE_PASSWORD }}" ]; then
+            echo "::error:: SECRET 'KEYSTORE_PASSWORD' NOT SET."
             exit 1
           fi
           echo "All secrets are set. Proceeding with build."
@@ -67,11 +67,12 @@ jobs:
           echo "storeFile=upload-keystore.jks" > android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/key.properties
+          # ⬇️===== FIX: Ab yeh KEYSTORE_PASSWORD ka istemal karega =====⬇️
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
         env:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }} # ⬅️ Yahaan bhi badal diya
 
       - name: 9. Build Signed App Bundle
         run: flutter build appbundle --release
