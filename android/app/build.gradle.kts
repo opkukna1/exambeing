@@ -1,4 +1,5 @@
 import org.gradle.api.JavaVersion
+import java.util.Properties // ⬅️ YEH HAI ASLI FIX
 
 // 1. 'plugins' block
 plugins {
@@ -7,9 +8,9 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// 2. ⬇️ FIX: key.properties file ko load karne ke liye
+// 2. key.properties file ko load karne ke liye
 val keyPropertiesFile = rootProject.file("android/key.properties")
-val keyProperties = java.util.Properties()
+val keyProperties = Properties() // Ab 'java.util.' ki zaroorat nahi
 if (keyPropertiesFile.exists()) {
     keyProperties.load(keyPropertiesFile.inputStream())
 }
@@ -24,7 +25,7 @@ android {
     // 5. NDK version (pichhle build log se)
     ndkVersion = "27.0.12077973"
 
-    // 6. ⬇️ FIX: Release key ko load karne ka setup
+    // 6. Release key ko load karne ka setup
     signingConfigs {
         create("release") {
             keyAlias = keyProperties["keyAlias"] as String?
@@ -56,13 +57,13 @@ android {
 
     buildTypes {
         getByName("release") {
-            // 9. ⬇️ FIX: Release build ko 'release' key istemal karne ke liye kehna
+            // 9. Release build ko 'release' key istemal karne ke liye kehna
             signingConfig = signingConfigs.getByName("release")
         }
     }
 }
 
-// 10. 'flutter' block (pichhle 'Type Mismatch' error ko fix karne ke liye)
+// 10. 'flutter' block
 flutter {
     source = "../.."
 }
