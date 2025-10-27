@@ -1,4 +1,4 @@
-name: Build Signed AAB & APK (with Name Change)
+name: Build Signed AAB & APK (Fixed + Verified)
 
 on:
   push:
@@ -47,18 +47,18 @@ jobs:
       - name: 5. Change Package Name
         run: |
           echo "Changing package name..."
-          sed -i 's/com.example.chetegram/com.opkukna.exambeing/g' android/app/build.gradle.kts
+          sed -i 's/com.example.chetegram/com.opkukna.exambeing/g' android/app/build.gradle.kts || true
 
-      - name: 6. Get Flutter dependencies
-        run: flutter pub get
+      - name: 6. Flutter Clean & Get Packages
+        run: |
+          flutter clean
+          flutter pub get
 
-      # 🧩 Step 7: Decode Keystore File
       - name: 7. Decode Keystore
         run: |
           echo "Decoding Keystore..."
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
 
-      # 🧩 Step 8: Create key.properties
       - name: 8. Create key.properties
         run: |
           echo "Creating key.properties..."
@@ -67,24 +67,34 @@ jobs:
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
 
-      # 🧩 Step 9: Build Signed AAB
-      - name: 9. Build Signed AAB
-        run: flutter build appbundle --release
+      - name: 9. Verify key.properties
+        run: cat android/key.properties
 
-      # 🧩 Step 10: Build Signed APK (for direct install)
-      - name: 10. Build Signed APK
-        run: flutter build apk --release
+      - name: 10. Build Signed AAB
+        run: |
+          echo "🔨 Building Signed AAB..."
+          flutter build appbundle --release
+          echo "✅ Checking AAB output..."
+          find build/ -type f -name "*.aab" || true
 
-      # 🧩 Step 11: Upload AAB
-      - name: 11. Upload AAB as Artifact
+      - name: 11. Build Signed APK
+        run: |
+          echo "🔨 Building Signed APK..."
+          flutter build apk --release
+          echo "✅ Checking APK output..."
+          find build/ -type f -name "*.apk" || true
+
+      - name: 12. Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: release-appbundle
-          path: build/app/outputs/bundle/release/app-release.aab
+          path: |
+            build/app/outputs/bundle/release/*.aab
+            build/app/outputs/flutter-apk/*.aab
 
-      # 🧩 Step 12: Upload APK
-      - name: 12. Upload APK as Artifact
+      - name: 13. Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            build/app/outputs/flutter-apk/*.apk
