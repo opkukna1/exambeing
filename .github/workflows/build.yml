@@ -1,4 +1,4 @@
-name: Build Signed AAB (with Name Change)
+name: Build Signed AAB & APK (with Name Change)
 
 on:
   push:
@@ -67,11 +67,24 @@ jobs:
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
 
-      - name: 9. Build Signed App Bundle
+      # 🧩 Step 9: Build Signed AAB
+      - name: 9. Build Signed AAB
         run: flutter build appbundle --release
 
-      - name: 10. Upload AAB as Artifact
+      # 🧩 Step 10: Build Signed APK (for direct install)
+      - name: 10. Build Signed APK
+        run: flutter build apk --release
+
+      # 🧩 Step 11: Upload AAB
+      - name: 11. Upload AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: release-appbundle
           path: build/app/outputs/bundle/release/app-release.aab
+
+      # 🧩 Step 12: Upload APK
+      - name: 12. Upload APK as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
