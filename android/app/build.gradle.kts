@@ -63,8 +63,11 @@ flutter {
 }
 
 dependencies {
-    implementation("com.google.android.gms:play-services-auth:21.1.0") // ✅ SmartAuth fix
+    implementation("com.google.android.gms:play-services-auth:21.1.0")
     implementation("com.google.android.gms:play-services-identity:18.0.1")
     implementation("androidx.credentials:credentials:1.3.0-alpha02")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0-alpha02")
+
+    // 🔒 SmartAuth backward support fix
+    implementation("com.google.android.gms:play-services-auth-api-phone:18.0.1")
 }
