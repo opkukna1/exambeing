@@ -1,2 +1,7 @@
+# SmartAuth & Google Credentials rules
 -keep class com.google.android.gms.auth.api.credentials.** { *; }
 -dontwarn com.google.android.gms.auth.api.credentials.**
+
+# For AndroidX Credentials API
+-keep class androidx.credentials.** { *; }
+-dontwarn androidx.credentials.**
