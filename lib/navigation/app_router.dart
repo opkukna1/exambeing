@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+// 📱 Screens Imports
 import 'package:exambeing/features/home/main_screen.dart';
 import 'package:exambeing/features/home/home_screen.dart';
 import 'package:exambeing/features/auth/screens/login_hub_screen.dart';
@@ -25,7 +27,7 @@ import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/helpers/database_helper.dart';
 
-// Helper widget, agar data galat ho to ise dikhayein
+/// 🚨 Safe Error Screen for bad route data
 class _ErrorRouteScreen extends StatelessWidget {
   final String path;
   const _ErrorRouteScreen({required this.path});
@@ -49,11 +51,18 @@ class _ErrorRouteScreen extends StatelessWidget {
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// 🔥 Main Router Config
 final GoRouter router = GoRouter(
   navigatorKey: _rootNavigatorKey,
+
+  /// 🔄 Firebase Auth ke stream se UI refresh hota rahe
   refreshListenable: GoRouterRefreshStream(FirebaseAuth.instance.authStateChanges()),
-  initialLocation: '/login-hub',
+
+  /// 🏁 Start directly from home shell (redirect logic handle karega)
+  initialLocation: '/',
+
   routes: [
+    // 🔐 Auth Routes
     GoRoute(
       path: '/login-hub',
       builder: (context, state) => const LoginHubScreen(),
@@ -61,7 +70,6 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/otp',
       builder: (context, state) {
-        // ✅ FIX: Check if data is valid
         if (state.extra is String) {
           final verificationId = state.extra as String;
           return OtpScreen(verificationId: verificationId);
@@ -69,27 +77,24 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
+
+    // 🏠 Shell Route with Bottom Navigation
     ShellRoute(
       builder: (context, state, child) {
         return MainScreen(child: child);
       },
       routes: [
         GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
-        GoRoute(
-            path: '/test-series',
-            builder: (context, state) => const TestSeriesScreen()),
-        GoRoute(
-            path: '/bookmarks_home',
-            builder: (context, state) => const BookmarksHomeScreen()),
-        GoRoute(
-            path: '/profile',
-            builder: (context, state) => const ProfileScreen()),
+        GoRoute(path: '/test-series', builder: (context, state) => const TestSeriesScreen()),
+        GoRoute(path: '/bookmarks_home', builder: (context, state) => const BookmarksHomeScreen()),
+        GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
       ],
     ),
+
+    // 🧠 Practice Routes
     GoRoute(
       path: '/subjects',
       builder: (context, state) {
-        // ✅ FIX: Check if data is valid
         if (state.extra is Map<String, String>) {
           final seriesData = state.extra as Map<String, String>;
           return SubjectsScreen(seriesData: seriesData);
@@ -100,7 +105,6 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/topics',
       builder: (context, state) {
-        // ✅ FIX: Check if data is valid
         if (state.extra is Map<String, String>) {
           final subjectData = state.extra as Map<String, String>;
           return TopicsScreen(subjectData: subjectData);
@@ -111,7 +115,6 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/sets',
       builder: (context, state) {
-        // ✅ FIX: Check if data is valid
         if (state.extra is Map<String, String>) {
           final topicData = state.extra as Map<String, String>;
           return SetsScreen(topicData: topicData);
@@ -122,7 +125,6 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/practice-mcq',
       builder: (context, state) {
-        // ✅ FIX: Check if data is valid
         if (state.extra is Map<String, dynamic>) {
           final quizData = state.extra as Map<String, dynamic>;
           return PracticeMcqScreen(quizData: quizData);
@@ -130,11 +132,12 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
+
+    // 🏁 Score & Solutions
     GoRoute(
       path: '/score',
       builder: (context, state) {
         final data = state.extra;
-        // ✅ FIX: Check data type and all keys before casting
         if (data is Map<String, dynamic> &&
             data.containsKey('totalQuestions') &&
             data.containsKey('finalScore') &&
@@ -156,7 +159,6 @@ final GoRouter router = GoRouter(
               userAnswers: data['userAnswers'] as Map<int, String>,
             );
           } catch (e) {
-            // Catch if casting inside fails (e.g., totalQuestions was a String)
             return _ErrorRouteScreen(path: state.matchedLocation);
           }
         }
@@ -167,7 +169,6 @@ final GoRouter router = GoRouter(
       path: '/solutions',
       builder: (context, state) {
         final data = state.extra;
-        // ✅ FIX: Check data type and all keys before casting
         if (data is Map<String, dynamic> &&
             data.containsKey('questions') &&
             data.containsKey('userAnswers')) {
@@ -183,30 +184,25 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-    GoRoute(
-      path: '/my-notes',
-      builder: (context, state) => const MyNotesScreen(),
-    ),
+
+    // 📒 Notes
+    GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
     GoRoute(
       path: '/add-edit-note',
       builder: (context, state) {
-        // This was already safe, no change needed
         final MyNote? note = state.extra as MyNote?;
         return AddEditNoteScreen(note: note);
       },
     ),
-    GoRoute(
-      path: '/public-notes',
-      builder: (context, state) => const PublicNotesScreen(),
-    ),
-    GoRoute(
-      path: '/schedules',
-      builder: (context, state) => const SchedulesScreen(),
-    ),
+    GoRoute(path: '/public-notes', builder: (context, state) => const PublicNotesScreen()),
+
+    // 📅 Schedules
+    GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
+
+    // 📘 Bookmarks
     GoRoute(
       path: '/bookmark-question-detail',
       builder: (context, state) {
-        // ✅ FIX: Check if data is valid
         if (state.extra is Question) {
           final question = state.extra as Question;
           return BookmarkedQuestionDetailScreen(question: question);
@@ -217,7 +213,6 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/bookmark-note-detail',
       builder: (context, state) {
-        // ✅ FIX: Check if data is valid
         if (state.extra is PublicNote) {
           final note = state.extra as PublicNote;
           return BookmarkedNoteDetailScreen(note: note);
@@ -226,12 +221,16 @@ final GoRouter router = GoRouter(
       },
     ),
   ],
-  redirect: (BuildContext context, GoRouterState state) {
-    final bool loggedIn = FirebaseAuth.instance.currentUser != null;
-    final bool loggingIn =
-        state.matchedLocation == '/login-hub' || state.matchedLocation == '/otp';
 
-    if (!loggedIn) {
+  /// 🧠 Redirect Logic (fixed)
+  redirect: (BuildContext context, GoRouterState state) {
+    // Firebase initialization check
+    if (Firebase.apps.isEmpty) return null;
+
+    final user = FirebaseAuth.instance.currentUser;
+    final loggingIn = state.matchedLocation == '/login-hub' || state.matchedLocation == '/otp';
+
+    if (user == null) {
       return loggingIn ? null : '/login-hub';
     }
 
@@ -243,6 +242,7 @@ final GoRouter router = GoRouter(
   },
 );
 
+/// 🔁 Helper class to auto-refresh GoRouter on auth state change
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
     notifyListeners();
