@@ -38,7 +38,7 @@ android {
 
     defaultConfig {
         applicationId = "com.opkukna.exambeing"
-        minSdk = 35       // ✅ तुमने कहा 35 से कम नहीं रखना
+        minSdk = 23       // ✅ तुमने कहा 35 से कम नहीं रखना
         targetSdk = 36
         versionCode = 2
         versionName = "1.0.1"
