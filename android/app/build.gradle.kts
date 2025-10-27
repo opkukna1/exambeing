@@ -20,7 +20,7 @@ android {
     ndkVersion = "27.0.12077973"
 
     // ✅ Fix for GitHub Actions / AAB build directory
-    buildDir = "../../build"
+    buildDir = ("../../build")
 
     signingConfigs {
         create("release") {
