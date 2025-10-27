@@ -1,7 +1,10 @@
-# SmartAuth & Google Credentials rules
+# SmartAuth - Google Credentials Fix
 -keep class com.google.android.gms.auth.api.credentials.** { *; }
 -dontwarn com.google.android.gms.auth.api.credentials.**
 
-# For AndroidX Credentials API
+# AndroidX Credentials API
 -keep class androidx.credentials.** { *; }
 -dontwarn androidx.credentials.**
+
+# Prevent Flutter Plugin minification
+-keep class io.flutter.plugin.** { *; }
