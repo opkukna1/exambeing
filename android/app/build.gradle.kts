@@ -18,10 +18,6 @@ android {
     namespace = "com.opkukna.exambeing"
     compileSdk = 36
     ndkVersion = "27.0.12077973"
-
-    // ✅ Fix for GitHub Actions / AAB build directory
-    buildDir = file("../../build")
-
     signingConfigs {
         create("release") {
             keyAlias = keyProperties["keyAlias"] as String?
