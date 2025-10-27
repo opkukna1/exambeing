@@ -13,7 +13,7 @@ dependencies:
 
   # Core Packages
   cupertino_icons: ^1.0.2
-  go_router: ^13.2.4       # <-- UPDATED
+  go_router: ^10.0.0
   provider: ^6.0.5
   path: ^1.9.0
   path_provider: ^2.1.3
@@ -23,14 +23,14 @@ dependencies:
   # UI & Media Packages
   percent_indicator: ^4.2.3
   pinput: ^4.0.0
-  google_fonts: ^6.2.1      # <-- UPDATED
+  google_fonts: ^5.1.0
   screenshot: ^3.0.0
   share_plus: ^7.2.2
 
-  # Firebase Packages (This was the main crash problem)
-  firebase_core: ^2.31.0      # <-- UPDATED
-  cloud_firestore: ^4.17.3  # <-- UPDATED
-  firebase_auth: ^4.19.5      # <-- UPDATED
+  # Firebase Packages
+  firebase_core: ^3.4.0
+  cloud_firestore: ^5.4.4
+  firebase_auth: ^5.3.1
   google_sign_in: ^6.2.1
 
   # Local Database
