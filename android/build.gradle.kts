@@ -1,19 +1,19 @@
-plugins {
-    id("com.android.application") apply false
-    id("com.android.library") apply false
-    id("org.jetbrains.kotlin.android") apply false
-    id("com.google.gms.google-services") apply false
-}
-
 buildscript {
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        // Firebase tools (अगर Kotlin script में चाहिए)
+        // ✅ Add Google Services versioned plugin for Firebase
         classpath("com.google.gms:google-services:4.4.2")
     }
+}
+
+plugins {
+    id("com.android.application") apply false
+    id("com.android.library") apply false
+    id("org.jetbrains.kotlin.android") apply false
+    // ❌ यहां version मत दो, वरना conflict होगा
 }
 
 allprojects {
