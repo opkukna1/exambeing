@@ -33,6 +33,7 @@ dependencies:
   firebase_auth: ^5.3.1
   google_sign_in: ^6.2.1
   smart_auth: ^2.0.0
+
   # Local Database
   sqflite: ^2.3.3
 
@@ -51,6 +52,6 @@ flutter:
     - assets/icon/
 
 flutter_launcher_icons:
-  android: "launcher_icon"
-  ios: false
+  android: true
+  ios: true
   image_path: "assets/icon/app_icon.png"
