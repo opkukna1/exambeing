@@ -1,29 +1,12 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+// Top-level build.gradle.kts
 
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        // 🔧 Android Gradle Plugin
-        classpath("com.android.tools.build:gradle:8.5.2")
-
-        // 🔥 Google Services (Firebase)
-        classpath("com.google.gms:google-services:4.4.2")
-
-        // (Optional) Kotlin Gradle Plugin (for compatibility)
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25")
-    }
+plugins {
+    id("com.android.application") version "8.5.2" apply false
+    id("com.android.library") version "8.5.2" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.25" apply false
+    id("com.google.gms.google-services") version "4.4.2" apply false
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
-tasks.register<Delete>("clean") {
+task<Delete>("clean") {
     delete(rootProject.buildDir)
 }
