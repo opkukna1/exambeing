@@ -1,0 +1,90 @@
+name: Build Signed AAB & APK (with Name Change)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 2. Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 3. Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: 4. Check Secrets
+        run: |
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "::error:: SECRET 'ANDROID_KEYSTORE_BASE64' NOT SET."
+            exit 1
+          fi
+          if [ -z "${{ secrets.KEY_ALIAS }}" ]; then
+            echo "::error:: SECRET 'KEY_ALIAS' NOT SET."
+            exit 1
+          fi
+          if [ -z "${{ secrets.KEY_PASSWORD }}" ]; then
+            echo "::error:: SECRET 'KEY_PASSWORD' NOT SET."
+            exit 1
+          fi
+          if [ -z "${{ secrets.KEYSTORE_PASSWORD }}" ]; then
+            echo "::error:: SECRET 'KEYSTORE_PASSWORD' NOT SET."
+            exit 1
+          fi
+          echo "✅ All secrets are set."
+
+      - name: 5. Change Package Name
+        run: |
+          echo "Changing package name..."
+          sed -i 's/com.example.chetegram/com.opkukna.exambeing/g' android/app/build.gradle.kts
+
+      - name: 6. Get Flutter dependencies
+        run: flutter pub get
+
+      # 🧩 Step 7: Decode Keystore File
+      - name: 7. Decode Keystore
+        run: |
+          echo "Decoding Keystore..."
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+
+      # 🧩 Step 8: Create key.properties
+      - name: 8. Create key.properties
+        run: |
+          echo "Creating key.properties..."
+          echo "storeFile=upload-keystore.jks" > android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
+
+      # 🧩 Step 9: Build Signed AAB
+      - name: 9. Build Signed AAB
+        run: flutter build appbundle --release
+
+      # 🧩 Step 10: Build Signed APK (for direct install)
+      - name: 10. Build Signed APK
+        run: flutter build apk --release
+
+      # 🧩 Step 11: Upload AAB
+      - name: 11. Upload AAB as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-appbundle
+          path: build/app/outputs/bundle/release/app-release.aab
+
+      # 🧩 Step 12: Upload APK
+      - name: 12. Upload APK as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
