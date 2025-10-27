@@ -7,7 +7,6 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// 🧩 FIX: Correct key.properties path
 val keyPropertiesFile = rootProject.file("key.properties")
 val keyProperties = Properties()
 if (keyPropertiesFile.exists()) {
@@ -16,7 +15,7 @@ if (keyPropertiesFile.exists()) {
 
 android {
     namespace = "com.opkukna.exambeing"
-    compileSdk = 36
+    compileSdk = 34
     ndkVersion = "27.0.12077973"
 
     signingConfigs {
@@ -34,13 +33,13 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
     }
 
     defaultConfig {
         applicationId = "com.opkukna.exambeing"
         minSdk = 23
-        targetSdk = 36
+        targetSdk = 34
         versionCode = 2
         versionName = "1.0.1"
     }
@@ -50,7 +49,7 @@ android {
             isMinifyEnabled = true
             signingConfig = signingConfigs.getByName("release")
 
-            // ⚙️ Add Proguard keep rules for SmartAuth
+            // ⚙️ Add Proguard keep rules
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -63,8 +62,8 @@ flutter {
     source = "../.."
 }
 
-// ✅ Add this dependencies block at the bottom
 dependencies {
-    // SmartAuth plugin dependency requirement
-    implementation("com.google.android.gms:play-services-auth:20.7.0")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation("androidx.credentials:credentials:1.3.0-alpha02")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0-alpha02")
 }
