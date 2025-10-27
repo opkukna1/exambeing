@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:exambeing/navigation/app_router.dart'; // ✅ apna router import
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:exambeing/navigation/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,8 +32,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      // 🔹 Agar Firebase sahi init nahi hua to simple HomeScreen dikha do
-      home: firebaseReady ? const AppStartWrapper() : const FirebaseErrorScreen(),
+      home: firebaseReady ? AppStartWrapper() : FirebaseErrorScreen(),
     );
   }
 }
@@ -43,12 +42,11 @@ class AppStartWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🔹 Agar user login hai to HomeScreen, warna LoginHubScreen
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      return const HomeScreenSafe(); // Custom safe version
+      return HomeScreenSafe();
     } else {
-      return const LoginScreenSafe(); // Custom safe version
+      return LoginScreenSafe();
     }
   }
 }
@@ -58,7 +56,7 @@ class FirebaseErrorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Text(
           '⚠️ Firebase not initialized.\nApp running in offline mode.',
@@ -75,9 +73,9 @@ class HomeScreenSafe extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      appBar: AppBar(title: Text("Exambeing Home")),
-      body: Center(child: Text("✅ Home Screen Loaded")),
+    return Scaffold(
+      appBar: AppBar(title: const Text("Exambeing Home")),
+      body: const Center(child: Text("✅ Home Screen Loaded")),
     );
   }
 }
@@ -87,9 +85,9 @@ class LoginScreenSafe extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      appBar: AppBar(title: Text("Exambeing Login")),
-      body: Center(child: Text("🔐 Please log in")),
+    return Scaffold(
+      appBar: AppBar(title: const Text("Exambeing Login")),
+      body: const Center(child: Text("🔐 Please log in")),
     );
   }
 }
