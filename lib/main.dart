@@ -1,29 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:provider/provider.dart';
-
-// ⚠️ FIX: Yeh hai aapka sahi router path
-import 'package:exambeing/navigation/app_router.dart'; 
-
-// Agar aapne FlutterFire CLI ka istemal kiya hai, to ise uncomment karein
-// import 'firebase_options.dart';
 
 void main() async {
-  // Flutter Engine ko ready karta hai
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Firebase ko start karta hai
   try {
-    await Firebase.initializeApp(
-      // Agar 'firebase_options.dart' file hai to 'options' ka istemal karein
-      // options: DefaultFirebaseOptions.currentPlatform,
-    );
+    await Firebase.initializeApp();
+    debugPrint("✅ Firebase initialized successfully");
   } catch (e) {
-    // Agar Firebase initialize nahi hua to error print karein
-    debugPrint("Firebase initialization failed: $e");
+    debugPrint("❌ Firebase initialization failed: $e");
   }
 
-  // App ko run karta hai
   runApp(const MyApp());
 }
 
@@ -32,15 +19,27 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Agar Provider use nahi kar rahe hain:
-    return MaterialApp.router(
+    return MaterialApp(
       title: 'Exambeing',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+      home: const TestScreen(),
+    );
+  }
+}
+
+class TestScreen extends StatelessWidget {
+  const TestScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Exambeing Test Screen')),
+      body: const Center(
+        child: Text(
+          '✅ App Loaded Successfully',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
       ),
-      routerConfig: router, // Ab yeh 'router' variable mil jayega
     );
   }
 }
