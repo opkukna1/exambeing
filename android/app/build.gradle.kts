@@ -47,11 +47,24 @@ android {
 
     buildTypes {
         getByName("release") {
+            isMinifyEnabled = true
             signingConfig = signingConfigs.getByName("release")
+
+            // ⚙️ Add Proguard keep rules for SmartAuth
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+// ✅ Add this dependencies block at the bottom
+dependencies {
+    // SmartAuth plugin dependency requirement
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
 }
