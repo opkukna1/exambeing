@@ -28,6 +28,11 @@ import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/helpers/database_helper.dart';
 
+// ⬇️===== NAYA IMPORT (Settings Screen Ke Liye) =====⬇️
+import 'package:exambeing/features/profile/screens/settings_screen.dart';
+// ⬆️===============================================⬆️
+
+
 /// 🚨 Safe Error Screen for bad route data
 class _ErrorRouteScreen extends StatelessWidget {
   final String path;
@@ -221,7 +226,15 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-  ],
+
+    // ⬇️===== NAYA ROUTE (Settings Screen Ke Liye) =====⬇️
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(),
+    ),
+    // ⬆️=============================================⬆️
+
+  ], // <-- routes ki list yahaan band hoti hai
 
   /// 🧠 Redirect Logic (fixed)
   redirect: (BuildContext context, GoRouterState state) {
