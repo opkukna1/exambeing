@@ -61,12 +61,10 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
       message = e.toString().replaceAll('Exception: ', '');
     }
 
-    // Check if the widget is still mounted before calling setState
     if(mounted) {
       setState(() {});
     }
     
-    // Check if the widget is still mounted before showing SnackBar
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
@@ -76,15 +74,14 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
 
 
   void _shareQuestionAsImage(BuildContext context, ScreenshotController controller, String questionText) async {
-    // ⬇️ Capture karte waqt background color theme se lo ⬇️
     final theme = Theme.of(context);
+    // ⬇️===== FIX: Yahaan se 'context: context,' hata diya hai =====⬇️
     final Uint8List? image = await controller.capture(
         pixelRatio: 2.0,
-        delay: const Duration(milliseconds: 10), // Thoda delay
-        context: context, // Context dena zaroori hai theme ke liye
+        delay: const Duration(milliseconds: 10),
         backgroundColor: theme.cardColor // Card ka background color istemal karo
     );
-    // ⬆️=============================================⬆️
+    // ⬆️=========================================================⬆️
     if (image == null) return;
     try {
       final directory = await getTemporaryDirectory();
@@ -103,11 +100,9 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ⬇️ Theme ko yahaan le lo, baar baar na likhna pade ⬇️
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
-    // ⬆️=============================================⬆️
 
     return Scaffold(
       appBar: AppBar(
@@ -129,11 +124,8 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
 
                 return Screenshot(
                   controller: controller,
-                  // ⬇️ Card ka background color theme se lo ⬇️
                   child: Card(
-                    // color: theme.cardColor, // <-- Hardcoded color hata diya
                     elevation: 2,
-                    // ⬆️==================================⬆️
                     child: Stack(
                       children: [
                         Positioned(
@@ -155,9 +147,7 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
                                   Expanded(
                                     child: Text(
                                       'Q ${index + 1}: ${question.questionText}',
-                                      // ⬇️ Text color bhi theme se lega ⬇️
                                       style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                                      // ⬆️============================⬆️
                                     ),
                                   ),
                                   Row(
@@ -166,17 +156,13 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
                                       IconButton(
                                         icon: Icon(
                                           isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                                          // ⬇️ Icon color theme se lo ⬇️
                                           color: colorScheme.primary,
-                                          // ⬆️======================⬆️
                                         ),
                                         onPressed: () => _toggleBookmark(question),
                                         tooltip: 'Bookmark Question',
                                       ),
                                       IconButton(
-                                        // ⬇️ Icon color theme se lo ⬇️
                                         icon: Icon(Icons.share_outlined, color: textTheme.bodyMedium?.color?.withOpacity(0.6)),
-                                        // ⬆️======================⬆️
                                         onPressed: () => _shareQuestionAsImage(context, controller, question.questionText),
                                         tooltip: 'Share as Image',
                                       ),
@@ -192,21 +178,17 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
                                 Text(
                                   isCorrect ? 'Your answer is correct' : 'Your answer is incorrect',
                                   style: TextStyle(
-                                    color: isCorrect ? Colors.green.shade600 : colorScheme.error, // Error color theme se
+                                    color: isCorrect ? Colors.green.shade600 : colorScheme.error,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                              // ⬇️ Divider ka color bhi theme se lo ⬇️
                               Divider(height: 24, color: theme.dividerColor),
-                              // ⬆️===============================⬆️
                               Text(
                                 '💡 Explanation:',
                                 style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 8),
-                              // ⬇️ Text color bhi theme se lega ⬇️
                               Text(question.explanation, style: textTheme.bodyMedium),
-                              // ⬆️============================⬆️
                             ],
                           ),
                         ),
@@ -222,42 +204,40 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
   Widget _buildOptionTile(BuildContext context, String option, String correctAnswer, String? userAnswer) {
     IconData? icon;
     Color? color;
-    // ⬇️ Theme colors ka istemal karo ⬇️
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    Color borderColor = theme.dividerColor; // Default border color
-    Color? tileColor = Colors.transparent; // Default background
-    Color? textColor = textTheme.bodyMedium?.color; // Default text color
-    // ⬆️==============================⬆️
+    Color borderColor = theme.dividerColor;
+    Color? tileColor = Colors.transparent;
+    Color? textColor = textTheme.bodyMedium?.color;
 
     if (option == correctAnswer) {
       icon = Icons.check_circle;
-      color = Colors.green.shade600; // Correct answer hamesha green
+      color = Colors.green.shade600;
       borderColor = color;
       tileColor = color.withOpacity(0.1);
-      textColor = color; // Correct text ko green dikhao
+      textColor = color;
     } else if (option == userAnswer) {
       icon = Icons.cancel;
-      color = colorScheme.error; // Incorrect answer ke liye theme ka error color
+      color = colorScheme.error;
       borderColor = color;
       tileColor = color.withOpacity(0.1);
-      textColor = color; // Incorrect text ko error color mein dikhao
+      textColor = color;
     }
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4.0),
       padding: const EdgeInsets.all(10.0),
       decoration: BoxDecoration(
-        color: tileColor, // Updated background
+        color: tileColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor), // Updated border
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
           if (icon != null) Icon(icon, color: color, size: 20),
           if (icon != null) const SizedBox(width: 8),
-          Expanded(child: Text(option, style: TextStyle(color: textColor))), // Updated text color
+          Expanded(child: Text(option, style: TextStyle(color: textColor))),
         ],
       ),
     );
