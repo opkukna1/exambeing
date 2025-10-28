@@ -52,8 +52,8 @@ class DefaultFirebaseOptions {
     appId: "1:265258409167:android:bc2097306eb0c51e6b6bba",
     messagingSenderId: "265258409167",
     projectId: "instaquiz-9cc2f",
-    storageBucket: "instaquiz-9cc2f.firebasestorage.app", // (Aapki purani file se liya)
-    androidPackageName: "com.opkukna.exambeing", // (Yeh hai asli fix)
+    storageBucket: "instaquiz-9cc2f.firebasestorage.app",
+    // ⬇️===== FIX: androidPackageName waali line hata di hai =====⬇️
   );
   // ⬆️=================================================⬆️
 
