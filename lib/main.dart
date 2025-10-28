@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 // ⚠️ FIX: Yeh hai aapka sahi router path
 import 'package:exambeing/navigation/app_router.dart'; 
 
-// Agar aapne FlutterFire CLI ka istemal kiya hai, to ise uncomment karein
-// import 'firebase_options.dart';
+// ⬇️===== YEH HAI FIX 1 =====⬇️
+import 'firebase_options.dart'; // Ise uncomment kar diya hai
 
 void main() async {
   // Flutter Engine ko ready karta hai
@@ -15,8 +15,8 @@ void main() async {
   // Firebase ko start karta hai
   try {
     await Firebase.initializeApp(
-      // Agar 'firebase_options.dart' file hai to 'options' ka istemal karein
-      // options: DefaultFirebaseOptions.currentPlatform,
+      // ⬇️===== YEH HAI FIX 2 =====⬇️
+      options: DefaultFirebaseOptions.currentPlatform, // Ise uncomment kar diya hai
     );
   } catch (e) {
     // Agar Firebase initialize nahi hua to error print karein
