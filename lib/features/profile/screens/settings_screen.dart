@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package/firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import '../../../services/auth_service.dart'; // AuthService import kiya
+
+// ⬇️===== NAYE IMPORTS =====⬇️
+import 'package:provider/provider.dart';
+import '../../../services/theme_provider.dart'; // Hamari ThemeProvider file
+// ⬆️=======================⬆️
+
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,8 +17,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // Abhi ke liye toggles ka state simple variables mein rakhte hain
-  bool _isDarkMode = false;
+  // _isDarkMode hata diya gaya hai
   bool _isSoundDisabled = false;
   bool _isVibrationDisabled = false;
 
@@ -21,6 +26,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    // ⬇️===== THEME PROVIDER KO ACCESS KARO =====⬇️
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    // ⬆️=========================================⬆️
 
     return Scaffold(
       appBar: AppBar(
@@ -90,21 +98,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          // Dark Mode Toggle
+          // ⬇️===== DARK MODE TOGGLE (UPDATED) =====⬇️
           _buildSettingTile(
             context,
-            icon: Icons.brightness_6_outlined,
+            icon: themeProvider.themeMode == ThemeMode.dark
+                 ? Icons.brightness_7_outlined // Light icon dikhao agar dark mode hai
+                 : Icons.brightness_4_outlined, // Dark icon dikhao agar light mode hai
             title: 'Dark Mode',
-            value: _isDarkMode,
+            value: themeProvider.themeMode == ThemeMode.dark, // Value provider se lo
             onChanged: (newValue) {
-              setState(() => _isDarkMode = newValue);
-              // TODO: Yahaan Dark Mode ki actual functionality add karni hogi
-              // (Using Provider or ThemeNotifier)
-              ScaffoldMessenger.of(context).showSnackBar(
-                 SnackBar(content: Text('Dark Mode ${_isDarkMode ? "ON" : "OFF"} (UI Only)'))
-               );
+              themeProvider.toggleTheme(); // Theme badalne ke liye provider ka function call karo
             },
           ),
+          // ⬆️=======================================⬆️
 
           // Disable Sound Toggle
           _buildSettingTile(
@@ -124,7 +130,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Disable Vibration Toggle
           _buildSettingTile(
             context,
-            icon: _isVibrationDisabled ? Icons.vibration : Icons.vibration, // Icon change kar sakte hain
+            icon: Icons.vibration, // Same icon rakhte hain
             title: 'Disable Vibration',
             value: _isVibrationDisabled,
             onChanged: (newValue) {
@@ -187,10 +193,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Helper widget for setting toggles
   Widget _buildSettingTile(BuildContext context, {required IconData icon, required String title, required bool value, required ValueChanged<bool> onChanged}) {
+    // ⬇️ Text ka color theme ke hisaab se badlega ⬇️
+    Color? iconColor = Theme.of(context).brightness == Brightness.dark
+                     ? Colors.grey.shade400
+                     : Colors.grey.shade700;
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: Colors.grey.shade700),
-      title: Text(title),
+      leading: Icon(icon, color: iconColor), // Icon color bhi badlega
+      title: Text(title), // Text color theme se lega
       trailing: Switch(
         value: value,
         onChanged: onChanged,
@@ -201,11 +211,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
    // Helper widget for general links
   Widget _buildGeneralLink(BuildContext context, {required IconData icon, required String title}) {
+     // ⬇️ Text ka color theme ke hisaab se badlega ⬇️
+    Color? iconColor = Theme.of(context).brightness == Brightness.dark
+                     ? Colors.grey.shade400
+                     : Colors.grey.shade700;
+    Color? arrowColor = Theme.of(context).brightness == Brightness.dark
+                     ? Colors.grey.shade600
+                     : Colors.grey;
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: Colors.grey.shade700),
+      leading: Icon(icon, color: iconColor),
       title: Text(title),
-      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey),
+      trailing: Icon(Icons.arrow_forward_ios_rounded, size: 16, color: arrowColor),
        onTap: () {
           // TODO: In links ke liye functionality add karni hogi (WebView ya URL Launcher)
            ScaffoldMessenger.of(context).showSnackBar(
