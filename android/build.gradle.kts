@@ -1,4 +1,12 @@
-allprojects {
+plugins {
+    id("com.android.application") version "8.2.2" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.23" apply false
+    id("dev.flutter.flutter-gradle-plugin") version "1.T.T" apply false // 1.0.0 ki jagah
+    // ⬇️ YEH HAI ASLI FIX (Firebase/Google Plugin)
+    id("com.google.gms.google-services") version "4.4.2" apply false
+}
+
+Allprojects {
     repositories {
         google()
         mavenCentral()
