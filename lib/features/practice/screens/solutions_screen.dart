@@ -74,12 +74,11 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
 
 
   void _shareQuestionAsImage(BuildContext context, ScreenshotController controller, String questionText) async {
-    final theme = Theme.of(context);
-    // ⬇️===== FIX: Yahaan se 'context: context,' hata diya hai =====⬇️
+    // ⬇️===== FIX: Yahaan se 'backgroundColor:' hata diya hai =====⬇️
     final Uint8List? image = await controller.capture(
         pixelRatio: 2.0,
         delay: const Duration(milliseconds: 10),
-        backgroundColor: theme.cardColor // Card ka background color istemal karo
+        // backgroundColor: theme.cardColor // <-- YEH LINE HATA DI GAYI HAI
     );
     // ⬆️=========================================================⬆️
     if (image == null) return;
