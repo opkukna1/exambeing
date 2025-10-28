@@ -7,6 +7,11 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import '../../../models/question_model.dart';
 
+// ⬇️===== YEH HAIN NAYE IMPORTS =====⬇️
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+// ⬆️==================================⬆️
+
 class ScoreScreen extends StatefulWidget {
   final int totalQuestions;
   final double finalScore;
@@ -36,7 +41,69 @@ class ScoreScreen extends StatefulWidget {
 class _ScoreScreenState extends State<ScoreScreen> {
   final ScreenshotController _screenshotController = ScreenshotController();
   
-  // Ad-related variables and functions have been removed.
+  // ⬇️===== YEH HAI NAYA STATE VARIABLE =====⬇️
+  bool _isUpdatingStats = true; // Stats update ke liye Loading state
+  // ⬆️=======================================⬆️
+
+  // ⬇️===== YEH HAIN NAYE FUNCTIONS =====⬇️
+  @override
+  void initState() {
+    super.initState();
+    // Jaise hi screen load ho, stats update kar do
+    _updateUserStats();
+  }
+
+  Future<void> _updateUserStats() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() => _isUpdatingStats = false);
+      return; // User login nahi hai
+    }
+
+    // User ke document ka reference
+    final userRef =
+        FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+    try {
+      // 'runTransaction' ka istemal statistics ko safe tareeke se update karta hai
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userRef);
+
+        if (!userDoc.exists) {
+          // Agar user ka document hai hi nahi, to naya banayein
+          transaction.set(userRef, {
+            'tests_taken': 1,
+            'total_questions_answered': widget.totalQuestions,
+            'total_correct_answers': widget.correctCount,
+            'email': user.email, // Extra details
+            'name': user.displayName, // Extra details
+          });
+        } else {
+          // Agar document pehle se hai, to values ko update (increment) karein
+          final data = userDoc.data()!;
+          int newTestsTaken = (data['tests_taken'] ?? 0) + 1;
+          int newQuestionsAnswered =
+              (data['total_questions_answered'] ?? 0) + widget.totalQuestions;
+          int newCorrectAnswers =
+              (data['total_correct_answers'] ?? 0) + widget.correctCount;
+
+          transaction.update(userRef, {
+            'tests_taken': newTestsTaken,
+            'total_questions_answered': newQuestionsAnswered,
+            'total_correct_answers': newCorrectAnswers,
+          });
+        }
+      });
+    } catch (e) {
+      // Error hone par console mein print karein
+      debugPrint("Stats update failed: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingStats = false);
+      }
+    }
+  }
+  // ⬆️==================================⬆️
 
   void _shareScoreCard(BuildContext context) async {
     final Uint8List? image = await _screenshotController.capture();
@@ -50,8 +117,6 @@ class _ScoreScreenState extends State<ScoreScreen> {
       text: "Check out my score in the ${widget.topicName} quiz!",
     );
   }
-
-  // initState and dispose methods related to the ad are also removed.
 
   Map<String, dynamic> _getFeedback(double score) {
     if (score >= 80) {
@@ -141,13 +206,23 @@ class _ScoreScreenState extends State<ScoreScreen> {
         title: const Text('Result'),
         automaticallyImplyLeading: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () => _shareScoreCard(context),
-          ),
+          // ⬇️===== YEH HAI NAYA CODE (Loading dikhane ke liye) =====⬇️
+          if (_isUpdatingStats)
+            const Padding(
+              padding: EdgeInsets.only(right: 16.0),
+              child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.share),
+              onPressed: () => _shareScoreCard(context),
+            ),
+          // ⬆️=======================================================⬆️
         ],
       ),
-      // The main Column is replaced by a direct child since the ad widget is gone.
       body: Center(
         child: SingleChildScrollView(
           child: Padding(
@@ -189,7 +264,6 @@ class _ScoreScreenState extends State<ScoreScreen> {
           ),
         ),
       ),
-      // The ad banner container at the bottom has been removed.
     );
   }
 
@@ -202,4 +276,3 @@ class _ScoreScreenState extends State<ScoreScreen> {
     );
   }
 }
-
