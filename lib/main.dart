@@ -36,12 +36,14 @@ class ExambeingApp extends StatelessWidget {
           color: Colors.black87,
         ),
       ),
-      cardTheme: CardTheme(
+      // ⬇️===== YEH HAI ASLI FIX =====⬇️
+      cardTheme: CardThemeData( // 'CardTheme' ko 'CardThemeData' kar diya hai
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
         ),
       ),
+      // ⬆️=============================⬆️
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           shape: RoundedRectangleBorder(
