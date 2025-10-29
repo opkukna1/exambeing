@@ -4,10 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../../services/theme_provider.dart';
-
-// ⬇️===== NAYA IMPORT =====⬇️
 import 'package:url_launcher/url_launcher.dart';
-// ⬆️======================⬆️
 
 
 class SettingsScreen extends StatefulWidget {
@@ -18,15 +15,13 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _isSoundDisabled = false;
-  bool _isVibrationDisabled = false;
+  // Sound and Vibration state variables hata diye gaye hain
   final AuthService _authService = AuthService();
 
-  // ⬇️===== NAYA HELPER FUNCTION =====⬇️
+  // URL Launcher function
   Future<void> _launchURL(String urlString) async {
     final Uri url = Uri.parse(urlString);
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      // Agar URL nahi khul paaya to error dikhao
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not launch $urlString')),
@@ -34,7 +29,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     }
   }
-  // ⬆️=============================⬆️
 
 
   @override
@@ -42,10 +36,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = FirebaseAuth.instance.currentUser;
     final themeProvider = Provider.of<ThemeProvider>(context);
 
-    // ⬇️===== AAPKA DOMAIN YAHAN DEFINE KARO =====⬇️
-    // Yahaan 'https://' lagana zaroori hai
-    const String baseUrl = "https://exambeing.com"; // <-- Apna domain daalein
-    // ⬆️========================================⬆️
+    // Aapka domain
+    const String baseUrl = "https://exambeing.com";
 
     return Scaffold(
       appBar: AppBar(
@@ -89,14 +81,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: () {
-                       ScaffoldMessenger.of(context).showSnackBar(
-                         const SnackBar(content: Text('Edit Profile (to be built)'))
-                       );
-                    },
-                  ),
+                  // ⬇️===== Edit Icon Hata Diya Gaya Hai =====⬇️
+                  // IconButton(...),
+                  // ⬆️=======================================⬆️
                 ],
               ),
             ),
@@ -117,28 +104,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               themeProvider.toggleTheme();
             },
           ),
-          // Disable Sound Toggle
-          _buildSettingTile(
-            context,
-            icon: _isSoundDisabled ? Icons.volume_off_outlined : Icons.volume_up_outlined,
-            title: 'Disable Sound',
-            value: _isSoundDisabled,
-            onChanged: (newValue) {
-              setState(() => _isSoundDisabled = newValue);
-               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sound ${_isSoundDisabled ? "Disabled" : "Enabled"} (UI Only)')));
-            },
-          ),
-          // Disable Vibration Toggle
-          _buildSettingTile(
-            context,
-            icon: Icons.vibration,
-            title: 'Disable Vibration',
-            value: _isVibrationDisabled,
-            onChanged: (newValue) {
-              setState(() => _isVibrationDisabled = newValue);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Vibration ${_isVibrationDisabled ? "Disabled" : "Enabled"} (UI Only)')));
-            },
-          ),
+          // ⬇️===== Sound aur Vibration Hata Diye Gaye Hain =====⬇️
+          // _buildSettingTile(... Sound ...),
+          // _buildSettingTile(... Vibration ...),
+          // ⬆️==================================================⬆️
 
           const SizedBox(height: 30),
 
@@ -148,13 +117,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Text('GENERAL', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
           ),
 
-          // ⬇️===== GENERAL LINKS (UPDATED onTap) =====⬇️
-          _buildGeneralLink(context, icon: Icons.privacy_tip_outlined, title: 'Privacy Policy', url: '$baseUrl/privacy'), // Use privacy.md -> /privacy
-          _buildGeneralLink(context, icon: Icons.description_outlined, title: 'Terms & Conditions', url: '$baseUrl/terms'), // Use terms.md -> /terms
-          _buildGeneralLink(context, icon: Icons.receipt_long_outlined, title: 'Refund Policy', url: '$baseUrl/refund'), // Use refund.md -> /refund
-          _buildGeneralLink(context, icon: Icons.feedback_outlined, title: 'Feedback', url: '$baseUrl/feedback'), // Use feedback.md -> /feedback
-          _buildGeneralLink(context, icon: Icons.info_outline, title: 'About Us', url: '$baseUrl/about'), // Use about.md -> /about
-          // ⬆️=======================================⬆️
+          // General Links
+          _buildGeneralLink(context, icon: Icons.privacy_tip_outlined, title: 'Privacy Policy', url: '$baseUrl/privacy'),
+          _buildGeneralLink(context, icon: Icons.description_outlined, title: 'Terms & Conditions', url: '$baseUrl/terms'),
+          _buildGeneralLink(context, icon: Icons.receipt_long_outlined, title: 'Refund Policy', url: '$baseUrl/refund'),
+          _buildGeneralLink(context, icon: Icons.feedback_outlined, title: 'Feedback', url: '$baseUrl/feedback'),
+          _buildGeneralLink(context, icon: Icons.info_outline, title: 'About Us', url: '$baseUrl/about'),
 
           const SizedBox(height: 40),
 
@@ -182,6 +150,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // Helper widget for setting toggles
   Widget _buildSettingTile(BuildContext context, {required IconData icon, required String title, required bool value, required ValueChanged<bool> onChanged}) {
     Color? iconColor = Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade700;
     return ListTile(
@@ -192,7 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-   // ⬇️===== HELPER WIDGET UPDATED =====⬇️
+   // Helper widget for general links
   Widget _buildGeneralLink(BuildContext context, {required IconData icon, required String title, required String url}) {
     Color? iconColor = Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade700;
     Color? arrowColor = Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade600 : Colors.grey;
@@ -201,10 +170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       leading: Icon(icon, color: iconColor),
       title: Text(title),
       trailing: Icon(Icons.arrow_forward_ios_rounded, size: 16, color: arrowColor),
-      // ⬇️ Launch URL on tap ⬇️
-       onTap: () => _launchURL(url),
-      // ⬆️====================⬆️
+      onTap: () => _launchURL(url),
     );
   }
-  // ⬆️=============================⬆️
 }
