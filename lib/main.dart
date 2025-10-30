@@ -4,10 +4,12 @@ import 'package:exambeing/navigation/app_router.dart';
 import 'package:exambeing/firebase_options.dart'; // ✅ सही import
 import 'package:google_fonts/google_fonts.dart';
 
-// ⬇️===== NAYE IMPORTS =====⬇️
 import 'package:provider/provider.dart';
 import 'package:exambeing/services/theme_provider.dart'; // Hamari ThemeProvider file
-// ⬆️=======================⬆️
+
+// ⬇️===== NAYA IMPORT (AdMob) =====⬇️
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+// ⬆️=============================⬆️
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,14 +19,17 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // ⬇️===== YEH HAI NAYA CODE (ThemeProvider Ko Add Karne Ke Liye) =====⬇️
+  // ⬇️===== NAYA CODE (AdMob Initialize) =====⬇️
+  // AdMob SDK ko initialize karo
+  await MobileAds.instance.initialize();
+  // ⬆️======================================⬆️
+
   runApp(
     ChangeNotifierProvider(
       create: (context) => ThemeProvider(), // ThemeProvider ko create karo
       child: const ExambeingApp(), // Aur ExambeingApp ko uske andar rakho
     ),
   );
-  // ⬆️================================================================⬆️
 }
 
 class ExambeingApp extends StatelessWidget {
@@ -32,7 +37,6 @@ class ExambeingApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ⬇️===== YEH HAIN NAYI THEME DEFINITIONS =====⬇️
     final baseTextTheme = Theme.of(context).textTheme;
 
     // --- Light Theme ---
@@ -81,7 +85,6 @@ class ExambeingApp extends StatelessWidget {
         unselectedItemColor: Colors.grey,
         showUnselectedLabels: true,
       ),
-      // Add other light theme customizations if needed
     );
 
     // --- Dark Theme ---
@@ -129,22 +132,15 @@ class ExambeingApp extends StatelessWidget {
         unselectedItemColor: Colors.grey,
         showUnselectedLabels: true,
       ),
-       // Add other dark theme customizations if needed
     );
-    // ⬆️============================================⬆️
-
-    // ⬇️===== THEMEPROVIDER KA ISTEMAL KARO =====⬇️
-    // Get the current theme mode from ThemeProvider
+    
     final themeProvider = Provider.of<ThemeProvider>(context);
-    // ⬆️=========================================⬆️
 
     return MaterialApp.router(
       title: 'Exambeing',
-      // ⬇️===== THEME KO APPLY KARO =====⬇️
-      theme: lightTheme,        // Light theme define karo
-      darkTheme: darkTheme,       // Dark theme define karo
-      themeMode: themeProvider.themeMode, // ThemeProvider se current mode lo
-      // ⬆️=============================⬆️
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: themeProvider.themeMode,
       debugShowCheckedModeBanner: false,
       routerConfig: router,
     );
