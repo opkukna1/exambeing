@@ -20,7 +20,7 @@ dependencies:
   permission_handler: ^11.0.1
   collection: ^1.18.0
   shared_preferences: ^2.2.3
-  url_launcher: ^6.3.0 # <-- ADDED (Policy links kholne ke liye)
+  url_launcher: ^6.3.0 
 
   # UI & Media Packages
   percent_indicator: ^4.2.3
@@ -38,6 +38,10 @@ dependencies:
 
   # Local Database
   sqflite: ^2.3.3
+
+  # ⬇️===== NAYA PACKAGE =====⬇️
+  google_mobile_ads: ^5.1.0 # Google AdMob package
+  # ⬆️======================⬆️
 
 dev_dependencies:
   flutter_test:
