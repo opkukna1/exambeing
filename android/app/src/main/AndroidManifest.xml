@@ -1,6 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     
-    <!-- ⬇️ YAHI HAI ASLI FIX ⬇️ -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
@@ -29,6 +28,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <!-- ⬇️===== YEH HAI NAYA ADMOB APP ID CODE =====⬇️ -->
+        <!-- Google ki Test App ID. Publish karne se pehle ise apni asli ID se badalna hoga. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713"/>
+        <!-- ⬆️==========================================⬆️ -->
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
