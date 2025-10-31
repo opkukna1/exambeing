@@ -8,8 +8,6 @@ import 'package:provider/provider.dart';
 import '../../../services/ad_service_provider.dart'; // Hamari Ad Service file
 // ⬆️=======================⬆️
 
-// ❌ (google_mobile_ads aur dart:io import hata diye gaye)
-
 class SetsScreen extends StatefulWidget {
   final Map<String, String> topicData;
   const SetsScreen({super.key, required this.topicData});
@@ -26,35 +24,23 @@ class _SetsScreenState extends State<SetsScreen> {
   late String topicName;
   final int setSize = 25;
 
-  // ❌ (Ad-related variables hata diye gaye)
-  // InterstitialAd? _interstitialAd;
-  // bool _isAdLoaded = false;
-  // List<Question>? _selectedQuestionSet; 
-  // final String _adUnitId = ...;
-
   @override
   void initState() {
     super.initState();
     topicId = widget.topicData['topicId']!;
     topicName = widget.topicData['topicName']!;
     _questionsFuture = dataService.getQuestions(topicId);
-    
-    // ❌ (_loadInterstitialAd() call hata diya gaya)
   }
-
-  // ❌ (dispose() method hata diya gaya, kyonki ad yahaan manage nahi ho raha)
-
-  // ❌ (Saare puraane ad functions hata diye gaye: 
-  // _loadInterstitialAd, _setAdCallbacks, _showInterstitialAd)
   
   void _showModeSelectionDialog(List<Question> questionSet) {
-    // Yeh function waisa hi hai
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Choose Your Mode'),
-          shape: RoundedRectangleR ectBorder(borderRadius: BorderRadius.circular(16)),
+          // ⬇️===== YEH HAI FIX (Typo Hata Diya) =====⬇️
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          // ⬆️========================================⬆️
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -163,23 +149,16 @@ class _SetsScreenState extends State<SetsScreen> {
         ),
         subtitle: Text('${questionSet.length} Questions'),
         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
-        // ⬇️===== 'onTap' KO NAYE PROVIDER SE UPDATE KIYA GAYA HAI =====⬇️
         onTap: () {
-          // 1. Provider ko access karo
           final adProvider = Provider.of<AdServiceProvider>(context, listen: false);
-
-          // 2. Ad dikhane ke liye kaho.
-          // Ad band hone ke baad 'onAdDismissed' function chalega.
           adProvider.showAdAndNavigate(
             () {
-              // Yeh code ad band hone ke baad chalega
               if (mounted) { 
                 _showModeSelectionDialog(questionSet);
               }
             },
           );
         },
-        // ⬆️=========================================================⬆️
       ),
     );
   }
