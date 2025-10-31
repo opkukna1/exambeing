@@ -4,13 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
-import 'dart:io';
+import 'dart:io'; // ⬇️ Ad ID ke liye zaroori
 import '../../../models/question_model.dart';
 
-// ⬇️===== YEH HAIN NAYE IMPORTS =====⬇️
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// ⬆️==================================⬆️
+
+// ⬇️===== NAYE IMPORTS (AdMob Ke Liye) =====⬇️
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+// ⬆️=======================================⬆️
 
 class ScoreScreen extends StatefulWidget {
   final int totalQuestions;
@@ -40,46 +42,119 @@ class ScoreScreen extends StatefulWidget {
 
 class _ScoreScreenState extends State<ScoreScreen> {
   final ScreenshotController _screenshotController = ScreenshotController();
-  
-  // ⬇️===== YEH HAI NAYA STATE VARIABLE =====⬇️
-  bool _isUpdatingStats = true; // Stats update ke liye Loading state
-  // ⬆️=======================================⬆️
+  bool _isUpdatingStats = true;
 
-  // ⬇️===== YEH HAIN NAYE FUNCTIONS =====⬇️
+  // ⬇️===== NAYE VARIABLES (AdMob Ke Liye) =====⬇️
+  InterstitialAd? _interstitialAd;
+  bool _isAdLoaded = false;
+
+  // Google ki Test Ad Unit ID (Asli ID se badalna hoga)
+  final String _adUnitId = Platform.isAndroid
+      ? 'ca-app-pub-3940256099942544/1033173712'
+      : 'ca-app-pub-3940256099942544/4411468910'; // iOS (agar use karein)
+  // ⬆️=========================================⬆️
+
   @override
   void initState() {
     super.initState();
-    // Jaise hi screen load ho, stats update kar do
     _updateUserStats();
+    // ⬇️===== NAYA FUNCTION CALL (Ad Load Karne Ke Liye) =====⬇️
+    _loadInterstitialAd();
+    // ⬆️===================================================⬆️
   }
+
+  // ⬇️===== NAYA FUNCTION (Ad Ko Dispose Karne Ke Liye) =====⬇️
+  @override
+  void dispose() {
+    _interstitialAd?.dispose(); // Ad ko memory se hatayein
+    super.dispose();
+  }
+  // ⬆️===================================================⬆️
+
+  // ⬇️===== NAYE FUNCTIONS (Ad Load Karne Ke Liye) =====⬇️
+  void _loadInterstitialAd() {
+    InterstitialAd.load(
+      adUnitId: _adUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          debugPrint('Ad loaded.');
+          _interstitialAd = ad;
+          _isAdLoaded = true;
+          _setAdCallbacks(); // Events set karo
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          debugPrint('InterstitialAd failed to load: $error');
+          _isAdLoaded = false;
+        },
+      ),
+    );
+  }
+
+  void _setAdCallbacks() {
+    _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+      onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+        debugPrint('Ad failed to show: $error');
+        ad.dispose();
+        _isAdLoaded = false;
+        _navigateToSolutions(); // Ad fail hua, seedha solutions par jao
+        _loadInterstitialAd(); // Agla ad load karo
+      },
+      onAdDismissedFullScreenContent: (InterstitialAd ad) {
+        debugPrint('Ad dismissed.');
+        ad.dispose();
+        _isAdLoaded = false;
+        _navigateToSolutions(); // Ad band hua, ab solutions par jao
+        _loadInterstitialAd(); // Agla ad load karo
+      },
+    );
+  }
+
+  // Ad dikhane ke liye naya function
+  void _showInterstitialAd() {
+    if (_interstitialAd != null && _isAdLoaded) {
+      _interstitialAd!.show(); // Ad dikhao
+      _isAdLoaded = false; // Ad ek hi baar dikhta hai
+    } else {
+      debugPrint('Ad not ready. Navigating directly.');
+      _navigateToSolutions(); // Ad ready nahi hai, seedha solutions par jao
+      _loadInterstitialAd(); // Agle click ke liye ad load karo
+    }
+  }
+
+  // Solutions page par jaane ke liye naya function
+  void _navigateToSolutions() {
+    if (!mounted) return;
+    context.push('/solutions', extra: {
+      'questions': widget.questions,
+      'userAnswers': widget.userAnswers,
+    });
+  }
+  // ⬆️=================================================⬆️
 
   Future<void> _updateUserStats() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       setState(() => _isUpdatingStats = false);
-      return; // User login nahi hai
+      return;
     }
 
-    // User ke document ka reference
     final userRef =
         FirebaseFirestore.instance.collection('users').doc(user.uid);
 
     try {
-      // 'runTransaction' ka istemal statistics ko safe tareeke se update karta hai
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final userDoc = await transaction.get(userRef);
 
         if (!userDoc.exists) {
-          // Agar user ka document hai hi nahi, to naya banayein
           transaction.set(userRef, {
             'tests_taken': 1,
             'total_questions_answered': widget.totalQuestions,
             'total_correct_answers': widget.correctCount,
-            'email': user.email, // Extra details
-            'name': user.displayName, // Extra details
+            'email': user.email,
+            'name': user.displayName,
           });
         } else {
-          // Agar document pehle se hai, to values ko update (increment) karein
           final data = userDoc.data()!;
           int newTestsTaken = (data['tests_taken'] ?? 0) + 1;
           int newQuestionsAnswered =
@@ -95,7 +170,6 @@ class _ScoreScreenState extends State<ScoreScreen> {
         }
       });
     } catch (e) {
-      // Error hone par console mein print karein
       debugPrint("Stats update failed: $e");
     } finally {
       if (mounted) {
@@ -103,7 +177,6 @@ class _ScoreScreenState extends State<ScoreScreen> {
       }
     }
   }
-  // ⬆️==================================⬆️
 
   void _shareScoreCard(BuildContext context) async {
     final Uint8List? image = await _screenshotController.capture();
@@ -206,7 +279,6 @@ class _ScoreScreenState extends State<ScoreScreen> {
         title: const Text('Result'),
         automaticallyImplyLeading: false,
         actions: [
-          // ⬇️===== YEH HAI NAYA CODE (Loading dikhane ke liye) =====⬇️
           if (_isUpdatingStats)
             const Padding(
               padding: EdgeInsets.only(right: 16.0),
@@ -220,7 +292,6 @@ class _ScoreScreenState extends State<ScoreScreen> {
               icon: const Icon(Icons.share),
               onPressed: () => _shareScoreCard(context),
             ),
-          // ⬆️=======================================================⬆️
         ],
       ),
       body: Center(
@@ -251,12 +322,12 @@ class _ScoreScreenState extends State<ScoreScreen> {
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.list_alt_rounded),
                     label: const Text('View Detailed Solution'),
+                    // ⬇️===== 'onPressed' KO UPDATE KIYA GAYA HAI =====⬇️
                     onPressed: () {
-                      context.push('/solutions', extra: {
-                        'questions': widget.questions,
-                        'userAnswers': widget.userAnswers,
-                      });
+                      // Ab ad dikhane waala function call hoga
+                      _showInterstitialAd();
                     },
+                    // ⬆️=============================================⬆️
                   ),
                 ),
               ],
