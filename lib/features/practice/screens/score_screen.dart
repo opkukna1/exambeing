@@ -4,15 +4,18 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
-import 'dart:io'; // ⬇️ Ad ID ke liye zaroori
+import 'dart:io';
 import '../../../models/question_model.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ⬇️===== NAYE IMPORTS (AdMob Ke Liye) =====⬇️
-import 'package:google_mobile_ads/google_mobile_ads.dart';
-// ⬆️=======================================⬆️
+// ⬇️===== NAYE IMPORTS =====⬇️
+import 'package:provider/provider.dart';
+import '../../../services/ad_service_provider.dart'; // Hamari Ad Service file
+// ⬆️=======================⬆️
+
+// ❌ (google_mobile_ads import hata diya gaya)
 
 class ScoreScreen extends StatefulWidget {
   final int totalQuestions;
@@ -44,83 +47,22 @@ class _ScoreScreenState extends State<ScoreScreen> {
   final ScreenshotController _screenshotController = ScreenshotController();
   bool _isUpdatingStats = true;
 
-  // ⬇️===== NAYE VARIABLES (AdMob Ke Liye) =====⬇️
-  InterstitialAd? _interstitialAd;
-  bool _isAdLoaded = false;
-
-  // Google ki Test Ad Unit ID (Asli ID se badalna hoga)
-  final String _adUnitId = Platform.isAndroid
-      ? 'ca-app-pub-3940256099942544/1033173712'
-      : 'ca-app-pub-3940256099942544/4411468910'; // iOS (agar use karein)
-  // ⬆️=========================================⬆️
+  // ❌ (Ad-related variables hata diye gaye)
+  // InterstitialAd? _interstitialAd;
+  // bool _isAdLoaded = false;
+  // final String _adUnitId = ...;
 
   @override
   void initState() {
     super.initState();
     _updateUserStats();
-    // ⬇️===== NAYA FUNCTION CALL (Ad Load Karne Ke Liye) =====⬇️
-    _loadInterstitialAd();
-    // ⬆️===================================================⬆️
+    // ❌ (_loadInterstitialAd() call hata diya gaya)
   }
 
-  // ⬇️===== NAYA FUNCTION (Ad Ko Dispose Karne Ke Liye) =====⬇️
-  @override
-  void dispose() {
-    _interstitialAd?.dispose(); // Ad ko memory se hatayein
-    super.dispose();
-  }
-  // ⬆️===================================================⬆️
+  // ❌ (dispose() method hata diya gaya, kyonki ad yahaan manage nahi ho raha)
 
-  // ⬇️===== NAYE FUNCTIONS (Ad Load Karne Ke Liye) =====⬇️
-  void _loadInterstitialAd() {
-    InterstitialAd.load(
-      adUnitId: _adUnitId,
-      request: const AdRequest(),
-      adLoadCallback: InterstitialAdLoadCallback(
-        onAdLoaded: (InterstitialAd ad) {
-          debugPrint('Ad loaded.');
-          _interstitialAd = ad;
-          _isAdLoaded = true;
-          _setAdCallbacks(); // Events set karo
-        },
-        onAdFailedToLoad: (LoadAdError error) {
-          debugPrint('InterstitialAd failed to load: $error');
-          _isAdLoaded = false;
-        },
-      ),
-    );
-  }
-
-  void _setAdCallbacks() {
-    _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
-      onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
-        debugPrint('Ad failed to show: $error');
-        ad.dispose();
-        _isAdLoaded = false;
-        _navigateToSolutions(); // Ad fail hua, seedha solutions par jao
-        _loadInterstitialAd(); // Agla ad load karo
-      },
-      onAdDismissedFullScreenContent: (InterstitialAd ad) {
-        debugPrint('Ad dismissed.');
-        ad.dispose();
-        _isAdLoaded = false;
-        _navigateToSolutions(); // Ad band hua, ab solutions par jao
-        _loadInterstitialAd(); // Agla ad load karo
-      },
-    );
-  }
-
-  // Ad dikhane ke liye naya function
-  void _showInterstitialAd() {
-    if (_interstitialAd != null && _isAdLoaded) {
-      _interstitialAd!.show(); // Ad dikhao
-      _isAdLoaded = false; // Ad ek hi baar dikhta hai
-    } else {
-      debugPrint('Ad not ready. Navigating directly.');
-      _navigateToSolutions(); // Ad ready nahi hai, seedha solutions par jao
-      _loadInterstitialAd(); // Agle click ke liye ad load karo
-    }
-  }
+  // ❌ (Saare puraane ad functions hata diye gaye: 
+  // _loadInterstitialAd, _setAdCallbacks, _showInterstitialAd)
 
   // Solutions page par jaane ke liye naya function
   void _navigateToSolutions() {
@@ -130,7 +72,6 @@ class _ScoreScreenState extends State<ScoreScreen> {
       'userAnswers': widget.userAnswers,
     });
   }
-  // ⬆️=================================================⬆️
 
   Future<void> _updateUserStats() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -322,12 +263,21 @@ class _ScoreScreenState extends State<ScoreScreen> {
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.list_alt_rounded),
                     label: const Text('View Detailed Solution'),
-                    // ⬇️===== 'onPressed' KO UPDATE KIYA GAYA HAI =====⬇️
+                    // ⬇️===== 'onPressed' KO NAYE PROVIDER SE UPDATE KIYA GAYA HAI =====⬇️
                     onPressed: () {
-                      // Ab ad dikhane waala function call hoga
-                      _showInterstitialAd();
+                      // 1. Provider ko access karo
+                      final adProvider = Provider.of<AdServiceProvider>(context, listen: false);
+
+                      // 2. Ad dikhane ke liye kaho.
+                      // Ad band hone ke baad 'onAdDismissed' function chalega.
+                      adProvider.showAdAndNavigate(
+                        () {
+                          // Yeh code ad band hone ke baad chalega
+                          _navigateToSolutions(); // Wahi function call karo
+                        },
+                      );
                     },
-                    // ⬆️=============================================⬆️
+                    // ⬆️=========================================================⬆️
                   ),
                 ),
               ],
