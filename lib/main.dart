@@ -19,10 +19,11 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // ⬇️===== NAYA CODE (AdMob Initialize) =====⬇️
-  // AdMob SDK ko initialize karo
-  await MobileAds.instance.initialize();
-  // ⬆️======================================⬆️
+  // ⬇️===== YEH HAI FIX (await Hata Diya) =====⬇️
+  // AdMob SDK ko initialize karo (bina 'await' ke)
+  // Isse app startup fast ho jaayega
+  MobileAds.instance.initialize();
+  // ⬆️========================================⬆️
 
   runApp(
     ChangeNotifierProvider(
