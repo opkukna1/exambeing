@@ -7,8 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:exambeing/services/theme_provider.dart'; // Hamari ThemeProvider file
 
-// ⬇️===== NAYA IMPORT (AdMob) =====⬇️
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+// ⬇️===== NAYI SERVICE IMPORT =====⬇️
+import 'package:exambeing/services/ad_service_provider.dart'; // Hamari Ad Service file
 // ⬆️=============================⬆️
 
 Future<void> main() async {
@@ -19,18 +21,20 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // ⬇️===== YEH HAI FIX (await Hata Diya) =====⬇️
   // AdMob SDK ko initialize karo (bina 'await' ke)
-  // Isse app startup fast ho jaayega
   MobileAds.instance.initialize();
-  // ⬆️========================================⬆️
 
+  // ⬇️===== YEH HAI NAYA MULTIPROVIDER CODE =====⬇️
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => ThemeProvider(), // ThemeProvider ko create karo
-      child: const ExambeingApp(), // Aur ExambeingApp ko uske andar rakho
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => ThemeProvider()),
+        ChangeNotifierProvider(create: (context) => AdServiceProvider()), // Ad Service ko register karo
+      ],
+      child: const ExambeingApp(),
     ),
   );
+  // ⬆️========================================⬆️
 }
 
 class ExambeingApp extends StatelessWidget {
@@ -45,13 +49,13 @@ class ExambeingApp extends StatelessWidget {
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
         seedColor: Colors.deepPurple,
-        brightness: Brightness.light, // Light Mode
+        brightness: Brightness.light,
       ),
-      scaffoldBackgroundColor: const Color(0xFFF8F9FA), // Light background
-      textTheme: GoogleFonts.poppinsTextTheme(baseTextTheme).apply(bodyColor: Colors.black87), // Light text
+      scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+      textTheme: GoogleFonts.poppinsTextTheme(baseTextTheme).apply(bodyColor: Colors.black87),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white, // Light AppBar
-        foregroundColor: Colors.black87, // Light Icons/Text
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
         elevation: 1.0,
         centerTitle: true,
         titleTextStyle: TextStyle(
@@ -62,8 +66,8 @@ class ExambeingApp extends StatelessWidget {
       ),
       cardTheme: CardThemeData(
         elevation: 2,
-        color: Colors.white, // Light Card
-        surfaceTintColor: Colors.white, // Prevent yellow tint on white cards
+        color: Colors.white,
+        surfaceTintColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
         ),
@@ -81,7 +85,7 @@ class ExambeingApp extends StatelessWidget {
         ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white, // Light Nav Bar
+        backgroundColor: Colors.white,
         selectedItemColor: Colors.deepPurple,
         unselectedItemColor: Colors.grey,
         showUnselectedLabels: true,
@@ -93,13 +97,13 @@ class ExambeingApp extends StatelessWidget {
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
         seedColor: Colors.deepPurple,
-        brightness: Brightness.dark, // Dark Mode
+        brightness: Brightness.dark,
       ),
-      scaffoldBackgroundColor: const Color(0xFF121212), // Dark background
-      textTheme: GoogleFonts.poppinsTextTheme(baseTextTheme).apply(bodyColor: Colors.white70), // Dark text
+      scaffoldBackgroundColor: const Color(0xFF121212),
+      textTheme: GoogleFonts.poppinsTextTheme(baseTextTheme).apply(bodyColor: Colors.white70),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF1E1E1E), // Dark AppBar
-        foregroundColor: Colors.white70, // Dark Icons/Text
+        backgroundColor: Color(0xFF1E1E1E),
+        foregroundColor: Colors.white70,
         elevation: 1.0,
         centerTitle: true,
         titleTextStyle: TextStyle(
@@ -110,7 +114,7 @@ class ExambeingApp extends StatelessWidget {
       ),
       cardTheme: CardThemeData(
         elevation: 2,
-        color: const Color(0xFF1E1E1E), // Dark Card
+        color: const Color(0xFF1E1E1E),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.0),
         ),
@@ -128,7 +132,7 @@ class ExambeingApp extends StatelessWidget {
         ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFF1E1E1E), // Dark Nav Bar
+        backgroundColor: Color(0xFF1E1E1E),
         selectedItemColor: Colors.deepPurpleAccent,
         unselectedItemColor: Colors.grey,
         showUnselectedLabels: true,
