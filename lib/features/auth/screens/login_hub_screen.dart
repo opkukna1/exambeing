@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+// import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // <-- Ise hata diya hai
 import '../../../services/auth_service.dart';
 
 class LoginHubScreen extends StatefulWidget {
@@ -10,10 +11,14 @@ class LoginHubScreen extends StatefulWidget {
 }
 
 class _LoginHubScreenState extends State<LoginHubScreen> {
-  final TextEditingController _phoneController = TextEditingController();
+  // --- Phone Controller (Commented Out) ---
+  // final TextEditingController _phoneController = TextEditingController();
+  
   final AuthService _authService = AuthService();
   bool _isLoadingGoogle = false;
-  bool _isLoadingPhone = false;
+  
+  // --- isLoadingPhone (Commented Out) ---
+  // bool _isLoadingPhone = false;
 
   void _signInWithGoogle() async {
     setState(() => _isLoadingGoogle = true);
@@ -32,6 +37,8 @@ class _LoginHubScreenState extends State<LoginHubScreen> {
     }
   }
 
+  // --- Phone Sign-In Logic (Commented Out) ---
+  /*
   void _sendOtp() {
     final phoneNumber = _phoneController.text.trim();
     if (phoneNumber.length == 10) {
@@ -58,6 +65,7 @@ class _LoginHubScreenState extends State<LoginHubScreen> {
       );
     }
   }
+  */
 
   @override
   Widget build(BuildContext context) {
@@ -75,14 +83,44 @@ class _LoginHubScreenState extends State<LoginHubScreen> {
               Text('Sign in to continue', style: Theme.of(context).textTheme.bodyLarge),
               const SizedBox(height: 40),
 
-              // Google Sign-In Button
+              // --- Attractive Google Sign-In Button (No new package) ---
               _isLoadingGoogle
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton.icon(
-                      icon: const Icon(Icons.g_mobiledata), // Placeholder for Google Icon
-                      label: const Text('Sign in with Google'),
+                      // Built-in 'G' icon (styled)
+                      icon: Text(
+                        'G',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 22,
+                          color: Colors.blue[700], // Google ka 'G' jaisa
+                        ),
+                      ),
+                      label: const Text(
+                        'Sign in with Google',
+                        style: TextStyle(
+                          color: Colors.black87, // Dark text
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
                       onPressed: _signInWithGoogle,
+                      // Nayi Styling
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white, // Safed background
+                        foregroundColor: Colors.black, // Ripple effect ka color
+                        elevation: 2, // Halki si shadow
+                        padding: const EdgeInsets.symmetric(vertical: 16), // Button uncha
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.0), // Gol corners
+                          side: BorderSide(color: Colors.grey.shade300), // Halki border
+                        ),
+                      ),
                     ),
+              
+              // --- Phone Login UI (Commented Out) ---
+              
+              /*
               const SizedBox(height: 20),
               const Row(
                 children: [
@@ -112,6 +150,7 @@ class _LoginHubScreenState extends State<LoginHubScreen> {
                       onPressed: _sendOtp,
                       child: const Text("Continue with Phone"),
                     ),
+              */
             ],
           ),
         ),
