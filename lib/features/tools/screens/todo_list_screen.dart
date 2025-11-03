@@ -1,10 +1,9 @@
-import 'package.flutter/material.dart';
+import 'package:flutter/material.dart'; // ✅ FIX: 'Import' ko 'import' kar diya
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart'; // Date formatting ke liye
-import 'package:exambeing/helpers/database_helper.dart'; // ⬇️ Firebase ki jagah local DB helper
+import 'package:exambeing/helpers/database_helper.dart'; // Firebase ki jagah local DB helper
 
-// ❌ (Firebase imports hata diye gaye)
-// ❌ (Internal Task class hata di gayi, ab hum 'database_helper.dart' waali Task class use karenge)
+// (Internal Task class hata di gayi, ab hum 'database_helper.dart' waali Task class use karenge)
 
 class TodoListScreen extends StatefulWidget {
   const TodoListScreen({super.key});
@@ -18,17 +17,14 @@ class _TodoListScreenState extends State<TodoListScreen> {
   late DateTime _focusedDay;
   final TextEditingController _taskController = TextEditingController();
   
-  // ⬇️===== NAYE STATE VARIABLES (FutureBuilder Ke Liye) =====⬇️
   late Future<List<Task>> _tasksFuture;
   final dbHelper = DatabaseHelper.instance;
-  // ⬆️=======================================================⬆️
 
   @override
   void initState() {
     super.initState();
     _selectedDay = DateTime.now();
     _focusedDay = DateTime.now();
-    // Screen load hote hi chune gaye din ke tasks load karo
     _tasksFuture = _loadTasksForSelectedDay(_selectedDay);
   }
 
@@ -38,14 +34,10 @@ class _TodoListScreenState extends State<TodoListScreen> {
     super.dispose();
   }
 
-  // ⬇️===== NAYA FUNCTION (Local DB Se Task Load Karna) =====⬇️
   Future<List<Task>> _loadTasksForSelectedDay(DateTime date) {
-    // DatabaseHelper se us din ke tasks maango
     return dbHelper.getTasksByDate(date);
   }
-  // ⬆️=======================================================⬆️
 
-  // ⬇️===== FUNCTION UPDATED (Local DB Mein Add Karna) =====⬇️
   Future<void> _addTask() async {
     final String title = _taskController.text.trim();
     if (title.isEmpty) return;
@@ -57,10 +49,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
     );
 
     try {
-      await dbHelper.createTask(newTask); // Local DB mein create karo
+      await dbHelper.createTask(newTask);
       _taskController.clear();
       if (mounted) Navigator.pop(context);
-      // List ko refresh karo
       setState(() {
         _tasksFuture = _loadTasksForSelectedDay(_selectedDay);
       });
@@ -73,14 +64,10 @@ class _TodoListScreenState extends State<TodoListScreen> {
       }
     }
   }
-  // ⬆️=======================================================⬆️
 
-  // ⬇️===== FUNCTION UPDATED (Local DB Mein Update Karna) =====⬇️
   Future<void> _toggleTaskStatus(Task task) async {
     try {
-      // Local DB mein update karo
       await dbHelper.updateTaskStatus(task.id!, !task.isDone);
-      // List ko refresh karo
       setState(() {
         _tasksFuture = _loadTasksForSelectedDay(_selectedDay);
       });
@@ -88,13 +75,10 @@ class _TodoListScreenState extends State<TodoListScreen> {
       debugPrint("Error updating task: $e");
     }
   }
-  // ⬆️=======================================================⬆️
 
-  // ⬇️===== FUNCTION UPDATED (Local DB Se Delete Karna) =====⬇️
   Future<void> _deleteTask(Task task) async {
     try {
-      await dbHelper.deleteTask(task.id!); // Local DB se delete karo
-      // List ko refresh karo
+      await dbHelper.deleteTask(task.id!);
       setState(() {
         _tasksFuture = _loadTasksForSelectedDay(_selectedDay);
       });
@@ -102,9 +86,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
       debugPrint("Error deleting task: $e");
     }
   }
-  // ⬆️=======================================================⬆️
 
-  // Naya task add karne ka dialog (Yeh waisa hi hai)
   void _showAddTaskDialog() {
     _taskController.clear();
     showDialog(
@@ -124,7 +106,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
             ),
             ElevatedButton(
               child: const Text('Add'),
-              onPressed: _addTask, // Yeh naya _addTask function call karega
+              onPressed: _addTask,
             ),
           ],
         );
@@ -134,8 +116,6 @@ class _TodoListScreenState extends State<TodoListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ❌ (User null check hata diya, kyonki local DB ke liye zaroori nahi)
-    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Date-wise To-Do List'),
@@ -160,7 +140,6 @@ class _TodoListScreenState extends State<TodoListScreen> {
               setState(() {
                 _selectedDay = selectedDay;
                 _focusedDay = focusedDay;
-                // ⬇️ Naya din chuna, list refresh karo ⬇️
                 _tasksFuture = _loadTasksForSelectedDay(selectedDay);
               });
             },
@@ -174,50 +153,49 @@ class _TodoListScreenState extends State<TodoListScreen> {
           ),
           const Divider(height: 1),
 
-          // ⬇️===== STREAMBUILDER KO FUTUREBUILDER SE BADLA GAYA =====⬇️
+          // Chune gaye din ke tasks ki list
           Expanded(
             child: FutureBuilder<List<Task>>(
-              future: _tasksFuture, // Future variable ka istemal
+              future: _tasksFuture,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                if (snapshot.connectionState == ConnectionState.waiting) { // Ab 'ConnectionState' mil jaayega
+                  return const Center(child: CircularProgressIndicator()); // Ab 'Center' mil jaayega
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
+                  return Center(child: Text('Error: ${snapshot.error}')); // Ab 'Text' mil jaayega
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return Center(
                     child: Text(
                       'No tasks for ${DateFormat.yMMMd().format(_selectedDay)}.\nAdd one!',
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.center, // Ab 'TextAlign' mil jaayega
                     ),
                   );
                 }
 
-                // Ab 'snapshot.data' seedha List<Task> hai
                 final tasks = snapshot.data!;
 
-                return ListView.builder(
+                return ListView.builder( // Ab 'ListView' mil jaayega
                   padding: const EdgeInsets.all(8.0),
                   itemCount: tasks.length,
                   itemBuilder: (context, index) {
                     final task = tasks[index];
-                    return Card(
-                      child: ListTile(
-                        leading: Checkbox(
+                    return Card( // Ab 'Card' mil jaayega
+                      child: ListTile( // Ab 'ListTile' mil jaayega
+                        leading: Checkbox( // Ab 'Checkbox' mil jaayega
                           value: task.isDone,
                           onChanged: (value) => _toggleTaskStatus(task),
                         ),
                         title: Text(
                           task.title,
-                          style: TextStyle(
+                          style: TextStyle( // Ab 'TextStyle' mil jaayega
                             decoration: task.isDone
-                                ? TextDecoration.lineThrough
+                                ? TextDecoration.lineThrough // Ab 'TextDecoration' mil jaayega
                                 : TextDecoration.none,
-                            color: task.isDone ? Colors.grey : null,
+                            color: task.isDone ? Colors.grey : null, // Ab 'Colors' mil jaayega
                           ),
                         ),
-                        trailing: IconButton(
+                        trailing: IconButton( // Ab 'IconButton' mil jaayega
                           icon: const Icon(Icons.delete_outline, color: Colors.red),
                           onPressed: () => _deleteTask(task),
                         ),
@@ -228,7 +206,6 @@ class _TodoListScreenState extends State<TodoListScreen> {
               },
             ),
           ),
-          // ⬆️========================================================⬆️
         ],
       ),
     );
