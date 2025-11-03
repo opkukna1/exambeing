@@ -6,6 +6,7 @@ import 'package:exambeing/models/mcq_bookmark_model.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/models/schedule_model.dart';
+import 'package:intl/intl.dart'; // ⬇️ Naya import (Date format ke liye)
 
 // This is the model for your user-created notes
 class MyNote {
@@ -24,6 +25,42 @@ class MyNote {
   }
 }
 
+// ⬇️===== NAYI TASK CLASS =====⬇️
+class Task {
+  final int? id;
+  final String title;
+  final bool isDone;
+  final DateTime date; // Hum date ko DateTime object hi rakhenge
+
+  Task({
+    this.id,
+    required this.title,
+    this.isDone = false,
+    required this.date,
+  });
+
+  // Database mein save karne ke liye map
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'isDone': isDone ? 1 : 0, // Boolean ko 0 ya 1 mein badlo
+      'date': DateFormat('yyyy-MM-dd').format(date), // Date ko string '2025-10-29' mein badlo
+    };
+  }
+
+  // Database se vaapas laane ke liye map
+  static Task fromMap(Map<String, dynamic> map) {
+    return Task(
+      id: map['id'] as int,
+      title: map['title'] as String,
+      isDone: map['isDone'] == 1, // 0/1 ko vaapas boolean mein badlo
+      date: DateTime.parse(map['date'] as String), // String ko vaapas DateTime mein badlo
+    );
+  }
+}
+// ⬆️=========================⬆️
+
 // This is the main class that manages the database
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -40,7 +77,8 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    return await openDatabase(path, version: 3, onCreate: _createDB, onUpgrade: _upgradeDB);
+    // ⬇️===== VERSION 3 se 4 KIYA GAYA =====⬇️
+    return await openDatabase(path, version: 4, onCreate: _createDB, onUpgrade: _upgradeDB);
   }
 
   Future _createDB(Database db, int version) async {
@@ -94,6 +132,18 @@ class DatabaseHelper {
         )
       ''');
     }
+    // ⬇️===== NAYA TASK TABLE (v4) =====⬇️
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE tasks (
+          id $idType,
+          title $textType,
+          isDone $integerType,
+          date $textType
+        )
+      ''');
+    }
+    // ⬆️==============================⬆️
   }
 
   // --- "My Notes" Functions ---
@@ -102,7 +152,7 @@ class DatabaseHelper {
     final id = await db.insert('my_notes', note.toMap());
     return MyNote(id: id, content: note.content, createdAt: note.createdAt);
   }
-
+  
   Future<List<MyNote>> readAllNotes() async {
     final db = await instance.database;
     final orderBy = 'createdAt DESC';
@@ -185,7 +235,6 @@ class DatabaseHelper {
     }).toList();
   }
 
-  // ✅ FIX: Added the missing method back in.
   Future<List<Question>> getAllBookmarkedQuestions() async {
     final db = await instance.database;
     final maps = await db.query('bookmarked_questions');
@@ -260,10 +309,61 @@ class DatabaseHelper {
         title: json['title'] as String,
         content: json['content'] as String,
         subjectId: json['subjectId'] as String,
-        timestamp: Timestamp.now(),
+        timestamp: Timestamp.now(), // Note: Local DB mein timestamp save nahi kiya tha
       );
     }).toList();
   }
+
+  // ⬇️===== NAYE TASK (TO-DO) FUNCTIONS =====⬇️
+
+  // Naya task banana
+  Future<Task> createTask(Task task) async {
+    final db = await instance.database;
+    final id = await db.insert('tasks', task.toMap());
+    return Task(
+      id: id,
+      title: task.title,
+      isDone: task.isDone,
+      date: task.date,
+    );
+  }
+
+  // Kisi khaas din (date) ke saare tasks padhna
+  Future<List<Task>> getTasksByDate(DateTime date) async {
+    final db = await instance.database;
+    final String dateString = DateFormat('yyyy-MM-dd').format(date);
+    
+    final result = await db.query(
+      'tasks',
+      where: 'date = ?',
+      whereArgs: [dateString],
+      orderBy: 'id DESC', // Naye task uppar
+    );
+
+    return result.map((json) => Task.fromMap(json)).toList();
+  }
+
+  // Task ka status badalna (done/undone)
+  Future<int> updateTaskStatus(int id, bool isDone) async {
+    final db = await instance.database;
+    return db.update(
+      'tasks',
+      {'isDone': isDone ? 1 : 0}, // Sirf isDone column ko update karo
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // Task ko delete karna
+  Future<int> deleteTask(int id) async {
+    final db = await instance.database;
+    return await db.delete(
+      'tasks',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+  // ⬆️======================================⬆️
 
   Future close() async {
     final db = await instance.database;
