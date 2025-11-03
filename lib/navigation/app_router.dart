@@ -27,10 +27,12 @@ import 'package:exambeing/features/profile/screens/profile_screen.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/helpers/database_helper.dart';
-
-// ⬇️===== NAYA IMPORT (Settings Screen Ke Liye) =====⬇️
 import 'package:exambeing/features/profile/screens/settings_screen.dart';
-// ⬆️===============================================⬆️
+
+// ⬇️===== NAYE IMPORTS (Tools Ke Liye) =====⬇️
+import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
+import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
+// ⬆️=======================================⬆️
 
 
 /// 🚨 Safe Error Screen for bad route data
@@ -60,11 +62,7 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 /// 🔥 Main Router Config
 final GoRouter router = GoRouter(
   navigatorKey: _rootNavigatorKey,
-
-  /// 🔄 Firebase Auth ke stream se UI refresh hota rahe
   refreshListenable: GoRouterRefreshStream(FirebaseAuth.instance.authStateChanges()),
-
-  /// 🏁 Start directly from home shell (redirect logic handle karega)
   initialLocation: '/',
 
   routes: [
@@ -227,12 +225,22 @@ final GoRouter router = GoRouter(
       },
     ),
 
-    // ⬇️===== NAYA ROUTE (Settings Screen Ke Liye) =====⬇️
+    // ⚙️ Settings
     GoRoute(
       path: '/settings',
       builder: (context, state) => const SettingsScreen(),
     ),
-    // ⬆️=============================================⬆️
+
+    // ⬇️===== NAYE ROUTES (Tools Ke Liye) =====⬇️
+    GoRoute(
+      path: '/pomodoro',
+      builder: (context, state) => const PomodoroScreen(),
+    ),
+    GoRoute(
+      path: '/todo-list',
+      builder: (context, state) => const TodoListScreen(),
+    ),
+    // ⬆️======================================⬆️
 
   ], // <-- routes ki list yahaan band hoti hai
 
