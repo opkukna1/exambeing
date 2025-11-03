@@ -29,6 +29,11 @@ dependencies:
   screenshot: ^3.0.0
   share_plus: ^7.2.2
 
+  # ⬇️===== NAYE PACKAGES (To-Do List/Calendar) =====⬇️
+  table_calendar: ^3.1.2 # Calendar UI ke liye
+  intl: ^0.19.0          # Date formatting ke liye (zaroori)
+  # ⬆️=============================================⬆️
+
   # Firebase Packages
   firebase_core: ^3.4.0
   cloud_firestore: ^5.4.4
@@ -39,9 +44,8 @@ dependencies:
   # Local Database
   sqflite: ^2.3.3
 
-  # ⬇️===== NAYA PACKAGE =====⬇️
-  google_mobile_ads: ^5.1.0 # Google AdMob package
-  # ⬆️======================⬆️
+  # AdMob Package
+  google_mobile_ads: ^5.1.0
 
 dev_dependencies:
   flutter_test:
