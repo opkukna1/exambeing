@@ -1,44 +1,10 @@
 import 'package.flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart'; // Date formatting ke liye
+import 'package:exambeing/helpers/database_helper.dart'; // ⬇️ Firebase ki jagah local DB helper
 
-// Task ka model
-class Task {
-  final String id;
-  final String title;
-  bool isDone;
-  final DateTime date; // Task kis din ka hai
-
-  Task({
-    required this.id,
-    required this.title,
-    this.isDone = false,
-    required this.date,
-  });
-
-  // Firebase se data lene ke liye
-  factory Task.fromFirestore(DocumentSnapshot doc) {
-    Map data = doc.data() as Map<String, dynamic>;
-    return Task(
-      id: doc.id,
-      title: data['title'] ?? '',
-      isDone: data['isDone'] ?? false,
-      date: (data['date'] as Timestamp).toDate(),
-    );
-  }
-
-  // Firebase mein data bhejne ke liye
-  Map<String, dynamic> toFirestore() {
-    return {
-      'title': title,
-      'isDone': isDone,
-      'date': Timestamp.fromDate(date),
-      'userId': FirebaseAuth.instance.currentUser?.uid, // Taki user sirf apne task dekhe
-    };
-  }
-}
+// ❌ (Firebase imports hata diye gaye)
+// ❌ (Internal Task class hata di gayi, ab hum 'database_helper.dart' waali Task class use karenge)
 
 class TodoListScreen extends StatefulWidget {
   const TodoListScreen({super.key});
@@ -48,16 +14,22 @@ class TodoListScreen extends StatefulWidget {
 }
 
 class _TodoListScreenState extends State<TodoListScreen> {
-  late DateTime _selectedDay; // User ne kaun sa din chuna hai
-  late DateTime _focusedDay; // Calendar kaun sa mahina dikha raha hai
+  late DateTime _selectedDay;
+  late DateTime _focusedDay;
   final TextEditingController _taskController = TextEditingController();
-  final User? _user = FirebaseAuth.instance.currentUser;
+  
+  // ⬇️===== NAYE STATE VARIABLES (FutureBuilder Ke Liye) =====⬇️
+  late Future<List<Task>> _tasksFuture;
+  final dbHelper = DatabaseHelper.instance;
+  // ⬆️=======================================================⬆️
 
   @override
   void initState() {
     super.initState();
     _selectedDay = DateTime.now();
     _focusedDay = DateTime.now();
+    // Screen load hote hi chune gaye din ke tasks load karo
+    _tasksFuture = _loadTasksForSelectedDay(_selectedDay);
   }
 
   @override
@@ -66,32 +38,32 @@ class _TodoListScreenState extends State<TodoListScreen> {
     super.dispose();
   }
 
-  // User ke tasks ka reference
-  CollectionReference get _tasksCollection {
-    // Har user ka alag 'tasks' collection (users/{userId}/tasks)
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(_user!.uid)
-        .collection('tasks');
+  // ⬇️===== NAYA FUNCTION (Local DB Se Task Load Karna) =====⬇️
+  Future<List<Task>> _loadTasksForSelectedDay(DateTime date) {
+    // DatabaseHelper se us din ke tasks maango
+    return dbHelper.getTasksByDate(date);
   }
+  // ⬆️=======================================================⬆️
 
-  // Naya task add karne ka function
+  // ⬇️===== FUNCTION UPDATED (Local DB Mein Add Karna) =====⬇️
   Future<void> _addTask() async {
     final String title = _taskController.text.trim();
-    if (title.isEmpty) return; // Khaali task add na karein
+    if (title.isEmpty) return;
 
-    // Naya task object banayein
     final newTask = Task(
-      id: '', // ID Firebase dega
       title: title,
-      date: _selectedDay, // Chune gaye din ke liye
+      date: _selectedDay,
+      isDone: false,
     );
 
-    // Firebase mein add karein
     try {
-      await _tasksCollection.add(newTask.toFirestore());
-      _taskController.clear(); // Text field saaf karein
-      if (mounted) Navigator.pop(context); // Dialog band karein
+      await dbHelper.createTask(newTask); // Local DB mein create karo
+      _taskController.clear();
+      if (mounted) Navigator.pop(context);
+      // List ko refresh karo
+      setState(() {
+        _tasksFuture = _loadTasksForSelectedDay(_selectedDay);
+      });
     } catch (e) {
       debugPrint("Error adding task: $e");
       if (mounted) {
@@ -101,26 +73,38 @@ class _TodoListScreenState extends State<TodoListScreen> {
       }
     }
   }
+  // ⬆️=======================================================⬆️
 
-  // Task ko done/undone karne ka function
+  // ⬇️===== FUNCTION UPDATED (Local DB Mein Update Karna) =====⬇️
   Future<void> _toggleTaskStatus(Task task) async {
     try {
-      await _tasksCollection.doc(task.id).update({'isDone': !task.isDone});
+      // Local DB mein update karo
+      await dbHelper.updateTaskStatus(task.id!, !task.isDone);
+      // List ko refresh karo
+      setState(() {
+        _tasksFuture = _loadTasksForSelectedDay(_selectedDay);
+      });
     } catch (e) {
       debugPrint("Error updating task: $e");
     }
   }
+  // ⬆️=======================================================⬆️
 
-  // Task delete karne ka function
+  // ⬇️===== FUNCTION UPDATED (Local DB Se Delete Karna) =====⬇️
   Future<void> _deleteTask(Task task) async {
     try {
-      await _tasksCollection.doc(task.id).delete();
+      await dbHelper.deleteTask(task.id!); // Local DB se delete karo
+      // List ko refresh karo
+      setState(() {
+        _tasksFuture = _loadTasksForSelectedDay(_selectedDay);
+      });
     } catch (e) {
       debugPrint("Error deleting task: $e");
     }
   }
+  // ⬆️=======================================================⬆️
 
-  // Naya task add karne ka dialog
+  // Naya task add karne ka dialog (Yeh waisa hi hai)
   void _showAddTaskDialog() {
     _taskController.clear();
     showDialog(
@@ -140,7 +124,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
             ),
             ElevatedButton(
               child: const Text('Add'),
-              onPressed: _addTask,
+              onPressed: _addTask, // Yeh naya _addTask function call karega
             ),
           ],
         );
@@ -150,14 +134,8 @@ class _TodoListScreenState extends State<TodoListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_user == null) {
-      // Agar user login nahi hai (haalaanki aisa nahi hona chahiye)
-      return Scaffold(
-        appBar: AppBar(title: const Text('To-Do List')),
-        body: const Center(child: Text('Please log in to use To-Do List.')),
-      );
-    }
-
+    // ❌ (User null check hata diya, kyonki local DB ke liye zaroori nahi)
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Date-wise To-Do List'),
@@ -174,33 +152,32 @@ class _TodoListScreenState extends State<TodoListScreen> {
             firstDay: DateTime.utc(2020, 1, 1),
             lastDay: DateTime.utc(2040, 12, 31),
             focusedDay: _focusedDay,
-            calendarFormat: CalendarFormat.week, // Sirf hafta dikhayein
+            calendarFormat: CalendarFormat.week,
             selectedDayPredicate: (day) {
               return isSameDay(_selectedDay, day);
             },
             onDaySelected: (selectedDay, focusedDay) {
               setState(() {
                 _selectedDay = selectedDay;
-                _focusedDay = focusedDay; // Focus bhi update karein
+                _focusedDay = focusedDay;
+                // ⬇️ Naya din chuna, list refresh karo ⬇️
+                _tasksFuture = _loadTasksForSelectedDay(selectedDay);
               });
             },
             onPageChanged: (focusedDay) {
-              _focusedDay = focusedDay; // Mahina badalne par focus update
+              _focusedDay = focusedDay;
             },
             headerStyle: HeaderStyle(
               titleCentered: true,
-              formatButtonVisible: false, // 'Week'/'Month' button hatao
+              formatButtonVisible: false,
             ),
           ),
           const Divider(height: 1),
 
-          // Chune gaye din ke tasks ki list
+          // ⬇️===== STREAMBUILDER KO FUTUREBUILDER SE BADLA GAYA =====⬇️
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              // Firebase se chune gaye din ke tasks laao
-              stream: _tasksCollection
-                  .where('date', isEqualTo: Timestamp.fromDate(_selectedDay))
-                  .snapshots(),
+            child: FutureBuilder<List<Task>>(
+              future: _tasksFuture, // Future variable ka istemal
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -208,7 +185,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return Center(
                     child: Text(
                       'No tasks for ${DateFormat.yMMMd().format(_selectedDay)}.\nAdd one!',
@@ -217,10 +194,8 @@ class _TodoListScreenState extends State<TodoListScreen> {
                   );
                 }
 
-                // Tasks ko list mein badlo
-                final tasks = snapshot.data!.docs
-                    .map((doc) => Task.fromFirestore(doc))
-                    .toList();
+                // Ab 'snapshot.data' seedha List<Task> hai
+                final tasks = snapshot.data!;
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(8.0),
@@ -229,12 +204,10 @@ class _TodoListScreenState extends State<TodoListScreen> {
                     final task = tasks[index];
                     return Card(
                       child: ListTile(
-                        // Checkbox
                         leading: Checkbox(
                           value: task.isDone,
                           onChanged: (value) => _toggleTaskStatus(task),
                         ),
-                        // Task ka title
                         title: Text(
                           task.title,
                           style: TextStyle(
@@ -244,7 +217,6 @@ class _TodoListScreenState extends State<TodoListScreen> {
                             color: task.isDone ? Colors.grey : null,
                           ),
                         ),
-                        // Delete button
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.red),
                           onPressed: () => _deleteTask(task),
@@ -256,6 +228,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
               },
             ),
           ),
+          // ⬆️========================================================⬆️
         ],
       ),
     );
