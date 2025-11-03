@@ -44,7 +44,6 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      // ✅ FIX: Added ignore comment for the overly strict lint rule
       // ignore: deprecated_member_use
       onPopInvoked: (bool didPop) {
         if (didPop) return;
@@ -66,8 +65,13 @@ class _MainScreenState extends State<MainScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Image.asset('assets/logo.png', height: 40),
+          // ⬇️ Theme ke hisaab se AppBar color theek karein (Optional) ⬇️
+          backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+          elevation: Theme.of(context).appBarTheme.elevation,
+          iconTheme: Theme.of(context).iconTheme, // Drawer icon ka color theek karega
+          // ⬆️=======================================================⬆️
         ),
-        drawer: const AppDrawer(),
+        drawer: const AppDrawer(), // Drawer yahaan call ho raha hai
         body: widget.child,
         bottomNavigationBar: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
@@ -125,6 +129,36 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           
+          // ⬇️===== YEH HAI NAYA "STUDY TOOLS" SECTION =====⬇️
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0, top: 16.0, bottom: 8.0),
+            child: Text(
+              'Study Tools',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.timer_outlined),
+            title: const Text('Pomodoro Timer'),
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/pomodoro'); // Naya route
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.check_circle_outline),
+            title: const Text('To-Do List'),
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/todo-list'); // Naya route
+            },
+          ),
+          // ⬆️=============================================⬆️
+          
           const Divider(),
           if (user != null)
             ListTile(
@@ -132,7 +166,6 @@ class AppDrawer extends StatelessWidget {
               title: const Text('Logout'),
               onTap: () async {
                 await authService.signOut();
-                // ✅ FIX: Changed to use context.mounted for the safety check
                 if(context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Logged out.")));
                   context.go('/login-hub');
