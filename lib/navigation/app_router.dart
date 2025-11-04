@@ -1,4 +1,4 @@
-import 'dart:async'; // ✅ YEH HAI ASLI FIX
+import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -19,22 +19,19 @@ import 'package:exambeing/features/bookmarks/screens/bookmarks_home_screen.dart'
 import 'package:exambeing/features/practice/screens/solutions_screen.dart';
 import 'package:exambeing/features/notes/screens/my_notes_screen.dart';
 import 'package:exambeing/features/notes/screens/add_edit_note_screen.dart';
-import 'package:exambeing/features/notes/screens/public_notes_screen.dart'; // Note Detail ke DummyNote model ke liye zaroori
+import 'package:exambeing/features/notes/screens/public_notes_screen.dart'; // PublicNotesScreen
 import 'package:exambeing/features/schedule/screens/schedules_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_question_detail_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_screen.dart';
 import 'package:exambeing/features/profile/screens/profile_screen.dart';
 import 'package:exambeing/models/question_model.dart';
-import 'package:exambeing/models/public_note_model.dart';
+import 'package:exambeing/models/public_note_model.dart'; // ✅ Asli Model
 import 'package:exambeing/helpers/database_helper.dart';
 import 'package:exambeing/features/profile/screens/settings_screen.dart';
 import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
 import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
 import 'package:exambeing/features/tools/screens/timetable_screen.dart';
-
-// ⬇️===== NAYA IMPORT (Note Detail Ke Liye) =====⬇️
-import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
-// ⬆️==========================================⬆️
+import 'package:exambeing/features/notes/screens/note_detail_screen.dart'; // Asli Detail Screen
 
 
 /// 🚨 Safe Error Screen for bad route data
@@ -200,18 +197,18 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(path: '/public-notes', builder: (context, state) => const PublicNotesScreen()),
     
-    // ⬇️===== NAYA ROUTE (Note Detail Ke Liye) =====⬇️
+    // ⬇️===== YEH HAI ASLI FIX (DummyNote -> PublicNote) =====⬇️
     GoRoute(
       path: '/note-detail',
       builder: (context, state) {
-        if (state.extra is DummyNote) { // Abhi DummyNote use kar rahe hain
-          final note = state.extra as DummyNote;
+        if (state.extra is PublicNote) { // ✅ DummyNote se PublicNote kar diya
+          final note = state.extra as PublicNote; // ✅ Asli model use karo
           return NoteDetailScreen(note: note);
         }
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-    // ⬆️==========================================⬆️
+    // ⬆️==================================================⬆️
 
     // 📅 Schedules
     GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
@@ -282,7 +279,7 @@ class GoRouterRefreshStream extends ChangeNotifier {
     _subscription =
         stream.asBroadcastStream().listen((dynamic _) => notifyListeners());
   }
-  late final StreamSubscription<dynamic> _subscription; // ✅ Ab yeh error nahi dega
+  late final StreamSubscription<dynamic> _subscription;
 
   @override
   void dispose() {
