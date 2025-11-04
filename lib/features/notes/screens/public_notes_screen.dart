@@ -2,18 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 // --- Dummy Data Models (Firebase ke liye placeholder) ---
+// (Image URL hata diya gaya hai)
 class DummyNote {
   final String id;
   final String title;
   final String content;
-  final String imageUrl;
   final String subSubjectName; // e.g., 'Rajasthan Itihas'
 
   DummyNote({
     required this.id,
     required this.title,
     required this.content,
-    required this.imageUrl,
     required this.subSubjectName,
   });
 }
@@ -83,38 +82,33 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
       id: 'n1',
       title: 'Latest Note: Maharana Pratap Ki Kahani',
       content: 'Yeh poora content hai...',
-      imageUrl: 'https://placehold.co/150x100/E0E0E0/909090?text=Note+1',
       subSubjectName: 'Rajasthan Itihas',
     ),
     DummyNote(
       id: 'n2',
       title: 'Latest Note: Ashok Samrat',
       content: 'Yeh poora content hai...',
-      imageUrl: 'https://placehold.co/150x100/E0E0E0/909090?text=Note+2',
       subSubjectName: 'Bharatiya Itihas',
     ),
     DummyNote(
       id: 'n3',
       title: 'Latest Note: Nadiyan',
       content: 'Yeh poora content hai...',
-      imageUrl: 'https://placehold.co/150x100/E0E0E0/909090?text=Note+3',
       subSubjectName: 'Bharat Bhugol',
     ),
   ];
 
   // Dummy function to get notes for a sub-subject
   List<DummyNote> _getNotesForSubSubject(String subSubjectId) {
-    // Abhi ke liye, sabhi notes mein se filter kar rahe hain.
-    // Asli app mein, yeh Firebase query hogi.
     if (subSubjectId == 'sub1_1') {
       return [
-        DummyNote(id: 'n4', title: 'Rajasthan Note 1: Jaipur', content: '...', imageUrl: 'https://placehold.co/100x100/E0E0E0/909090?text=Jaipur', subSubjectName: 'Rajasthan Itihas'),
-        DummyNote(id: 'n5', title: 'Rajasthan Note 2: Jodhpur', content: '...', imageUrl: 'https://placehold.co/100x100/E0E0E0/909090?text=Jodhpur', subSubjectName: 'Rajasthan Itihas'),
+        DummyNote(id: 'n4', title: 'Rajasthan Note 1: Jaipur', content: '...', subSubjectName: 'Rajasthan Itihas'),
+        DummyNote(id: 'n5', title: 'Rajasthan Note 2: Jodhpur', content: '...', subSubjectName: 'Rajasthan Itihas'),
       ];
     }
     if (subSubjectId == 'sub1_2') {
        return [
-        DummyNote(id: 'n6', title: 'Bharat Note 1: Gupta Samrajya', content: '...', imageUrl: 'https://placehold.co/100x100/E0E0E0/909090?text=Gupta', subSubjectName: 'Bharatiya Itihas'),
+        DummyNote(id: 'n6', title: 'Bharat Note 1: Gupta Samrajya', content: '...', subSubjectName: 'Bharatiya Itihas'),
       ];
     }
     return []; // Baaki ke liye khaali list
@@ -124,25 +118,17 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
   @override
   void initState() {
     super.initState();
-    // Main Tab Controller
     _mainTabController =
         TabController(length: _mainSubjects.length, vsync: this);
-    
-    // Pehle main tab ke liye Sub Tab Controller
     _subTabController = TabController(
         length: _mainSubjects[0].subSubjects.length, vsync: this);
-
-    // Main tab badalne par sub-tabs ko update karo
     _mainTabController.addListener(_handleMainTabSelection);
   }
 
   void _handleMainTabSelection() {
     if (_mainTabController.indexIsChanging) {
-      // Main tab badal gaya hai
       setState(() {
-        // Puraana sub-tab controller dispose karo (agar zaroori ho)
         _subTabController.dispose();
-        // Naya sub-tab controller banao
         _subTabController = TabController(
           length: _mainSubjects[_mainTabController.index].subSubjects.length,
           vsync: this,
@@ -161,7 +147,6 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Current main subject ke sub-subjects
     final currentSubSubjects =
         _mainSubjects[_mainTabController.index].subSubjects;
 
@@ -186,7 +171,6 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
             child: TabBar(
               controller: _subTabController,
               isScrollable: true,
-              // Dark mode ke liye text color theek karna
               labelColor: Theme.of(context).colorScheme.primary,
               unselectedLabelColor: Theme.of(context).textTheme.bodySmall?.color,
               tabs: currentSubSubjects
@@ -201,7 +185,6 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
             child: TabBarView(
               controller: _subTabController,
               children: currentSubSubjects.map((subSubject) {
-                // Har sub-subject ke liye notes ki list
                 final notes = _getNotesForSubSubject(subSubject.id);
                 return _buildNotesListView(notes);
               }).toList(),
@@ -220,12 +203,12 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Latest Notes', // "Top News" ki jagah
+            'Latest Notes',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 160, // Horizontal list ki height
+            height: 80, // ⬇️ Height kam kar di hai (image nahi hai)
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: _latestNotes.length,
@@ -249,33 +232,30 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
         onTap: () => context.push('/note-detail', extra: note),
         child: SizedBox(
           width: 220, // Card ki chaudai
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Image.network(
-                note.imageUrl,
-                height: 100,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                // Error hone par placeholder
-                errorBuilder: (context, error, stackTrace) => 
-                  Container(
-                    height: 100, 
-                    color: Colors.grey[200], 
-                    child: const Icon(Icons.broken_image),
-                  ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
+          // ⬇️ Column ki jagah simple Padding (image nahi hai)
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  note.subSubjectName,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.primary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
                   note.title,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          // ⬆️=============================================
         ),
       ),
     );
@@ -304,49 +284,20 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
         onTap: () => context.push('/note-detail', extra: note),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            children: [
-              // Text Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      note.subSubjectName, // e.g., 'Rajasthan Itihas'
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.primary),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      note.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    // Aap yahaan content snippet bhi dikha sakte hain
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Image
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8.0),
-                child: Image.network(
-                  note.imageUrl,
-                  width: 100,
-                  height: 100,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => 
-                    Container(
-                      width: 100, 
-                      height: 100, 
-                      color: Colors.grey[200], 
-                      child: const Icon(Icons.broken_image),
-                    ),
-                ),
-              ),
-            ],
+        // ⬇️ Row ki jagah simple ListTile (image nahi hai)
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          title: Text(
+            note.title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
+          subtitle: Text(
+            note.subSubjectName,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.primary),
+          ),
+          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
         ),
+        // ⬆️=============================================
       ),
     );
   }
