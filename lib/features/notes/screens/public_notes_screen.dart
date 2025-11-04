@@ -2,13 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ⬇️===== NAYE IMPORTS (Firebase Aur Models) =====⬇️
 import 'package:exambeing/models/note_subject_model.dart';
 import 'package:exambeing/models/note_sub_subject_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
-// ⬆️============================================⬆️
-
-// ❌ (Saara Dummy Data Models hata diya gaya hai)
 
 class PublicNotesScreen extends StatefulWidget {
   const PublicNotesScreen({super.key});
@@ -20,29 +16,26 @@ class PublicNotesScreen extends StatefulWidget {
 class _PublicNotesScreenState extends State<PublicNotesScreen>
     with TickerProviderStateMixin {
   
-  // Tab controllers ab `StreamBuilder` ke andar banenge
   TabController? _mainTabController;
   TabController? _subTabController;
 
-  // Firebase services
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  // Streams (Taaki data live update ho)
   late Stream<QuerySnapshot> _mainSubjectsStream;
   late Stream<QuerySnapshot> _latestNotesStream;
-  
-  // Sub-subjects aur notes ke liye selected ID
   String? _selectedMainSubjectId;
+
+  // ⬇️===== SUB-SUBJECTS KO STATE MEIN SAVE KARNE KE LIYE =====⬇️
+  List<NoteSubSubject> _currentSubSubjects = [];
+  // ⬆️======================================================⬆️
 
   @override
   void initState() {
     super.initState();
-    // Data streams ko initialize karo
     _mainSubjectsStream = _firestore.collection('noteSubjects').orderBy('name').snapshots();
     _latestNotesStream = _firestore
         .collection('publicNotes')
         .orderBy('timestamp', descending: true)
-        .limit(10) // "Latest Notes" ke liye 10 ka limit
+        .limit(10)
         .snapshots();
   }
 
@@ -63,52 +56,50 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Exambeing Notes'),
-        // ⬇️ Main Tab Bar ab StreamBuilder se banega ⬇️
-        bottom: StreamBuilder<QuerySnapshot>(
-          stream: _mainSubjectsStream,
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const PreferredSize(
-                preferredSize: Size.fromHeight(kToolbarHeight),
-                child: Center(child: LinearProgressIndicator()),
+        // ⬇️===== YEH HAI ASLI FIX (AppBar Error) =====⬇️
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight), // TabBar ki height
+          child: StreamBuilder<QuerySnapshot>( // StreamBuilder ab PreferredSize ke andar hai
+            stream: _mainSubjectsStream,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                // Loading state mein ek khaali (lekin sahi size ka) container
+                return Container(height: kToolbarHeight); 
+              }
+              if (snapshot.data!.docs.isEmpty) {
+                // Data na hone par
+                return Container(height: kToolbarHeight, alignment: Alignment.center, child: const Text('No subjects found'));
+              }
+
+              final mainSubjects = snapshot.data!.docs
+                  .map((doc) => NoteSubject.fromFirestore(doc))
+                  .toList();
+
+              if (_selectedMainSubjectId == null && mainSubjects.isNotEmpty) {
+                _selectedMainSubjectId = mainSubjects[0].id;
+              }
+
+              if (_mainTabController == null || _mainTabController!.length != mainSubjects.length) {
+                _mainTabController?.dispose();
+                _mainTabController = TabController(length: mainSubjects.length, vsync: this);
+                _mainTabController!.addListener(() {
+                  if (_mainTabController!.indexIsChanging) {
+                    setState(() {
+                      _selectedMainSubjectId = mainSubjects[_mainTabController!.index].id;
+                    });
+                  }
+                });
+              }
+
+              return TabBar(
+                controller: _mainTabController,
+                isScrollable: true,
+                tabs: mainSubjects.map((subject) => Tab(text: subject.name)).toList(),
               );
-            }
-            if (snapshot.data!.docs.isEmpty) {
-              return const PreferredSize(
-                preferredSize: Size.fromHeight(kToolbarHeight),
-                child: Center(child: Text('No subjects found')),
-              );
-            }
-
-            final mainSubjects = snapshot.data!.docs
-                .map((doc) => NoteSubject.fromFirestore(doc))
-                .toList();
-
-            // Pehli baar main subject select karo
-            if (_selectedMainSubjectId == null && mainSubjects.isNotEmpty) {
-              _selectedMainSubjectId = mainSubjects[0].id;
-            }
-
-            // Main Tab Controller
-            if (_mainTabController == null || _mainTabController!.length != mainSubjects.length) {
-              _mainTabController?.dispose();
-              _mainTabController = TabController(length: mainSubjects.length, vsync: this);
-              _mainTabController!.addListener(() {
-                if (_mainTabController!.indexIsChanging) {
-                  setState(() {
-                    _selectedMainSubjectId = mainSubjects[_mainTabController!.index].id;
-                  });
-                }
-              });
-            }
-
-            return TabBar(
-              controller: _mainTabController,
-              isScrollable: true,
-              tabs: mainSubjects.map((subject) => Tab(text: subject.name)).toList(),
-            );
-          },
+            },
+          ),
         ),
+        // ⬆️============================================⬆️
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,13 +118,10 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
                 ? const Center(child: CircularProgressIndicator())
                 : TabBarView(
                     controller: _subTabController,
-                    children: (_subTabController?.length ?? 0) == 0
-                        ? [const Center(child: Text("No sub-subjects found."))]
-                        : List.generate(_subTabController!.length, (index) {
-                            // Yeh thoda complex hai, humein subTabController se ID nikaalna hoga
-                            // Abhi ke liye, hum StreamBuilder ke data se ID lenge
-                            return _buildNotesListForSubSubject(index);
-                          }),
+                    children: _currentSubSubjects.map((subSubject) {
+                      // Ab hum saved list se ID le rahe hain
+                      return _buildNotesListForSubSubject(subSubject.id);
+                    }).toList(),
                   ),
           ),
         ],
@@ -191,9 +179,7 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
       clipBehavior: Clip.antiAlias,
       margin: const EdgeInsets.only(right: 12),
       child: InkWell(
-        // ⬇️===== Naya Route (Note Detail Ke Liye) =====⬇️
-        onTap: () => context.push('/note-detail', extra: note),
-        // ⬆️==========================================⬆️
+        onTap: () => context.push('/note-detail', extra: note), // ✅ Ab yeh PublicNote bhejega
         child: SizedBox(
           width: 220,
           child: Padding(
@@ -203,14 +189,14 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  note.subSubjectName, // Yeh Firebase se aa raha hai
+                  note.subSubjectName,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.primary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  note.title, // Yeh Firebase se aa raha hai
+                  note.title,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -226,12 +212,10 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
   // "Sub-Subject" Tab Bar (Firebase se)
   Widget _buildSubTabBar(BuildContext context) {
     if (_selectedMainSubjectId == null) {
-      return Container(height: 50); // Agar main subject select nahi hua
+      return Container(height: 50);
     }
 
     return StreamBuilder<QuerySnapshot>(
-      // `noteSubSubjects` collection se data laao
-      // jahaan `mainSubjectId` match ho
       stream: _firestore
           .collection('noteSubSubjects')
           .where('mainSubjectId', isEqualTo: _selectedMainSubjectId)
@@ -242,16 +226,17 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
           return const SizedBox(height: 50, child: Center(child: LinearProgressIndicator()));
         }
         
-        final subSubjects = snapshot.data!.docs
+        // ⬇️===== YEH HAI FIX (Sub-subjects ko save karna) =====⬇️
+        _currentSubSubjects = snapshot.data!.docs
             .map((doc) => NoteSubSubject.fromFirestore(doc))
             .toList();
+        // ⬆️=================================================⬆️
             
-        // Sub-tab controller ko update karo
-        if (_subTabController == null || _subTabController!.length != subSubjects.length) {
-           _updateSubTabController(subSubjects.length);
+        if (_subTabController == null || _subTabController!.length != _currentSubSubjects.length) {
+           _updateSubTabController(_currentSubSubjects.length);
         }
 
-        if (subSubjects.isEmpty) {
+        if (_currentSubSubjects.isEmpty) {
           return const SizedBox(height: 50, child: Center(child: Text('No sub-subjects found.')));
         }
 
@@ -262,7 +247,7 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
             isScrollable: true,
             labelColor: Theme.of(context).colorScheme.primary,
             unselectedLabelColor: Theme.of(context).textTheme.bodySmall?.color,
-            tabs: subSubjects.map((sub) => Tab(text: sub.name)).toList(),
+            tabs: _currentSubSubjects.map((sub) => Tab(text: sub.name)).toList(),
           ),
         );
       },
@@ -271,69 +256,36 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
 
 
   // Vertical list (TabBarView ke andar)
-  Widget _buildNotesListForSubSubject(int subTabIndex) {
-    // Is function ko thoda update karna padega taaki yeh ID le sake
-    // Abhi ke liye hum StreamBuilder ke andar hi query karenge
-    
-    // Pehle, humein Sub Tab Controller se SubSubject ID nikaalna hoga
-    // Yeh thoda complex logic hai, humein sub-subjects ko state mein save karna hoga
-    
-    // AASAAN TAREKA: Hum `_buildSubTabBar` ke `StreamBuilder` se data le sakte hain
-    
-    if (_selectedMainSubjectId == null) {
-      return const Center(child: Text("Select a main subject."));
-    }
-
+  Widget _buildNotesListForSubSubject(String subSubjectId) {
+    // ⬇️===== YEH HAI FIX (Seedha query karna) =====⬇️
     return StreamBuilder<QuerySnapshot>(
-      // 1. Pehle Sub-Subjects laao (taaki humein ID mil sake)
       stream: _firestore
-          .collection('noteSubSubjects')
-          .where('mainSubjectId', isEqualTo: _selectedMainSubjectId)
-          .orderBy('name')
+          .collection('publicNotes')
+          .where('subSubjectId', isEqualTo: subSubjectId) // Sahi ID se query
+          .orderBy('timestamp', descending: true)
           .snapshots(),
-      builder: (context, subSubjectSnapshot) {
-        if (!subSubjectSnapshot.hasData) return const Center(child: CircularProgressIndicator());
+      builder: (context, noteSnapshot) {
+        if (!noteSnapshot.hasData) return const Center(child: CircularProgressIndicator());
         
-        final subSubjects = subSubjectSnapshot.data!.docs
-            .map((doc) => NoteSubSubject.fromFirestore(doc))
+        final notes = noteSnapshot.data!.docs
+            .map((doc) => PublicNote.fromFirestore(doc))
             .toList();
 
-        if (subTabIndex >= subSubjects.length) {
-          return const Center(child: Text("Loading..."));
+        if (notes.isEmpty) {
+          return const Center(child: Text('No notes found in this sub-subject.'));
         }
         
-        // 2. Ab us Sub-Subject ki ID se notes laao
-        final selectedSubSubjectId = subSubjects[subTabIndex].id;
-        
-        return StreamBuilder<QuerySnapshot>(
-          stream: _firestore
-              .collection('publicNotes')
-              .where('subSubjectId', isEqualTo: selectedSubSubjectId)
-              .orderBy('timestamp', descending: true)
-              .snapshots(),
-          builder: (context, noteSnapshot) {
-            if (!noteSnapshot.hasData) return const Center(child: CircularProgressIndicator());
-            
-            final notes = noteSnapshot.data!.docs
-                .map((doc) => PublicNote.fromFirestore(doc))
-                .toList();
-
-            if (notes.isEmpty) {
-              return const Center(child: Text('No notes found in this sub-subject.'));
-            }
-            
-            return ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: notes.length,
-              itemBuilder: (context, index) {
-                final note = notes[index];
-                return _buildNoteItemCard(note);
-              },
-            );
+        return ListView.builder(
+          padding: const EdgeInsets.all(16.0),
+          itemCount: notes.length,
+          itemBuilder: (context, index) {
+            final note = notes[index];
+            return _buildNoteItemCard(note);
           },
         );
       },
     );
+    // ⬆️===========================================⬆️
   }
 
   // Vertical list ka card
@@ -341,17 +293,15 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
-        // ⬇️===== Naya Route (Note Detail Ke Liye) =====⬇️
-        onTap: () => context.push('/note-detail', extra: note),
-        // ⬆️==========================================⬆️
+        onTap: () => context.push('/note-detail', extra: note), // ✅ Ab yeh PublicNote bhejega
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           title: Text(
-            note.title, // Firebase se
+            note.title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           subtitle: Text(
-            note.subSubjectName, // Firebase se
+            note.subSubjectName,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.primary),
           ),
           trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
