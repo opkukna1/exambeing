@@ -9,10 +9,7 @@ import 'package:exambeing/services/theme_provider.dart'; // Hamari ThemeProvider
 
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:exambeing/services/ad_service_provider.dart'; // Hamari Ad Service file
-
-// ⬇️===== NAYA IMPORT (Notification) =====⬇️
 import 'package:exambeing/services/notification_service.dart'; // Hamari Notification Service file
-// ⬆️====================================⬆️
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,12 +22,10 @@ Future<void> main() async {
   // AdMob SDK ko initialize karo (bina 'await' ke)
   MobileAds.instance.initialize();
 
-  // ⬇️===== NAYA CODE (Notification Service Initialize) =====⬇️
   // Notification service ko initialize (shuru) karo
   await NotificationService().initialize();
   // User se notification ki permission maango (Android 13+)
   await NotificationService().requestNotificationPermissions();
-  // ⬆️=======================================================⬆️
 
   runApp(
     MultiProvider(
@@ -47,7 +42,9 @@ class ExambeingApp extends StatelessWidget {
   const ExambeingApp({super.key});
 
   @override
-  Widget build(BuildContextContext context) {
+  // ⬇️===== YEH HAI FIX (Typo Hata Diya) =====⬇️
+  Widget build(BuildContext context) {
+  // ⬆️========================================⬆️
     final baseTextTheme = Theme.of(context).textTheme;
 
     // --- Light Theme ---
