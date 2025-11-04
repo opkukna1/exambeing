@@ -19,19 +19,23 @@ import 'package:exambeing/features/bookmarks/screens/bookmarks_home_screen.dart'
 import 'package:exambeing/features/practice/screens/solutions_screen.dart';
 import 'package:exambeing/features/notes/screens/my_notes_screen.dart';
 import 'package:exambeing/features/notes/screens/add_edit_note_screen.dart';
-import 'package:exambeing/features/notes/screens/public_notes_screen.dart'; // PublicNotesScreen
+import 'package:exambeing/features/notes/screens/public_notes_screen.dart';
 import 'package:exambeing/features/schedule/screens/schedules_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_question_detail_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_screen.dart';
 import 'package:exambeing/features/profile/screens/profile_screen.dart';
 import 'package:exambeing/models/question_model.dart';
-import 'package:exambeing/models/public_note_model.dart'; // ✅ Asli Model
+import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/helpers/database_helper.dart';
 import 'package:exambeing/features/profile/screens/settings_screen.dart';
 import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
 import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
 import 'package:exambeing/features/tools/screens/timetable_screen.dart';
-import 'package:exambeing/features/notes/screens/note_detail_screen.dart'; // Asli Detail Screen
+import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
+
+// ⬇️===== NAYA IMPORT (Bookmark Model Ke Liye) =====⬇️
+import 'package:exambeing/models/bookmarked_note_model.dart';
+// ⬆️=============================================⬆️
 
 
 /// 🚨 Safe Error Screen for bad route data
@@ -197,18 +201,16 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(path: '/public-notes', builder: (context, state) => const PublicNotesScreen()),
     
-    // ⬇️===== YEH HAI ASLI FIX (DummyNote -> PublicNote) =====⬇️
     GoRoute(
       path: '/note-detail',
       builder: (context, state) {
-        if (state.extra is PublicNote) { // ✅ DummyNote se PublicNote kar diya
-          final note = state.extra as PublicNote; // ✅ Asli model use karo
+        if (state.extra is PublicNote) { // ✅ PublicNote use karo
+          final note = state.extra as PublicNote;
           return NoteDetailScreen(note: note);
         }
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-    // ⬆️==================================================⬆️
 
     // 📅 Schedules
     GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
@@ -224,16 +226,19 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
+    
+    // ⬇️===== YEH HAI ASLI FIX (PublicNote -> BookmarkedNote) =====⬇️
     GoRoute(
       path: '/bookmark-note-detail',
       builder: (context, state) {
-        if (state.extra is PublicNote) {
-          final note = state.extra as PublicNote;
+        if (state.extra is BookmarkedNote) { // ✅ Ab yeh BookmarkedNote check karega
+          final note = state.extra as BookmarkedNote; // ✅ Asli model use karo
           return BookmarkedNoteDetailScreen(note: note);
         }
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
+    // ⬆️==================================================⬆️
 
     // ⚙️ Settings
     GoRoute(
@@ -257,7 +262,6 @@ final GoRouter router = GoRouter(
 
   ], // <-- routes ki list yahaan band hoti hai
 
-  /// 🧠 Redirect Logic (fixed)
   redirect: (BuildContext context, GoRouterState state) {
     if (Firebase.apps.isEmpty) return null;
     final user = FirebaseAuth.instance.currentUser;
