@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -31,9 +31,10 @@ import 'package:exambeing/features/profile/screens/settings_screen.dart';
 
 import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
 import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
-
-// ⬇️===== NAYA IMPORT (Timetable Ke Liye) =====⬇️
 import 'package:exambeing/features/tools/screens/timetable_screen.dart';
+
+// ⬇️===== NAYA IMPORT (Note Detail Ke Liye) =====⬇️
+import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
 // ⬆️==========================================⬆️
 
 
@@ -199,6 +200,20 @@ final GoRouter router = GoRouter(
       },
     ),
     GoRoute(path: '/public-notes', builder: (context, state) => const PublicNotesScreen()),
+    
+    // ⬇️===== NAYA ROUTE (Note Detail Ke Liye) =====⬇️
+    GoRoute(
+      path: '/note-detail',
+      builder: (context, state) {
+        if (state.extra is DummyNote) { // Abhi DummyNote use kar rahe hain
+          final note = state.extra as DummyNote;
+          return NoteDetailScreen(note: note);
+        }
+        return _ErrorRouteScreen(path: state.matchedLocation);
+      },
+    ),
+    // ⬆️==========================================⬆️
+
     GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
     GoRoute(
       path: '/bookmark-question-detail',
@@ -227,7 +242,7 @@ final GoRouter router = GoRouter(
       builder: (context, state) => const SettingsScreen(),
     ),
 
-    // 🛠️ Tools (Pomodoro, To-Do List)
+    // 🛠️ Tools
     GoRoute(
       path: '/pomodoro',
       builder: (context, state) => const PomodoroScreen(),
@@ -236,13 +251,10 @@ final GoRouter router = GoRouter(
       path: '/todo-list',
       builder: (context, state) => const TodoListScreen(),
     ),
-
-    // ⬇️===== NAYA ROUTE (Timetable Ke Liye) =====⬇️
     GoRoute(
       path: '/timetable',
       builder: (context, state) => const TimetableScreen(),
     ),
-    // ⬆️=======================================⬆️
 
   ], // <-- routes ki list yahaan band hoti hai
 
