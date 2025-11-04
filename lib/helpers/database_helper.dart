@@ -13,7 +13,8 @@ import 'package:exambeing/models/bookmarked_note_model.dart';
 import 'package:exambeing/models/note_content_model.dart';
 
 
-// --- Note Model ---
+// --- (Saare Models: MyNote, Task, TimetableEntry, UserNoteEdit) ---
+// (Yeh code pehle jaisa hi hai)
 class MyNote {
   final int? id;
   final String content;
@@ -23,35 +24,26 @@ class MyNote {
     return {'id': id, 'content': content, 'createdAt': createdAt};
   }
 }
-
-// --- Task (To-Do) Model ---
 class Task {
   final int? id;
   final String title;
   final bool isDone;
   final DateTime date;
   Task({this.id, required this.title, this.isDone = false, required this.date});
-
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'title': title,
-      'isDone': isDone ? 1 : 0,
+      'id': id, 'title': title, 'isDone': isDone ? 1 : 0,
       'date': DateFormat('yyyy-MM-dd').format(date),
     };
   }
-
   static Task fromMap(Map<String, dynamic> map) {
     return Task(
-      id: map['id'] as int,
-      title: map['title'] as String,
+      id: map['id'] as int, title: map['title'] as String,
       isDone: map['isDone'] == 1,
       date: DateTime.parse(map['date'] as String),
     );
   }
 }
-
-// --- Timetable Model ---
 class TimetableEntry {
   final int? id;
   final String subjectName;
@@ -59,35 +51,18 @@ class TimetableEntry {
   final TimeOfDay endTime;
   final int dayOfWeek;
   final int notificationId;
-
-  TimetableEntry({
-    this.id,
-    required this.subjectName,
-    required this.startTime,
-    required this.endTime,
-    required this.dayOfWeek,
-    required this.notificationId,
-  });
-
-  String _formatTime(TimeOfDay time) =>
-      '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-
+  TimetableEntry({ this.id, required this.subjectName, required this.startTime, required this.endTime, required this.dayOfWeek, required this.notificationId });
+  String _formatTime(TimeOfDay time) => '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   static TimeOfDay _parseTime(String timeString) {
     final parts = timeString.split(':');
     return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
-
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'subjectName': subjectName,
-      'startTime': _formatTime(startTime),
-      'endTime': _formatTime(endTime),
-      'dayOfWeek': dayOfWeek,
-      'notificationId': notificationId,
+      'id': id, 'subjectName': subjectName, 'startTime': _formatTime(startTime),
+      'endTime': _formatTime(endTime), 'dayOfWeek': dayOfWeek, 'notificationId': notificationId,
     };
   }
-
   static TimetableEntry fromMap(Map<String, dynamic> map) {
     return TimetableEntry(
       id: map['id'] as int,
@@ -99,67 +74,43 @@ class TimetableEntry {
     );
   }
 }
-
-// --- User Note Edit Model (v6) ---
 class UserNoteEdit {
   final int? id;
   final String firebaseNoteId;
   final String? userContent;
   final String? userHighlightsJson;
-
-  UserNoteEdit({
-    this.id,
-    required this.firebaseNoteId,
-    this.userContent,
-    this.userHighlightsJson,
-  });
-
-  factory UserNoteEdit.create({
-    required String firebaseNoteId,
-    String? userContent,
-    List<String>? highlights,
-  }) {
+  UserNoteEdit({ this.id, required this.firebaseNoteId, this.userContent, this.userHighlightsJson });
+  factory UserNoteEdit.create({ required String firebaseNoteId, String? userContent, List<String>? highlights }) {
     return UserNoteEdit(
-      firebaseNoteId: firebaseNoteId,
-      userContent: userContent,
+      firebaseNoteId: firebaseNoteId, userContent: userContent,
       userHighlightsJson: highlights != null ? jsonEncode(highlights) : null,
     );
   }
-
   List<String> get highlights {
     if (userHighlightsJson == null) return [];
-    try {
-      return List<String>.from(jsonDecode(userHighlightsJson!));
-    } catch (e) {
-      return [];
-    }
+    try { return List<String>.from(jsonDecode(userHighlightsJson!)); } catch (e) { return []; }
   }
-
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'firebaseNoteId': firebaseNoteId,
-      'userContent': userContent,
-      'userHighlightsJson': userHighlightsJson,
+      'id': id, 'firebaseNoteId': firebaseNoteId,
+      'userContent': userContent, 'userHighlightsJson': userHighlightsJson,
     };
   }
-
   static UserNoteEdit fromMap(Map<String, dynamic> map) {
     return UserNoteEdit(
-      id: map['id'] as int?,
-      firebaseNoteId: map['firebaseNoteId'] as String,
+      id: map['id'] as int?, firebaseNoteId: map['firebaseNoteId'] as String,
       userContent: map['userContent'] as String?,
       userHighlightsJson: map['userHighlightsJson'] as String?,
     );
   }
 }
+// --- (Models Khatam) ---
 
 
 // --- Database Helper Class ---
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
-
   DatabaseHelper._init();
 
   Future<Database> get database async {
@@ -171,14 +122,17 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    // (Version 9)
-    return await openDatabase(path, version: 9, onCreate: _createDB, onUpgrade: _upgradeDB);
+    // ⬇️===== VERSION 9 se 10 KIYA GAYA =====⬇️
+    return await openDatabase(path, version: 10, onCreate: _createDB, onUpgrade: _upgradeDB);
   }
 
   Future _createDB(Database db, int version) async {
+    // Naya database hamesha poora schema banayega
     await _upgradeDB(db, 0, version);
   }
 
+  // ⬇️===== YEH HAI ASLI FIX (v10) - Sabhi tables ko 'IF NOT EXISTS' se banaya =====⬇️
+  // Yeh har 'onUpgrade' par chalega aur check karega ki koi table missing to nahi
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
     const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
     const textType = 'TEXT NOT NULL';
@@ -186,93 +140,71 @@ class DatabaseHelper {
     const integerType = 'INTEGER NOT NULL';
     const nullableTextType = 'TEXT';
 
-    if (oldVersion < 1) {
-      await db.execute('''
-        CREATE TABLE my_notes ( 
-          id $idType, 
-          content $textType,
-          createdAt $textType
-        )
-      ''');
-    }
-    if (oldVersion < 2) {
-      await db.execute('''
-        CREATE TABLE bookmarked_questions (
-          id $idType, questionText $uniqueTextType, options $textType,
-          correctAnswerIndex $integerType, explanation $textType, topicId $textType
-        )
-      ''');
-       await db.execute('''
-        CREATE TABLE bookmarked_notes (
-          id $idType, noteId $uniqueTextType, title $textType,
-          content $textType, subjectId $textType
-        )
-      ''');
-    }
-    if (oldVersion < 3) {
-       await db.execute('''
-        CREATE TABLE bookmarked_schedules (
-          id $idType, scheduleId $uniqueTextType, title $textType,
-          content $textType, subjectId $textType
-        )
-      ''');
-    }
-    if (oldVersion < 4) {
-      await db.execute('''
-        CREATE TABLE tasks (
-          id $idType, title $textType, isDone $integerType, date $textType
-        )
-      ''');
-    }
-    if (oldVersion < 5) {
-      await db.execute('''
-        CREATE TABLE timetable_entries (
-          id $idType,
-          subjectName $textType,
-          startTime $textType,
-          endTime $textType,
-          dayOfWeek $integerType,
-          notificationId $integerType UNIQUE
-        )
-      ''');
-    }
-    if (oldVersion < 6) {
-      await db.execute('''
-        CREATE TABLE user_note_edits (
-          id $idType,
-          firebaseNoteId $uniqueTextType,
-          userContent $nullableTextType,
-          userHighlightsJson $nullableTextType
-        )
-      ''');
-    }
-    if (oldVersion < 8) { // v7 aur v8 dono ko handle karne ke liye
-      await db.execute('DROP TABLE IF EXISTS bookmarked_notes');
-      await db.execute('''
-        CREATE TABLE bookmarked_notes (
-          id $idType,
-          noteId $uniqueTextType,
-          title $textType,
-          content $textType,
-          subjectId $textType,
-          subSubjectId $textType,
-          subSubjectName $textType,
-          timestamp $textType
-        )
-      ''');
-    }
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS my_notes ( 
+        id $idType, 
+        content $textType,
+        createdAt $textType
+      )
+    ''');
     
-    if (oldVersion < 9) {
-       await db.execute('''
-        CREATE TABLE IF NOT EXISTS user_note_edits (
-          id $idType,
-          firebaseNoteId $uniqueTextType,
-          userContent $nullableTextType,
-          userHighlightsJson $nullableTextType
-        )
-      ''');
-    }
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS bookmarked_questions (
+        id $idType, questionText $uniqueTextType, options $textType,
+        correctAnswerIndex $integerType, explanation $textType, topicId $textType
+      )
+    ''');
+    
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS bookmarked_notes (
+        id $idType,
+        noteId $uniqueTextType,
+        title $textType,
+        content $textType,
+        subjectId $textType,
+        subSubjectId $textType,
+        subSubjectName $textType,
+        timestamp $textType
+      )
+    ''');
+    
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS bookmarked_schedules (
+        id $idType, scheduleId $uniqueTextType, title $textType,
+        content $textType, subjectId $textType
+      )
+    ''');
+    
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS tasks (
+        id $idType, title $textType, isDone $integerType, date $textType
+      )
+    ''');
+    
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS timetable_entries (
+        id $idType,
+        subjectName $textType,
+        startTime $textType,
+        endTime $textType,
+        dayOfWeek $integerType,
+        notificationId $integerType UNIQUE
+      )
+    ''');
+    
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS user_note_edits (
+        id $idType,
+        firebaseNoteId $uniqueTextType,
+        userContent $nullableTextType,
+        userHighlightsJson $nullableTextType
+      )
+    ''');
   }
+  // ⬆️======================================================================⬆️
+
+  // --- (Baaki saare functions: My Notes, Bookmarks, Tasks, Timetable, User Edits) ---
+  // (Yeh code pehle jaisa hi hai, maine ismein 'toIso8601String' waala typo bhi theek kar diya hai)
 
   // --- "My Notes" Functions ---
   Future<MyNote> create(MyNote note) async {
@@ -367,9 +299,7 @@ class DatabaseHelper {
       'subjectId': note.subjectId,
       'subSubjectId': note.subSubjectId,
       'subSubjectName': note.subSubjectName,
-      // ⬇️===== YEH HAI FIX (Typo Hata Diya) =====⬇️
-      'timestamp': note.timestamp.toDate().toIso8601String(),
-      // ⬆️========================================⬆️
+      'timestamp': note.timestamp.toDate().toIso8601String(), // ✅ Typo Fix
     };
     await db.insert('bookmarked_notes', row, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
@@ -382,6 +312,7 @@ class DatabaseHelper {
     final maps = await db.query('bookmarked_notes');
     return maps.map((json) => BookmarkedNote.fromDbMap(json)).toList();
   }
+
 
   // --- Bookmarked Schedules Functions ---
   Future<void> bookmarkSchedule(Schedule schedule) async {
