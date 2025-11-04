@@ -5,7 +5,7 @@ import 'package:path/path.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:exambeing/models/mcq_bookmark_model.dart';
 import 'package:exambeing/models/question_model.dart';
-import 'package:exambeing/models/public_note_model.dart';
+import 'package:exambeing/models/public_note_model.dart'; // ✅ Ismein ab `content` nahi hai
 import 'package:exambeing/models/schedule_model.dart';
 import 'package:intl/intl.dart';
 
@@ -96,12 +96,12 @@ class TimetableEntry {
   }
 }
 
-// ⬇️===== NAYI USER NOTE EDIT CLASS (v6) =====⬇️
+// --- User Note Edit Model (v6) ---
 class UserNoteEdit {
   final int? id;
-  final String firebaseNoteId; // Firebase ke note ki ID
-  final String? userContent; // User ka add kiya hua text
-  final String? userHighlightsJson; // Highlights ki list (JSON String)
+  final String firebaseNoteId;
+  final String? userContent;
+  final String? userHighlightsJson;
 
   UserNoteEdit({
     this.id,
@@ -110,7 +110,6 @@ class UserNoteEdit {
     this.userHighlightsJson,
   });
 
-  // Highlights ko List<String> se JSON string mein badalna
   factory UserNoteEdit.create({
     required String firebaseNoteId,
     String? userContent,
@@ -123,7 +122,6 @@ class UserNoteEdit {
     );
   }
 
-  // Highlights ko JSON string se vaapas List<String> mein badalna
   List<String> get highlights {
     if (userHighlightsJson == null) return [];
     try {
@@ -151,7 +149,6 @@ class UserNoteEdit {
     );
   }
 }
-// ⬆️========================================⬆️
 
 
 // --- Database Helper Class ---
@@ -170,8 +167,8 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    // ⬇️===== VERSION 5 se 6 KIYA GAYA =====⬇️
-    return await openDatabase(path, version: 6, onCreate: _createDB, onUpgrade: _upgradeDB);
+    // ⬇️===== VERSION 6 se 7 KIYA GAYA =====⬇️
+    return await openDatabase(path, version: 7, onCreate: _createDB, onUpgrade: _upgradeDB);
   }
 
   Future _createDB(Database db, int version) async {
@@ -183,7 +180,7 @@ class DatabaseHelper {
     const textType = 'TEXT NOT NULL';
     const uniqueTextType = 'TEXT NOT NULL UNIQUE';
     const integerType = 'INTEGER NOT NULL';
-    const nullableTextType = 'TEXT'; // Naye table ke liye (taaki null save ho sake)
+    const nullableTextType = 'TEXT';
 
     if (oldVersion < 1) {
       await db.execute('''
@@ -235,7 +232,6 @@ class DatabaseHelper {
         )
       ''');
     }
-    // ⬇️===== NAYA USER NOTE EDIT TABLE (v6) =====⬇️
     if (oldVersion < 6) {
       await db.execute('''
         CREATE TABLE user_note_edits (
@@ -246,7 +242,27 @@ class DatabaseHelper {
         )
       ''');
     }
-    // ⬆️========================================⬆️
+     // ⬇️===== BOOKMARKED NOTES TABLE UPDATE (v7) =====⬇️
+    if (oldVersion < 7) {
+      // Hum naya table bana rahe hain aur puraana drop kar rahe hain
+      // kyonki 'content' column ko NOT NULL se NULLABLE karna mushkil hai
+      await db.execute('DROP TABLE IF EXISTS bookmarked_notes');
+      await db.execute('''
+        CREATE TABLE bookmarked_notes (
+          id $idType,
+          noteId $uniqueTextType,
+          title $textType,
+          content $nullableTextType, 
+          subjectId $textType,
+          
+          -- Naye fields (PublicNote model se match karne ke liye)
+          subSubjectId $textType,
+          subSubjectName $textType,
+          timestamp $textType
+        )
+      ''');
+    }
+    // ⬆️============================================⬆️
   }
 
   // --- "My Notes" Functions ---
@@ -332,33 +348,46 @@ class DatabaseHelper {
     }).toList();
   }
 
-  // --- Bookmarked Public Notes Functions ---
+  // --- Bookmarked Public Notes Functions (v7) ---
+  // ⬇️===== FUNCTION UPDATED (v7) =====⬇️
   Future<void> bookmarkNote(PublicNote note) async {
     final db = await instance.database;
     final row = {
       'noteId': note.id,
       'title': note.title,
-      'content': note.content,
+      // 'content': note.content, // <-- Content ab optional hai, aur humein use save nahi karna
       'subjectId': note.subjectId,
+      'subSubjectId': note.subSubjectId,
+      'subSubjectName': note.subSubjectName,
+      'timestamp': note.timestamp.toDate().toIso8601String(), // Timestamp ko string mein save karo
     };
     await db.insert('bookmarked_notes', row, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
+  
   Future<void> unbookmarkNote(String noteId) async {
     final db = await instance.database;
     await db.delete('bookmarked_notes', where: 'noteId = ?', whereArgs: [noteId]);
   }
+  
   Future<List<PublicNote>> getAllBookmarkedNotes() async {
     final db = await instance.database;
     final maps = await db.query('bookmarked_notes');
+    
     return maps.map((json) {
+      // DB se data vaapas PublicNote model mein badlo
       return PublicNote(
         id: json['noteId'] as String,
         title: json['title'] as String,
-        content: json['content'] as String,
         subjectId: json['subjectId'] as String,
+        subSubjectId: json['subSubjectId'] as String,
+        subSubjectName: json['subSubjectName'] as String,
+        timestamp: Timestamp.fromDate(DateTime.parse(json['timestamp'] as String)),
+        content: json['content'] as String?, // Content nullable hai
       );
     }).toList();
   }
+  // ⬆️==================================⬆️
+
 
   // --- Bookmarked Schedules Functions ---
   Future<void> bookmarkSchedule(Schedule schedule) async {
@@ -433,38 +462,28 @@ class DatabaseHelper {
     return await db.delete('timetable_entries', where: 'id = ?', whereArgs: [id]);
   }
 
-  // ⬇️===== NAYE USER NOTE EDITS FUNCTIONS (v6) =====⬇️
-
-  // User ka edit (highlights/content) save ya update karna
+  // --- User Note Edits Functions (v6) ---
   Future<int> saveUserEdit(UserNoteEdit edit) async {
     final db = await instance.database;
-    // conflictAlgorithm.replace ka matlab hai:
-    // Agar 'firebaseNoteId' pehle se hai, to puraani entry ko is nayi entry se badal do (update).
-    // Agar nahi hai, to nayi entry daal do (insert).
-    // Yeh "upsert" (update + insert) kehlata hai.
     return await db.insert(
       'user_note_edits',
       edit.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
-
-  // Firebase Note ID se user ka save kiya hua data vaapas laana
   Future<UserNoteEdit?> getUserEdit(String firebaseNoteId) async {
     final db = await instance.database;
     final maps = await db.query(
       'user_note_edits',
       where: 'firebaseNoteId = ?',
       whereArgs: [firebaseNoteId],
-      limit: 1, // Sirf ek hi hona chahiye
+      limit: 1,
     );
-
     if (maps.isNotEmpty) {
       return UserNoteEdit.fromMap(maps.first);
     }
-    return null; // Agar user ne is note par kuchh save nahi kiya hai
+    return null;
   }
-  // ⬆️=============================================⬆️
 
   Future close() async {
     final db = await instance.database;
