@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:exambeing/navigation/app_router.dart';
-import 'package:exambeing/firebase_options.dart'; // ✅ सही import
+import 'package:exambeing/firebase_options.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import 'package:provider/provider.dart';
-import 'package:exambeing/services/theme_provider.dart'; // Hamari ThemeProvider file
-
+import 'package:exambeing/services/theme_provider.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:exambeing/services/ad_service_provider.dart'; // Hamari Ad Service file
-import 'package:exambeing/services/notification_service.dart'; // Hamari Notification Service file
+import 'package:exambeing/services/ad_service_provider.dart';
+import 'package:exambeing/services/notification_service.dart';
+
+// ⬇️===== NAYA IMPORT (Permission Ke Liye) =====⬇️
+import 'package:permission_handler/permission_handler.dart';
+// ⬆️==========================================⬆️
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,8 +26,18 @@ Future<void> main() async {
 
   // Notification service ko initialize (shuru) karo
   await NotificationService().initialize();
-  // User se notification ki permission maango (Android 13+)
+
+  // ⬇️===== YEH HAIN ASLI FIX (Dono Permissions) =====⬇️
+  
+  // 1. Notification Dikhane Ki Permission (Android 13+)
   await NotificationService().requestNotificationPermissions();
+
+  // 2. Sahi Time Par Bhejne Ki Permission (Android 12+)
+  if (await Permission.scheduleExactAlarm.isDenied) {
+    await Permission.scheduleExactAlarm.request();
+  }
+  // ⬆️=================================================⬆️
+
 
   runApp(
     MultiProvider(
@@ -42,9 +54,7 @@ class ExambeingApp extends StatelessWidget {
   const ExambeingApp({super.key});
 
   @override
-  // ⬇️===== YEH HAI FIX (Typo Hata Diya) =====⬇️
   Widget build(BuildContext context) {
-  // ⬆️========================================⬆️
     final baseTextTheme = Theme.of(context).textTheme;
 
     // --- Light Theme ---
@@ -154,3 +164,5 @@ class ExambeingApp extends StatelessWidget {
     );
   }
 }
+
+
