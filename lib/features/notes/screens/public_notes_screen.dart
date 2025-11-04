@@ -1,40 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-// --- Dummy Data Models (Firebase ke liye placeholder) ---
-// (Image URL hata diya gaya hai)
-class DummyNote {
-  final String id;
-  final String title;
-  final String content;
-  final String subSubjectName; // e.g., 'Rajasthan Itihas'
+// ⬇️===== NAYE IMPORTS (Firebase Aur Models) =====⬇️
+import 'package:exambeing/models/note_subject_model.dart';
+import 'package:exambeing/models/note_sub_subject_model.dart';
+import 'package:exambeing/models/public_note_model.dart';
+// ⬆️============================================⬆️
 
-  DummyNote({
-    required this.id,
-    required this.title,
-    required this.content,
-    required this.subSubjectName,
-  });
-}
-
-class DummySubSubject {
-  final String id;
-  final String name;
-  DummySubSubject({required this.id, required this.name});
-}
-
-class DummyMainSubject {
-  final String id;
-  final String name;
-  final List<DummySubSubject> subSubjects;
-
-  DummyMainSubject({
-    required this.id,
-    required this.name,
-    required this.subSubjects,
-  });
-}
-// --- End of Dummy Data Models ---
+// ❌ (Saara Dummy Data Models hata diya gaya hai)
 
 class PublicNotesScreen extends StatefulWidget {
   const PublicNotesScreen({super.key});
@@ -45,157 +19,129 @@ class PublicNotesScreen extends StatefulWidget {
 
 class _PublicNotesScreenState extends State<PublicNotesScreen>
     with TickerProviderStateMixin {
-  late TabController _mainTabController;
-  late TabController _subTabController;
+  
+  // Tab controllers ab `StreamBuilder` ke andar banenge
+  TabController? _mainTabController;
+  TabController? _subTabController;
 
-  // --- Dummy Data (Ise hum baad mein Firebase se replace karenge) ---
-  final List<DummyMainSubject> _mainSubjects = [
-    DummyMainSubject(
-      id: 'sub1',
-      name: 'इतिहास (Itihas)',
-      subSubjects: [
-        DummySubSubject(id: 'sub1_1', name: 'Rajasthan Itihas'),
-        DummySubSubject(id: 'sub1_2', name: 'Bharatiya Itihas'),
-        DummySubSubject(id: 'sub1_3', name: 'Visv Itihas'),
-      ],
-    ),
-    DummyMainSubject(
-      id: 'sub2',
-      name: 'भूगोल (Bhugol)',
-      subSubjects: [
-        DummySubSubject(id: 'sub2_1', name: 'Bharat Bhugol'),
-        DummySubSubject(id: 'sub2_2', name: 'Visv Bhugol'),
-      ],
-    ),
-    DummyMainSubject(
-      id: 'sub3',
-      name: 'Politics',
-      subSubjects: [
-        DummySubSubject(id: 'sub3_1', name: 'Indian Constitution'),
-        DummySubSubject(id: 'sub3_2', name: 'Political Theory'),
-      ],
-    ),
-  ];
+  // Firebase services
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  final List<DummyNote> _latestNotes = [
-    DummyNote(
-      id: 'n1',
-      title: 'Latest Note: Maharana Pratap Ki Kahani',
-      content: 'Yeh poora content hai...',
-      subSubjectName: 'Rajasthan Itihas',
-    ),
-    DummyNote(
-      id: 'n2',
-      title: 'Latest Note: Ashok Samrat',
-      content: 'Yeh poora content hai...',
-      subSubjectName: 'Bharatiya Itihas',
-    ),
-    DummyNote(
-      id: 'n3',
-      title: 'Latest Note: Nadiyan',
-      content: 'Yeh poora content hai...',
-      subSubjectName: 'Bharat Bhugol',
-    ),
-  ];
-
-  // Dummy function to get notes for a sub-subject
-  List<DummyNote> _getNotesForSubSubject(String subSubjectId) {
-    if (subSubjectId == 'sub1_1') {
-      return [
-        DummyNote(id: 'n4', title: 'Rajasthan Note 1: Jaipur', content: '...', subSubjectName: 'Rajasthan Itihas'),
-        DummyNote(id: 'n5', title: 'Rajasthan Note 2: Jodhpur', content: '...', subSubjectName: 'Rajasthan Itihas'),
-      ];
-    }
-    if (subSubjectId == 'sub1_2') {
-       return [
-        DummyNote(id: 'n6', title: 'Bharat Note 1: Gupta Samrajya', content: '...', subSubjectName: 'Bharatiya Itihas'),
-      ];
-    }
-    return []; // Baaki ke liye khaali list
-  }
-  // --- End of Dummy Data ---
+  // Streams (Taaki data live update ho)
+  late Stream<QuerySnapshot> _mainSubjectsStream;
+  late Stream<QuerySnapshot> _latestNotesStream;
+  
+  // Sub-subjects aur notes ke liye selected ID
+  String? _selectedMainSubjectId;
 
   @override
   void initState() {
     super.initState();
-    _mainTabController =
-        TabController(length: _mainSubjects.length, vsync: this);
-    _subTabController = TabController(
-        length: _mainSubjects[0].subSubjects.length, vsync: this);
-    _mainTabController.addListener(_handleMainTabSelection);
+    // Data streams ko initialize karo
+    _mainSubjectsStream = _firestore.collection('noteSubjects').orderBy('name').snapshots();
+    _latestNotesStream = _firestore
+        .collection('publicNotes')
+        .orderBy('timestamp', descending: true)
+        .limit(10) // "Latest Notes" ke liye 10 ka limit
+        .snapshots();
   }
 
-  void _handleMainTabSelection() {
-    if (_mainTabController.indexIsChanging) {
-      setState(() {
-        _subTabController.dispose();
-        _subTabController = TabController(
-          length: _mainSubjects[_mainTabController.index].subSubjects.length,
-          vsync: this,
-        );
-      });
-    }
+  void _updateSubTabController(int length) {
+    _subTabController?.dispose();
+    _subTabController = TabController(length: length, vsync: this);
   }
 
   @override
   void dispose() {
-    _mainTabController.removeListener(_handleMainTabSelection);
-    _mainTabController.dispose();
-    _subTabController.dispose();
+    _mainTabController?.dispose();
+    _subTabController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentSubSubjects =
-        _mainSubjects[_mainTabController.index].subSubjects;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Exambeing Notes'),
-        bottom: TabBar(
-          controller: _mainTabController,
-          isScrollable: true,
-          tabs: _mainSubjects.map((subject) => Tab(text: subject.name)).toList(),
+        // ⬇️ Main Tab Bar ab StreamBuilder se banega ⬇️
+        bottom: StreamBuilder<QuerySnapshot>(
+          stream: _mainSubjectsStream,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const PreferredSize(
+                preferredSize: Size.fromHeight(kToolbarHeight),
+                child: Center(child: LinearProgressIndicator()),
+              );
+            }
+            if (snapshot.data!.docs.isEmpty) {
+              return const PreferredSize(
+                preferredSize: Size.fromHeight(kToolbarHeight),
+                child: Center(child: Text('No subjects found')),
+              );
+            }
+
+            final mainSubjects = snapshot.data!.docs
+                .map((doc) => NoteSubject.fromFirestore(doc))
+                .toList();
+
+            // Pehli baar main subject select karo
+            if (_selectedMainSubjectId == null && mainSubjects.isNotEmpty) {
+              _selectedMainSubjectId = mainSubjects[0].id;
+            }
+
+            // Main Tab Controller
+            if (_mainTabController == null || _mainTabController!.length != mainSubjects.length) {
+              _mainTabController?.dispose();
+              _mainTabController = TabController(length: mainSubjects.length, vsync: this);
+              _mainTabController!.addListener(() {
+                if (_mainTabController!.indexIsChanging) {
+                  setState(() {
+                    _selectedMainSubjectId = mainSubjects[_mainTabController!.index].id;
+                  });
+                }
+              });
+            }
+
+            return TabBar(
+              controller: _mainTabController,
+              isScrollable: true,
+              tabs: mainSubjects.map((subject) => Tab(text: subject.name)).toList(),
+            );
+          },
         ),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. "Latest Notes" Horizontal List
+          // 1. "Latest Notes" Horizontal List (Firebase se)
           _buildLatestNotesList(context),
           
-          // 2. Sub-Subject Tab Bar
-          Container(
-            color: Theme.of(context).appBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surface,
-            child: TabBar(
-              controller: _subTabController,
-              isScrollable: true,
-              labelColor: Theme.of(context).colorScheme.primary,
-              unselectedLabelColor: Theme.of(context).textTheme.bodySmall?.color,
-              tabs: currentSubSubjects
-                  .map((sub) => Tab(text: sub.name))
-                  .toList(),
-            ),
-          ),
+          // 2. Sub-Subject Tab Bar (Firebase se)
+          _buildSubTabBar(context),
+          
           const Divider(height: 1),
 
-          // 3. Notes List (TabBarView)
+          // 3. Notes List (TabBarView) (Firebase se)
           Expanded(
-            child: TabBarView(
-              controller: _subTabController,
-              children: currentSubSubjects.map((subSubject) {
-                final notes = _getNotesForSubSubject(subSubject.id);
-                return _buildNotesListView(notes);
-              }).toList(),
-            ),
+            child: _subTabController == null
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    controller: _subTabController,
+                    children: (_subTabController?.length ?? 0) == 0
+                        ? [const Center(child: Text("No sub-subjects found."))]
+                        : List.generate(_subTabController!.length, (index) {
+                            // Yeh thoda complex hai, humein subTabController se ID nikaalna hoga
+                            // Abhi ke liye, hum StreamBuilder ke data se ID lenge
+                            return _buildNotesListForSubSubject(index);
+                          }),
+                  ),
           ),
         ],
       ),
     );
   }
 
-  // "Latest Notes" (Top News jaisa)
+  // "Latest Notes" (Firebase se)
   Widget _buildLatestNotesList(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -208,13 +154,29 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 80, // ⬇️ Height kam kar di hai (image nahi hai)
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _latestNotes.length,
-              itemBuilder: (context, index) {
-                final note = _latestNotes[index];
-                return _buildLatestNoteCard(note);
+            height: 80, // Text-only card
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _latestNotesStream,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final notes = snapshot.data!.docs
+                    .map((doc) => PublicNote.fromFirestore(doc))
+                    .toList();
+                
+                if (notes.isEmpty) {
+                  return const Center(child: Text('No latest notes.'));
+                }
+
+                return ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: notes.length,
+                  itemBuilder: (context, index) {
+                    final note = notes[index];
+                    return _buildLatestNoteCard(note);
+                  },
+                );
               },
             ),
           ),
@@ -224,15 +186,16 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
   }
 
   // "Latest Notes" ka card
-  Widget _buildLatestNoteCard(DummyNote note) {
+  Widget _buildLatestNoteCard(PublicNote note) {
     return Card(
       clipBehavior: Clip.antiAlias,
       margin: const EdgeInsets.only(right: 12),
       child: InkWell(
+        // ⬇️===== Naya Route (Note Detail Ke Liye) =====⬇️
         onTap: () => context.push('/note-detail', extra: note),
+        // ⬆️==========================================⬆️
         child: SizedBox(
-          width: 220, // Card ki chaudai
-          // ⬇️ Column ki jagah simple Padding (image nahi hai)
+          width: 220,
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(
@@ -240,14 +203,14 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  note.subSubjectName,
+                  note.subSubjectName, // Yeh Firebase se aa raha hai
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.primary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  note.title,
+                  note.title, // Yeh Firebase se aa raha hai
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -255,49 +218,144 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
               ],
             ),
           ),
-          // ⬆️=============================================
         ),
       ),
     );
   }
 
-
-  // Vertical list (screenshot jaisi)
-  Widget _buildNotesListView(List<DummyNote> notes) {
-    if (notes.isEmpty) {
-      return const Center(child: Text('No notes found in this sub-subject.'));
+  // "Sub-Subject" Tab Bar (Firebase se)
+  Widget _buildSubTabBar(BuildContext context) {
+    if (_selectedMainSubjectId == null) {
+      return Container(height: 50); // Agar main subject select nahi hua
     }
+
+    return StreamBuilder<QuerySnapshot>(
+      // `noteSubSubjects` collection se data laao
+      // jahaan `mainSubjectId` match ho
+      stream: _firestore
+          .collection('noteSubSubjects')
+          .where('mainSubjectId', isEqualTo: _selectedMainSubjectId)
+          .orderBy('name')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox(height: 50, child: Center(child: LinearProgressIndicator()));
+        }
+        
+        final subSubjects = snapshot.data!.docs
+            .map((doc) => NoteSubSubject.fromFirestore(doc))
+            .toList();
+            
+        // Sub-tab controller ko update karo
+        if (_subTabController == null || _subTabController!.length != subSubjects.length) {
+           _updateSubTabController(subSubjects.length);
+        }
+
+        if (subSubjects.isEmpty) {
+          return const SizedBox(height: 50, child: Center(child: Text('No sub-subjects found.')));
+        }
+
+        return Container(
+          color: Theme.of(context).appBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surface,
+          child: TabBar(
+            controller: _subTabController,
+            isScrollable: true,
+            labelColor: Theme.of(context).colorScheme.primary,
+            unselectedLabelColor: Theme.of(context).textTheme.bodySmall?.color,
+            tabs: subSubjects.map((sub) => Tab(text: sub.name)).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+
+  // Vertical list (TabBarView ke andar)
+  Widget _buildNotesListForSubSubject(int subTabIndex) {
+    // Is function ko thoda update karna padega taaki yeh ID le sake
+    // Abhi ke liye hum StreamBuilder ke andar hi query karenge
     
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: notes.length,
-      itemBuilder: (context, index) {
-        final note = notes[index];
-        return _buildNoteItemCard(note);
+    // Pehle, humein Sub Tab Controller se SubSubject ID nikaalna hoga
+    // Yeh thoda complex logic hai, humein sub-subjects ko state mein save karna hoga
+    
+    // AASAAN TAREKA: Hum `_buildSubTabBar` ke `StreamBuilder` se data le sakte hain
+    
+    if (_selectedMainSubjectId == null) {
+      return const Center(child: Text("Select a main subject."));
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      // 1. Pehle Sub-Subjects laao (taaki humein ID mil sake)
+      stream: _firestore
+          .collection('noteSubSubjects')
+          .where('mainSubjectId', isEqualTo: _selectedMainSubjectId)
+          .orderBy('name')
+          .snapshots(),
+      builder: (context, subSubjectSnapshot) {
+        if (!subSubjectSnapshot.hasData) return const Center(child: CircularProgressIndicator());
+        
+        final subSubjects = subSubjectSnapshot.data!.docs
+            .map((doc) => NoteSubSubject.fromFirestore(doc))
+            .toList();
+
+        if (subTabIndex >= subSubjects.length) {
+          return const Center(child: Text("Loading..."));
+        }
+        
+        // 2. Ab us Sub-Subject ki ID se notes laao
+        final selectedSubSubjectId = subSubjects[subTabIndex].id;
+        
+        return StreamBuilder<QuerySnapshot>(
+          stream: _firestore
+              .collection('publicNotes')
+              .where('subSubjectId', isEqualTo: selectedSubSubjectId)
+              .orderBy('timestamp', descending: true)
+              .snapshots(),
+          builder: (context, noteSnapshot) {
+            if (!noteSnapshot.hasData) return const Center(child: CircularProgressIndicator());
+            
+            final notes = noteSnapshot.data!.docs
+                .map((doc) => PublicNote.fromFirestore(doc))
+                .toList();
+
+            if (notes.isEmpty) {
+              return const Center(child: Text('No notes found in this sub-subject.'));
+            }
+            
+            return ListView.builder(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: notes.length,
+              itemBuilder: (context, index) {
+                final note = notes[index];
+                return _buildNoteItemCard(note);
+              },
+            );
+          },
+        );
       },
     );
   }
 
   // Vertical list ka card
-  Widget _buildNoteItemCard(DummyNote note) {
+  Widget _buildNoteItemCard(PublicNote note) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
+        // ⬇️===== Naya Route (Note Detail Ke Liye) =====⬇️
         onTap: () => context.push('/note-detail', extra: note),
-        // ⬇️ Row ki jagah simple ListTile (image nahi hai)
+        // ⬆️==========================================⬆️
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           title: Text(
-            note.title,
+            note.title, // Firebase se
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           subtitle: Text(
-            note.subSubjectName,
+            note.subSubjectName, // Firebase se
             style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Theme.of(context).colorScheme.primary),
           ),
           trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
         ),
-        // ⬆️=============================================
       ),
     );
   }
