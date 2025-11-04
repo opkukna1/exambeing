@@ -1,4 +1,4 @@
-import 'dart.typed_data';
+import 'dart:typed_data'; // ✅ FIX 1: 'dart.typed_data' ko 'dart:typed_data' kar diya
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -22,11 +22,7 @@ class SolutionsScreen extends StatefulWidget {
 }
 
 class _SolutionsScreenState extends State<SolutionsScreen> {
-  // ⬇️===== YEH HAI FIX (Default value) =====⬇️
-  // Taaki agar DB fail ho to bhi yeh set khaali rahe
-  Set<String> _bookmarkedQuestionTexts = {};
-  // ⬆️========================================⬆️
-  
+  Set<String> _bookmarkedQuestionTexts = {}; // Default khaali set
   bool _isLoading = true;
   late List<ScreenshotController> _screenshotControllers;
 
@@ -37,18 +33,15 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
     _loadBookmarkStatus();
   }
 
-  // ⬇️===== YEH HAI ASLI FIX (try...catch...finally) =====⬇️
+  // try...catch...finally block taaki DB error par app atke nahi
   Future<void> _loadBookmarkStatus() async {
     try {
-      // 1. Database se data laane ki koshish karo
       final bookmarkedQuestions = await DatabaseHelper.instance.getAllBookmarkedQuestions();
       _bookmarkedQuestionTexts = bookmarkedQuestions.map((q) => q.questionText).toSet();
     } catch (e) {
-      // 2. Agar database error de (jaise 'no such table')
       debugPrint("Error loading bookmarks, but showing solutions anyway: $e");
       _bookmarkedQuestionTexts = {}; // Bookmark list ko khaali set kar do
     } finally {
-      // 3. YEH SABSE ZAROORI HAI:
       // Chahe data load ho ya error aaye, loading ko 'false' kar do
       if (mounted) {
         setState(() {
@@ -57,11 +50,8 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
       }
     }
   }
-  // ⬆️==================================================⬆️
-
 
   void _toggleBookmark(Question question) async {
-    // ... (Yeh function pehle jaisa hi hai) ...
     final isBookmarked = _bookmarkedQuestionTexts.contains(question.questionText);
     String message = '';
 
@@ -76,7 +66,6 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
         message = 'Question Bookmarked!';
       }
     } on Exception catch (e) {
-      // Agar DB error de (jaise 'no such table'), to user ko batao
       message = 'Bookmark failed: ${e.toString().replaceAll('Exception: ', '')}';
     }
 
@@ -93,8 +82,7 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
 
 
   void _shareQuestionAsImage(BuildContext context, ScreenshotController controller, String questionText) async {
-    // ... (Yeh function pehle jaisa hi hai) ...
-    final Uint8List? image = await controller.capture(
+    final Uint8List? image = await controller.capture( // ✅ Ab 'Uint8List' mil jaayega
         pixelRatio: 2.0,
         delay: const Duration(milliseconds: 10),
     );
@@ -124,11 +112,9 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
       appBar: AppBar(
         title: const Text('Detailed Solutions'),
       ),
-      // ⬇️===== YEH HAI FIX (Ab _isLoading 'false' ho jaayega) =====⬇️
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView.separated(
-      // ⬆️=========================================================⬆️
               padding: const EdgeInsets.all(16.0),
               itemCount: widget.questions.length,
               separatorBuilder: (context, index) => const SizedBox(height: 16),
@@ -137,7 +123,6 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
                 final userAnswer = widget.userAnswers[index];
                 final correctAnswer = question.options[question.correctAnswerIndex];
                 final isCorrect = userAnswer == correctAnswer;
-                // Agar DB fail hua hai, to 'isBookmarked' hamesha false hoga
                 final bool isBookmarked = _bookmarkedQuestionTexts.contains(question.questionText);
                 final controller = _screenshotControllers[index];
 
@@ -182,7 +167,8 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
                                       ),
                                       IconButton(
                                         icon: Icon(Icons.share_outlined, color: textTheme.bodyMedium?.color?.withOpacity(0.6)),
-                                        onPressed: () => _shareQuestionAsImage(context, controller, question.text),
+                                        // ✅ FIX 2: 'question.text' ko 'question.questionText' kar diya
+                                        onPressed: () => _shareQuestionAsImage(context, controller, question.questionText),
                                         tooltip: 'Share as Image',
                                       ),
                                     ],
