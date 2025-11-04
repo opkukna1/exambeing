@@ -1,4 +1,4 @@
-import 'dart;
+import 'dart:async'; // ✅ YEH HAI ASLI FIX
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -19,7 +19,7 @@ import 'package:exambeing/features/bookmarks/screens/bookmarks_home_screen.dart'
 import 'package:exambeing/features/practice/screens/solutions_screen.dart';
 import 'package:exambeing/features/notes/screens/my_notes_screen.dart';
 import 'package:exambeing/features/notes/screens/add_edit_note_screen.dart';
-import 'package:exambeing/features/notes/screens/public_notes_screen.dart';
+import 'package:exambeing/features/notes/screens/public_notes_screen.dart'; // Note Detail ke DummyNote model ke liye zaroori
 import 'package:exambeing/features/schedule/screens/schedules_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_question_detail_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_screen.dart';
@@ -28,7 +28,6 @@ import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/helpers/database_helper.dart';
 import 'package:exambeing/features/profile/screens/settings_screen.dart';
-
 import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
 import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
 import 'package:exambeing/features/tools/screens/timetable_screen.dart';
@@ -69,7 +68,7 @@ final GoRouter router = GoRouter(
   initialLocation: '/',
 
   routes: [
-    // ... (aapke /login-hub, /otp routes) ...
+    // 🔐 Auth Routes
     GoRoute(
       path: '/login-hub',
       builder: (context, state) => const LoginHubScreen(),
@@ -98,7 +97,7 @@ final GoRouter router = GoRouter(
       ],
     ),
 
-    // ... (aapke Practice routes - /subjects, /topics, etc.) ...
+    // 🧠 Practice Routes
     GoRoute(
       path: '/subjects',
       builder: (context, state) {
@@ -190,7 +189,7 @@ final GoRouter router = GoRouter(
       },
     ),
 
-    // ... (aapke Notes, Schedules, Bookmarks routes) ...
+    // 📒 Notes
     GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
     GoRoute(
       path: '/add-edit-note',
@@ -214,7 +213,10 @@ final GoRouter router = GoRouter(
     ),
     // ⬆️==========================================⬆️
 
+    // 📅 Schedules
     GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
+
+    // 📘 Bookmarks
     GoRoute(
       path: '/bookmark-question-detail',
       builder: (context, state) {
@@ -258,8 +260,8 @@ final GoRouter router = GoRouter(
 
   ], // <-- routes ki list yahaan band hoti hai
 
+  /// 🧠 Redirect Logic (fixed)
   redirect: (BuildContext context, GoRouterState state) {
-    // ... (aapka redirect logic) ...
     if (Firebase.apps.isEmpty) return null;
     final user = FirebaseAuth.instance.currentUser;
     final loggingIn = state.matchedLocation == '/login-hub' || state.matchedLocation == '/otp';
@@ -280,7 +282,7 @@ class GoRouterRefreshStream extends ChangeNotifier {
     _subscription =
         stream.asBroadcastStream().listen((dynamic _) => notifyListeners());
   }
-  late final StreamSubscription<dynamic> _subscription;
+  late final StreamSubscription<dynamic> _subscription; // ✅ Ab yeh error nahi dega
 
   @override
   void dispose() {
