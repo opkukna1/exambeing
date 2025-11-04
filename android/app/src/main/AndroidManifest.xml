@@ -1,27 +1,20 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"> <!-- 1. YEH ADD KIYA -->
     
     <uses-permission android:name="android.permission.INTERNET"/>
-
-    <!-- ⬇️===== NAYI PERMISSIONS (Notification Ke Liye) =====⬇️ -->
-    
-    <!-- (Android 13+ zaroori) Notification dikhane ke liye -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    
-    <!-- (Android 12+) Sahi time par alarm (schedule) bajane ke liye -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-    
-    <!-- Phone restart hone par notifications ko dobara schedule karne ke liye -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    
-    <!-- Vibration ke liye -->
     <uses-permission android:name="android.permission.VIBRATE"/>
     
-    <!-- ⬆️==================================================⬆️ -->
-
     <application
         android:label="exambeing"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon">
+        android:icon="@mipmap/launcher_icon"
+        
+        android:allowBackup="false"          
+        tools:replace="android:allowBackup"> 
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -46,14 +39,13 @@
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3940256099942544~3347511713"/>
             
-        <!-- ⬇️===== NAYA RECEIVER (Phone Restart Ke Liye) =====⬇️ -->
+        <!-- Notification Receiver -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
             </intent-filter>
         </receiver>
-        <!-- ⬆️================================================⬆️ -->
 
         <!-- Flutter Embedding -->
         <meta-data
