@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package.cloud_firestore/cloud_firestore.dart';
 
-// Yeh model list mein (PublicNotesScreen) dikhane ke liye hai
-// Ismein sirf title/details hain, poora content nahi hai
+// Yeh model list (PublicNotesScreen) aur Bookmarks, dono ke liye hai
 class PublicNote {
   final String id; // Document ID
   final String title;
@@ -9,6 +8,10 @@ class PublicNote {
   final String subSubjectId; // e.g., "raj_itihas_01"
   final String subSubjectName; // e.g., "Rajasthan Itihas"
   final Timestamp timestamp; // "Latest Notes" ke liye zaroori
+  
+  // ⬇️===== YEH HAI ASLI FIX (Content ko waapas add kiya) =====⬇️
+  final String? content; // Content ab optional (nullable) hai
+  // ⬆️=======================================================⬆️
 
   PublicNote({
     required this.id,
@@ -17,6 +20,7 @@ class PublicNote {
     required this.subSubjectId,
     required this.subSubjectName,
     required this.timestamp,
+    this.content, // Constructor mein optional banaya
   });
 
   factory PublicNote.fromFirestore(DocumentSnapshot doc) {
@@ -26,8 +30,12 @@ class PublicNote {
       title: data['title'] ?? '',
       subjectId: data['subjectId'] ?? '',
       subSubjectId: data['subSubjectId'] ?? '',
-      subSubjectName: data['subSubjectName'] ?? '', // Hum yeh save karenge taaki UI fast ho
+      subSubjectName: data['subSubjectName'] ?? '',
       timestamp: data['timestamp'] ?? Timestamp.now(),
+      // ⬇️===== YEH HAI ASLI FIX (Content ko read karo) =====⬇️
+      // Agar 'content' field hai to use padho, agar nahi hai to null rakho
+      content: data['content'] as String?, 
+      // ⬆️=================================================⬆️
     );
   }
 }
