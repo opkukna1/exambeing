@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package.flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -25,7 +25,9 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Schedules',
           subtitle: 'View daily schedules and updates',
           color: Colors.teal,
-          onTap: () => context.push('/schedules'),
+          // ⬇️===== YEH HAI ASLI FIX (push -> go) =====⬇️
+          onTap: () => context.go('/schedules'),
+          // ⬆️========================================⬆️
         ),
         const SizedBox(height: 16),
         _buildActionCard(
@@ -34,7 +36,9 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Notes',
           subtitle: 'Read subject-wise short notes',
           color: Colors.orange,
-          onTap: () => context.push('/public-notes'),
+          // ⬇️===== YEH HAI ASLI FIX (push -> go) =====⬇️
+          onTap: () => context.go('/public-notes'),
+          // ⬆️========================================⬆️
         ),
       ],
     );
@@ -84,6 +88,15 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
+    // ⬇️ Dark Mode ke liye icon ka color theek kiya ⬇️
+    Color iconColor = Theme.of(context).brightness == Brightness.dark 
+                     ? color.shade300 
+                     : color;
+    Color iconBgColor = Theme.of(context).brightness == Brightness.dark
+                     ? color.shade900.withOpacity(0.5)
+                     : color.withOpacity(0.2);
+    // ⬆️=========================================⬆️
+
     return Card(
       child: InkWell(
         onTap: onTap,
@@ -94,8 +107,8 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               CircleAvatar(
                   radius: 28,
-                  backgroundColor: color.withOpacity(0.2),
-                  child: Icon(icon, color: color, size: 32)),
+                  backgroundColor: iconBgColor, // Updated
+                  child: Icon(icon, color: iconColor, size: 32)), // Updated
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -107,7 +120,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.black45, size: 20),
+              // ⬇️ Dark Mode ke liye arrow color theek kiya ⬇️
+              Icon(Icons.arrow_forward_ios_rounded, color: Theme.of(context).textTheme.bodySmall?.color, size: 20),
+              // ⬆️=======================================⬆️
             ],
           ),
         ),
