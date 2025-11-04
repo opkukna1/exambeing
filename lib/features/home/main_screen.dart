@@ -65,11 +65,9 @@ class _MainScreenState extends State<MainScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Image.asset('assets/logo.png', height: 40),
-          // ⬇️ Theme ke hisaab se AppBar color theek karein (Optional) ⬇️
           backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
           elevation: Theme.of(context).appBarTheme.elevation,
-          iconTheme: Theme.of(context).iconTheme, // Drawer icon ka color theek karega
-          // ⬆️=======================================================⬆️
+          iconTheme: Theme.of(context).iconTheme,
         ),
         drawer: const AppDrawer(), // Drawer yahaan call ho raha hai
         body: widget.child,
@@ -129,7 +127,6 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           
-          // ⬇️===== YEH HAI NAYA "STUDY TOOLS" SECTION =====⬇️
           const Divider(),
           Padding(
             padding: const EdgeInsets.only(left: 16.0, top: 16.0, bottom: 8.0),
@@ -146,7 +143,7 @@ class AppDrawer extends StatelessWidget {
             title: const Text('Pomodoro Timer'),
             onTap: () {
               Navigator.pop(context);
-              context.push('/pomodoro'); // Naya route
+              context.push('/pomodoro');
             },
           ),
           ListTile(
@@ -154,10 +151,20 @@ class AppDrawer extends StatelessWidget {
             title: const Text('To-Do List'),
             onTap: () {
               Navigator.pop(context);
-              context.push('/todo-list'); // Naya route
+              context.push('/todo-list');
             },
           ),
-          // ⬆️=============================================⬆️
+          
+          // ⬇️===== YEH HAI NAYA "TIMETABLE" LINK =====⬇️
+          ListTile(
+            leading: const Icon(Icons.calendar_month_outlined),
+            title: const Text('My Timetable'),
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/timetable'); // Naya route
+            },
+          ),
+          // ⬆️========================================⬆️
           
           const Divider(),
           if (user != null)
