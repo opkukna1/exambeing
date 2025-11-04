@@ -165,12 +165,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
                             if (formKey.currentState!.validate()) {
                               formKey.currentState!.save();
                               
-                              // 1. Ek unique Notification ID banao
-                              // (Din + Ghanta + Minute ko mila kar ek unique number banega)
-                              // Jaise Monday (1), 9 baje (09), 30 min (30) -> 10930
                               final notificationId = int.parse('$selectedDay${startTime!.hour.toString().padLeft(2, '0')}${startTime!.minute.toString().padLeft(2, '0')}');
 
-                              // 2. Database object banao
                               final newEntry = TimetableEntry(
                                 subjectName: subjectName,
                                 startTime: startTime!,
@@ -179,10 +175,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
                                 notificationId: notificationId,
                               );
 
-                              // 3. Database mein save karo
                               await dbHelper.createTimetableEntry(newEntry);
 
-                              // 4. Notification schedule karo
                               await notificationService.scheduleWeeklyNotification(
                                 id: notificationId,
                                 title: 'Time for ${newEntry.subjectName}!',
@@ -191,8 +185,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
                                 time: newEntry.startTime,
                               );
 
-                              if (mounted) Navigator.pop(ctx); // Bottom sheet band karo
-                              _loadEntries(); // List refresh karo
+                              if (mounted) Navigator.pop(ctx);
+                              _loadEntries();
                             }
                           },
                         ),
@@ -241,7 +235,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
           final entries = snapshot.data!;
           
-          // Data ko Din ke hisaab se group karo (Map<int, List<Entry>>)
           final Map<int, List<TimetableEntry>> groupedEntries = {};
           for (var entry in entries) {
             if (groupedEntries[entry.dayOfWeek] == null) {
@@ -250,7 +243,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
             groupedEntries[entry.dayOfWeek]!.add(entry);
           }
           
-          // Din (keys) ko sort karo (1 se 7)
           final sortedDays = groupedEntries.keys.toList()..sort();
 
           return ListView.builder(
@@ -266,19 +258,19 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Din ka naam (Header)
                       Text(
-                        _dayOfWeekToString(day), // 'Monday', 'Tuesday'
+                        _dayOfWeekToString(day),
                         style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                       const Divider(),
-                      // Us din ki saari entries
                       ...dayEntries.map((entry) {
                         return ListTile(
-                          title: Text(entry.subjectName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w6img)),
+                          // ⬇️===== YEH HAI FIX (Typo Hata Diya) =====⬇️
+                          title: Text(entry.subjectName, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                          // ⬆️========================================⬆️
                           subtitle: Text(
                             '${entry.startTime.format(context)} - ${entry.endTime.format(context)}',
                             style: Theme.of(context).textTheme.bodyMedium,
