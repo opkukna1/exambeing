@@ -5,11 +5,12 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-    // ⬇️ YEH HAI ASLI FIX (Blank Screen ke liye)
     id("com.google.gms.google-services")
 }
 
-val keyPropertiesFile = rootProject.file("key.properties")
+// key.properties file ko padhne ka code
+// (Yeh 'android/key.properties' ko padhega, jo workflow banata hai)
+val keyPropertiesFile = rootProject.file("key.properties") 
 val keyProperties = Properties()
 if (keyPropertiesFile.exists()) {
     keyProperties.load(keyPropertiesFile.inputStream())
@@ -18,12 +19,13 @@ if (keyPropertiesFile.exists()) {
 android {
     namespace = "com.opkukna.exambeing"
     compileSdk = 36
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "27.0.12077973" // Yeh zaroori hai
 
     signingConfigs {
         create("release") {
             keyAlias = keyProperties["keyAlias"] as String?
             keyPassword = keyProperties["keyPassword"] as String?
+            // (Yeh 'android/app/upload-keystore.jks' ko padhega, jo workflow banata hai)
             storeFile = if (keyProperties["storeFile"] != null) file(keyProperties["storeFile"] as String) else null
             storePassword = keyProperties["storePassword"] as String?
         }
@@ -32,6 +34,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // ⬇️===== NAYI LINE (Notification Ke Liye) =====⬇️
+        isCoreLibraryDesugaringEnabled = true
+        // ⬆️==========================================⬆️
     }
 
     kotlinOptions {
@@ -48,7 +53,6 @@ android {
 
     buildTypes {
         getByName("release") {
-            // ⚙️ SmartAuth crash fix
             isMinifyEnabled = false
             isShrinkResources = false
             signingConfig = signingConfigs.getByName("release")
@@ -59,3 +63,9 @@ android {
 flutter {
     source = "../.."
 }
+
+// ⬇️===== NAYA BLOCK (Notification Ke Liye) =====⬇️
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+}
+// ⬆️===========================================⬆️
