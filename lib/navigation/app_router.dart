@@ -29,10 +29,12 @@ import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/helpers/database_helper.dart';
 import 'package:exambeing/features/profile/screens/settings_screen.dart';
 
-// ⬇️===== NAYE IMPORTS (Tools Ke Liye) =====⬇️
 import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
 import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
-// ⬆️=======================================⬆️
+
+// ⬇️===== NAYA IMPORT (Timetable Ke Liye) =====⬇️
+import 'package:exambeing/features/tools/screens/timetable_screen.dart';
+// ⬆️==========================================⬆️
 
 
 /// 🚨 Safe Error Screen for bad route data
@@ -66,7 +68,7 @@ final GoRouter router = GoRouter(
   initialLocation: '/',
 
   routes: [
-    // 🔐 Auth Routes
+    // ... (aapke /login-hub, /otp routes) ...
     GoRoute(
       path: '/login-hub',
       builder: (context, state) => const LoginHubScreen(),
@@ -95,7 +97,7 @@ final GoRouter router = GoRouter(
       ],
     ),
 
-    // 🧠 Practice Routes
+    // ... (aapke Practice routes - /subjects, /topics, etc.) ...
     GoRoute(
       path: '/subjects',
       builder: (context, state) {
@@ -136,8 +138,6 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-
-    // 🏁 Score & Solutions
     GoRoute(
       path: '/score',
       builder: (context, state) {
@@ -189,7 +189,7 @@ final GoRouter router = GoRouter(
       },
     ),
 
-    // 📒 Notes
+    // ... (aapke Notes, Schedules, Bookmarks routes) ...
     GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
     GoRoute(
       path: '/add-edit-note',
@@ -199,11 +199,7 @@ final GoRouter router = GoRouter(
       },
     ),
     GoRoute(path: '/public-notes', builder: (context, state) => const PublicNotesScreen()),
-
-    // 📅 Schedules
     GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
-
-    // 📘 Bookmarks
     GoRoute(
       path: '/bookmark-question-detail',
       builder: (context, state) {
@@ -231,7 +227,7 @@ final GoRouter router = GoRouter(
       builder: (context, state) => const SettingsScreen(),
     ),
 
-    // ⬇️===== NAYE ROUTES (Tools Ke Liye) =====⬇️
+    // 🛠️ Tools (Pomodoro, To-Do List)
     GoRoute(
       path: '/pomodoro',
       builder: (context, state) => const PomodoroScreen(),
@@ -240,26 +236,27 @@ final GoRouter router = GoRouter(
       path: '/todo-list',
       builder: (context, state) => const TodoListScreen(),
     ),
-    // ⬆️======================================⬆️
+
+    // ⬇️===== NAYA ROUTE (Timetable Ke Liye) =====⬇️
+    GoRoute(
+      path: '/timetable',
+      builder: (context, state) => const TimetableScreen(),
+    ),
+    // ⬆️=======================================⬆️
 
   ], // <-- routes ki list yahaan band hoti hai
 
-  /// 🧠 Redirect Logic (fixed)
   redirect: (BuildContext context, GoRouterState state) {
-    // Firebase initialization check
+    // ... (aapka redirect logic) ...
     if (Firebase.apps.isEmpty) return null;
-
     final user = FirebaseAuth.instance.currentUser;
     final loggingIn = state.matchedLocation == '/login-hub' || state.matchedLocation == '/otp';
-
     if (user == null) {
       return loggingIn ? null : '/login-hub';
     }
-
     if (loggingIn) {
       return '/';
     }
-
     return null;
   },
 );
