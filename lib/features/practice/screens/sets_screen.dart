@@ -3,10 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../../../models/question_model.dart';
 import '../../../services/firebase_data_service.dart';
 
-// ⬇️===== NAYE IMPORTS =====⬇️
 import 'package:provider/provider.dart';
 import '../../../services/ad_service_provider.dart'; // Hamari Ad Service file
-// ⬆️=======================⬆️
 
 class SetsScreen extends StatefulWidget {
   final Map<String, String> topicData;
@@ -38,9 +36,7 @@ class _SetsScreenState extends State<SetsScreen> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Choose Your Mode'),
-          // ⬇️===== YEH HAI FIX (Typo Hata Diya) =====⬇️
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          // ⬆️========================================⬆️
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -50,8 +46,10 @@ class _SetsScreenState extends State<SetsScreen> {
                 subtitle: const Text('Get instant feedback & explanations.'),
                 onTap: () {
                   Navigator.pop(dialogContext);
-                  context.push(
+                  // ⬇️===== YEH HAI ASLI FIX (push -> go) =====⬇️
+                  context.go(
                     '/practice-mcq',
+                  // ⬆️========================================⬆️
                     extra: {
                       'questions': questionSet,
                       'topicName': topicName,
@@ -67,8 +65,10 @@ class _SetsScreenState extends State<SetsScreen> {
                 subtitle: const Text('Simulate a real exam with a timer.'),
                 onTap: () {
                   Navigator.pop(dialogContext);
-                  context.push(
+                  // ⬇️===== YEH HAI ASLI FIX (push -> go) =====⬇️
+                  context.go(
                     '/practice-mcq',
+                  // ⬆️========================================⬆️
                     extra: {
                       'questions': questionSet,
                       'topicName': topicName,
