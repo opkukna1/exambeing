@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/material.dart'; // ⬇️ Naya import (TimeOfDay ke liye)
+import 'package:flutter/material.dart'; // TimeOfDay ke liye
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -14,9 +14,15 @@ class MyNote {
   final int? id;
   final String content;
   final String createdAt;
+
   MyNote({this.id, required this.content, required this.createdAt});
+
   Map<String, dynamic> toMap() {
-    return {'id': id, 'content': content, 'createdAt': createdAt};
+    return {
+      'id': id,
+      'content': content,
+      'createdAt': createdAt,
+    };
   }
 }
 
@@ -26,6 +32,7 @@ class Task {
   final String title;
   final bool isDone;
   final DateTime date;
+
   Task({this.id, required this.title, this.isDone = false, required this.date});
 
   Map<String, dynamic> toMap() {
@@ -47,14 +54,14 @@ class Task {
   }
 }
 
-// ⬇️===== NAYI TIMETABLE CLASS =====⬇️
+// --- Timetable Model ---
 class TimetableEntry {
   final int? id;
   final String subjectName;
   final TimeOfDay startTime;
   final TimeOfDay endTime;
-  final int dayOfWeek; // 1=Monday, 7=Sunday (DateTime.monday, etc.)
-  final int notificationId; // Notification ko cancel karne ke liye zaroori
+  final int dayOfWeek; // 1=Monday, 7=Sunday
+  final int notificationId;
 
   TimetableEntry({
     this.id,
@@ -65,29 +72,25 @@ class TimetableEntry {
     required this.notificationId,
   });
 
-  // Helper function: TimeOfDay ko 'HH:mm' string mein badalna
   String _formatTime(TimeOfDay time) =>
       '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
-  // Helper function: 'HH:mm' string ko TimeOfDay mein badalna
   static TimeOfDay _parseTime(String timeString) {
     final parts = timeString.split(':');
     return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
 
-  // Database mein save karne ke liye map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'subjectName': subjectName,
-      'startTime': _formatTime(startTime), // '09:00'
-      'endTime': _formatTime(endTime), // '10:00'
-      'dayOfWeek': dayOfWeek, // 1
-      'notificationId': notificationId, // 12345
+      'startTime': _formatTime(startTime),
+      'endTime': _formatTime(endTime),
+      'dayOfWeek': dayOfWeek,
+      'notificationId': notificationId,
     };
   }
 
-  // Database se vaapas laane ke liye map
   static TimetableEntry fromMap(Map<String, dynamic> map) {
     return TimetableEntry(
       id: map['id'] as int,
@@ -99,7 +102,6 @@ class TimetableEntry {
     );
   }
 }
-// ⬆️==============================⬆️
 
 // --- Database Helper Class ---
 class DatabaseHelper {
@@ -124,7 +126,7 @@ class DatabaseHelper {
   Future _createDB(Database db, int version) async {
     await _upgradeDB(db, 0, version);
   }
-  
+
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
     const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
     const textType = 'TEXT NOT NULL';
@@ -132,7 +134,6 @@ class DatabaseHelper {
     const integerType = 'INTEGER NOT NULL';
 
     if (oldVersion < 1) {
-      // ... (my_notes table code)
       await db.execute('''
         CREATE TABLE my_notes ( 
           id $idType, 
@@ -142,7 +143,6 @@ class DatabaseHelper {
       ''');
     }
     if (oldVersion < 2) {
-      // ... (bookmarked_questions, bookmarked_notes tables code)
       await db.execute('''
         CREATE TABLE bookmarked_questions (
           id $idType, questionText $uniqueTextType, options $textType,
@@ -157,8 +157,7 @@ class DatabaseHelper {
       ''');
     }
     if (oldVersion < 3) {
-      // ... (bookmarked_schedules table code)
-       await db.execute('''
+      await db.execute('''
         CREATE TABLE bookmarked_schedules (
           id $idType, scheduleId $uniqueTextType, title $textType,
           content $textType, subjectId $textType
@@ -166,7 +165,6 @@ class DatabaseHelper {
       ''');
     }
     if (oldVersion < 4) {
-      // ... (tasks table code)
       await db.execute('''
         CREATE TABLE tasks (
           id $idType, title $textType, isDone $integerType, date $textType
@@ -190,39 +188,218 @@ class DatabaseHelper {
   }
 
   // --- "My Notes" Functions ---
-  Future<MyNote> create(MyNote note) async { /* ... */ }
-  Future<List<MyNote>> readAllNotes() async { /* ... */ }
-  Future<int> update(MyNote note) async { /* ... */ }
-  Future<int> delete(int id) async { /* ... */ }
-  // (Yahaan aapke note functions hain)
-  
+  Future<MyNote> create(MyNote note) async {
+    final db = await instance.database;
+    final id = await db.insert('my_notes', note.toMap());
+    return MyNote(id: id, content: note.content, createdAt: note.createdAt);
+  }
+
+  Future<List<MyNote>> readAllNotes() async {
+    final db = await instance.database;
+    final orderBy = 'createdAt DESC';
+    final result = await db.query('my_notes', orderBy: orderBy);
+
+    return result.map((json) => MyNote(
+      id: json['id'] as int,
+      content: json['content'] as String,
+      createdAt: json['createdAt'] as String,
+    )).toList();
+  }
+
+  Future<int> update(MyNote note) async {
+    final db = await instance.database;
+    return db.update(
+      'my_notes',
+      note.toMap(),
+      where: 'id = ?',
+      whereArgs: [note.id],
+    );
+  }
+
+  Future<int> delete(int id) async {
+    final db = await instance.database;
+    return await db.delete(
+      'my_notes',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   // --- Bookmarked Questions Functions ---
-  Future<void> bookmarkQuestion(Question question) async { /* ... */ }
-  Future<void> unbookmarkQuestion(String questionText) async { /* ... */ }
-  Future<bool> isQuestionBookmarked(String questionText) async { /* ... */ }
-  Future<List<McqBookmark>> getAllMcqBookmarks() async { /* ... */ }
-  Future<List<Question>> getAllBookmarkedQuestions() async { /* ... */ }
-  // (Yahaan aapke question bookmark functions hain)
+  Future<void> bookmarkQuestion(Question question) async {
+    final db = await instance.database;
+    
+    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM bookmarked_questions'));
+    if (count != null && count >= 100) {
+      throw Exception('You can only save a maximum of 100 questions.');
+    }
+    
+    final Map<String, dynamic> row = {
+      'questionText': question.questionText,
+      'options': jsonEncode(question.options),
+      'correctAnswerIndex': question.correctAnswerIndex,
+      'explanation': question.explanation,
+      'topicId': question.topicId,
+    };
+    await db.insert('bookmarked_questions', row, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  Future<void> unbookmarkQuestion(String questionText) async {
+    final db = await instance.database;
+    await db.delete('bookmarked_questions', where: 'questionText = ?', whereArgs: [questionText]);
+  }
+
+  Future<bool> isQuestionBookmarked(String questionText) async {
+    final db = await instance.database;
+    final maps = await db.query('bookmarked_questions', where: 'questionText = ?', whereArgs: [questionText]);
+    return maps.isNotEmpty;
+  }
+  
+  Future<List<McqBookmark>> getAllMcqBookmarks() async {
+    final db = await instance.database;
+    final maps = await db.query('bookmarked_questions');
+
+    return maps.map((json) {
+      final options = List<String>.from(jsonDecode(json['options'] as String));
+      final correctIndex = json['correctAnswerIndex'] as int;
+      final correctOption = options[correctIndex];
+
+      return McqBookmark(
+        id: json['id'] as int,
+        questionText: json['questionText'] as String,
+        options: options,
+        correctOption: correctOption,
+        explanation: json['explanation'] as String,
+        topic: json['topicId'] as String,
+        subject: 'Placeholder Subject',
+      );
+    }).toList();
+  }
+
+  Future<List<Question>> getAllBookmarkedQuestions() async {
+    final db = await instance.database;
+    final maps = await db.query('bookmarked_questions');
+    
+    return maps.map((json) {
+      return Question(
+        id: json['id'].toString(),
+        questionText: json['questionText'] as String,
+        options: List<String>.from(jsonDecode(json['options'] as String)),
+        correctAnswerIndex: json['correctAnswerIndex'] as int,
+        explanation: json['explanation'] as String,
+        topicId: json['topicId'] as String,
+      );
+    }).toList();
+  }
 
   // --- Bookmarked Public Notes Functions ---
-  Future<void> bookmarkNote(PublicNote note) async { /* ... */ }
-  Future<void> unbookmarkNote(String noteId) async { /* ... */ }
-  Future<List<PublicNote>> getAllBookmarkedNotes() async { /* ... */ }
-  // (Yahaan aapke note bookmark functions hain)
+  Future<void> bookmarkNote(PublicNote note) async {
+    final db = await instance.database;
+    final row = {
+      'noteId': note.id,
+      'title': note.title,
+      'content': note.content,
+      'subjectId': note.subjectId,
+    };
+    await db.insert('bookmarked_notes', row, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+  
+  Future<void> unbookmarkNote(String noteId) async {
+    final db = await instance.database;
+    await db.delete('bookmarked_notes', where: 'noteId = ?', whereArgs: [noteId]);
+  }
+  
+  Future<List<PublicNote>> getAllBookmarkedNotes() async {
+    final db = await instance.database;
+    final maps = await db.query('bookmarked_notes');
+    
+    return maps.map((json) {
+      return PublicNote(
+        id: json['noteId'] as String,
+        title: json['title'] as String,
+        content: json['content'] as String,
+        subjectId: json['subjectId'] as String,
+      );
+    }).toList();
+  }
 
   // --- Bookmarked Schedules Functions ---
-  Future<void> bookmarkSchedule(Schedule schedule) async { /* ... */ }
-  Future<void> unbookmarkSchedule(String scheduleId) async { /* ... */ }
-  Future<List<Schedule>> getAllBookmarkedSchedules() async { /* ... */ }
-  // (Yahaan aapke schedule bookmark functions hain)
+  Future<void> bookmarkSchedule(Schedule schedule) async {
+    final db = await instance.database;
+    final row = {
+      'scheduleId': schedule.id,
+      'title': schedule.title,
+      'content': schedule.content,
+      'subjectId': schedule.subjectId,
+    };
+    await db.insert('bookmarked_schedules', row, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+  
+  Future<void> unbookmarkSchedule(String scheduleId) async {
+    final db = await instance.database;
+    await db.delete('bookmarked_schedules', where: 'scheduleId = ?', whereArgs: [scheduleId]);
+  }
+  
+  Future<List<Schedule>> getAllBookmarkedSchedules() async {
+    final db = await instance.database;
+    final maps = await db.query('bookmarked_schedules');
+    
+    return maps.map((json) {
+      return Schedule(
+        id: json['scheduleId'] as String,
+        title: json['title'] as String,
+        content: json['content'] as String,
+        subjectId: json['subjectId'] as String,
+        timestamp: Timestamp.now(),
+      );
+    }).toList();
+  }
 
   // --- Task (To-Do) Functions ---
-  Future<Task> createTask(Task task) async { /* ... */ }
-  Future<List<Task>> getTasksByDate(DateTime date) async { /* ... */ }
-  Future<int> updateTaskStatus(int id, bool isDone) async { /* ... */ }
-  Future<int> deleteTask(int id) async { /* ... */ }
-  // (Yahaan aapke task functions hain)
+  Future<Task> createTask(Task task) async {
+    final db = await instance.database;
+    final id = await db.insert('tasks', task.toMap());
+    return Task(
+      id: id,
+      title: task.title,
+      isDone: task.isDone,
+      date: task.date,
+    );
+  }
 
+  Future<List<Task>> getTasksByDate(DateTime date) async {
+    final db = await instance.database;
+    final String dateString = DateFormat('yyyy-MM-dd').format(date);
+    
+    final result = await db.query(
+      'tasks',
+      where: 'date = ?',
+      whereArgs: [dateString],
+      orderBy: 'id DESC',
+    );
+
+    return result.map((json) => Task.fromMap(json)).toList();
+  }
+
+  Future<int> updateTaskStatus(int id, bool isDone) async {
+    final db = await instance.database;
+    return db.update(
+      'tasks',
+      {'isDone': isDone ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteTask(int id) async {
+    final db = await instance.database;
+    return await db.delete(
+      'tasks',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+  
   // ⬇️===== NAYE TIMETABLE (SCHEDULER) FUNCTIONS =====⬇️
 
   // Nayi timetable entry banana
@@ -242,7 +419,6 @@ class DatabaseHelper {
   // Saari timetable entries padhna (Din ke hisaab se sort karke)
   Future<List<TimetableEntry>> getAllTimetableEntries() async {
     final db = await instance.database;
-    // Pehle Din (1=Monday) se, phir Start Time se sort karo
     final result = await db.query('timetable_entries', orderBy: 'dayOfWeek ASC, startTime ASC');
     return result.map((json) => TimetableEntry.fromMap(json)).toList();
   }
