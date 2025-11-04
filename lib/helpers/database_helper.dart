@@ -5,14 +5,12 @@ import 'package:path/path.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:exambeing/models/mcq_bookmark_model.dart';
 import 'package:exambeing/models/question_model.dart';
-import 'package:exambeing/models/public_note_model.dart'; // List ke liye
+import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/models/schedule_model.dart';
 import 'package:intl/intl.dart';
 
-// ⬇️===== NAYE IMPORTS (Bookmark aur Content Models) =====⬇️
 import 'package:exambeing/models/bookmarked_note_model.dart';
 import 'package:exambeing/models/note_content_model.dart';
-// ⬆️==================================================⬆️
 
 
 // --- Note Model ---
@@ -173,11 +171,12 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    // ⬇️===== VERSION 7 se 8 KIYA GAYA =====⬇️
-    return await openDatabase(path, version: 8, onCreate: _createDB, onUpgrade: _upgradeDB);
+    // ⬇️===== VERSION 8 se 9 KIYA GAYA =====⬇️
+    return await openDatabase(path, version: 9, onCreate: _createDB, onUpgrade: _upgradeDB);
   }
 
   Future _createDB(Database db, int version) async {
+    // Naya database hamesha poora schema banayega
     await _upgradeDB(db, 0, version);
   }
 
@@ -189,37 +188,74 @@ class DatabaseHelper {
     const nullableTextType = 'TEXT';
 
     if (oldVersion < 1) {
-      // ... (my_notes)
+      await db.execute('''
+        CREATE TABLE my_notes ( 
+          id $idType, 
+          content $textType,
+          createdAt $textType
+        )
+      ''');
     }
     if (oldVersion < 2) {
-      // ... (bookmarked_questions, bookmarked_notes v1)
+      await db.execute('''
+        CREATE TABLE bookmarked_questions (
+          id $idType, questionText $uniqueTextType, options $textType,
+          correctAnswerIndex $integerType, explanation $textType, topicId $textType
+        )
+      ''');
+      // v2 mein 'bookmarked_notes' table bhi tha
+       await db.execute('''
+        CREATE TABLE bookmarked_notes (
+          id $idType, noteId $uniqueTextType, title $textType,
+          content $textType, subjectId $textType
+        )
+      ''');
     }
     if (oldVersion < 3) {
-       // ... (bookmarked_schedules)
+       await db.execute('''
+        CREATE TABLE bookmarked_schedules (
+          id $idType, scheduleId $uniqueTextType, title $textType,
+          content $textType, subjectId $textType
+        )
+      ''');
     }
     if (oldVersion < 4) {
-      // ... (tasks)
+      await db.execute('''
+        CREATE TABLE tasks (
+          id $idType, title $textType, isDone $integerType, date $textType
+        )
+      ''');
     }
     if (oldVersion < 5) {
-      // ... (timetable_entries)
+      await db.execute('''
+        CREATE TABLE timetable_entries (
+          id $idType,
+          subjectName $textType,
+          startTime $textType,
+          endTime $textType,
+          dayOfWeek $integerType,
+          notificationId $integerType UNIQUE
+        )
+      ''');
     }
     if (oldVersion < 6) {
-      // ... (user_note_edits)
+      await db.execute('''
+        CREATE TABLE user_note_edits (
+          id $idType,
+          firebaseNoteId $uniqueTextType,
+          userContent $nullableTextType,
+          userHighlightsJson $nullableTextType
+        )
+      ''');
     }
-    if (oldVersion < 7) {
-      // ... (bookmarked_notes v2 - content nullable)
-    }
-
-    // ⬇️===== BOOKMARKED NOTES TABLE UPDATE (v8) - Content ko NOT NULL kiya =====⬇️
-    // Hum naye model (BookmarkedNote) ke liye table ko dobara define kar rahe hain
-    if (oldVersion < 8) {
+    if (oldVersion < 8) { // v7 aur v8 dono ko handle karne ke liye
       await db.execute('DROP TABLE IF EXISTS bookmarked_notes');
       await db.execute('''
         CREATE TABLE bookmarked_notes (
           id $idType,
           noteId $uniqueTextType,
           title $textType,
-          content $textType, -- ✅ Content ab NOT NULL hai
+          content $textType, -- v8 mein NOT NULL tha
           subjectId $textType,
           subSubjectId $textType,
           subSubjectName $textType,
@@ -227,7 +263,23 @@ class DatabaseHelper {
         )
       ''');
     }
-    // ⬆️==================================================================⬆️
+    
+    // ⬇️===== NAYA VERSION (v9) =====⬇️
+    // Yeh block sirf migration ko force karne ke liye hai
+    // Asli table creation (v6) upar hai
+    if (oldVersion < 9) {
+       // Check karo ki 'user_note_edits' table maujood hai ya nahi
+       // Agar nahi hai (puraane backup ki vajah se), to use banao
+       await db.execute('''
+        CREATE TABLE IF NOT EXISTS user_note_edits (
+          id $idType,
+          firebaseNoteId $uniqueTextType,
+          userContent $nullableTextType,
+          userHighlightsJson $nullableTextType
+        )
+      ''');
+    }
+    // ⬆️=============================⬆️
   }
 
   // --- "My Notes" Functions ---
@@ -314,35 +366,28 @@ class DatabaseHelper {
   }
 
   // --- Bookmarked Public Notes Functions (v8) ---
-  // ⬇️===== FUNCTION UPDATED (v8) - Poora content save karne ke liye =====⬇️
   Future<void> bookmarkNote(PublicNote note, NoteContent noteContent) async {
     final db = await instance.database;
     final row = {
       'noteId': note.id,
       'title': note.title,
-      'content': noteContent.content, // ✅ Poora content save kiya
+      'content': noteContent.content,
       'subjectId': note.subjectId,
       'subSubjectId': note.subSubjectId,
       'subSubjectName': note.subSubjectName,
-      'timestamp': note.timestamp.toDate().toIso8601String(),
+      'timestamp': note.timestamp.toDate().toIso801String(),
     };
     await db.insert('bookmarked_notes', row, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
-  
   Future<void> unbookmarkNote(String noteId) async {
     final db = await instance.database;
     await db.delete('bookmarked_notes', where: 'noteId = ?', whereArgs: [noteId]);
   }
-  
-  // ⬇️===== FUNCTION UPDATED (v8) - Naya BookmarkedNote model return karega =====⬇️
   Future<List<BookmarkedNote>> getAllBookmarkedNotes() async {
     final db = await instance.database;
     final maps = await db.query('bookmarked_notes');
-    
-    // DB se data vaapas naye BookmarkedNote model mein badlo
     return maps.map((json) => BookmarkedNote.fromDbMap(json)).toList();
   }
-  // ⬆️===================================================================⬆️
 
 
   // --- Bookmarked Schedules Functions ---
