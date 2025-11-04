@@ -171,12 +171,11 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    // ⬇️===== VERSION 8 se 9 KIYA GAYA =====⬇️
+    // (Version 9)
     return await openDatabase(path, version: 9, onCreate: _createDB, onUpgrade: _upgradeDB);
   }
 
   Future _createDB(Database db, int version) async {
-    // Naya database hamesha poora schema banayega
     await _upgradeDB(db, 0, version);
   }
 
@@ -203,7 +202,6 @@ class DatabaseHelper {
           correctAnswerIndex $integerType, explanation $textType, topicId $textType
         )
       ''');
-      // v2 mein 'bookmarked_notes' table bhi tha
        await db.execute('''
         CREATE TABLE bookmarked_notes (
           id $idType, noteId $uniqueTextType, title $textType,
@@ -255,7 +253,7 @@ class DatabaseHelper {
           id $idType,
           noteId $uniqueTextType,
           title $textType,
-          content $textType, -- v8 mein NOT NULL tha
+          content $textType,
           subjectId $textType,
           subSubjectId $textType,
           subSubjectName $textType,
@@ -264,12 +262,7 @@ class DatabaseHelper {
       ''');
     }
     
-    // ⬇️===== NAYA VERSION (v9) =====⬇️
-    // Yeh block sirf migration ko force karne ke liye hai
-    // Asli table creation (v6) upar hai
     if (oldVersion < 9) {
-       // Check karo ki 'user_note_edits' table maujood hai ya nahi
-       // Agar nahi hai (puraane backup ki vajah se), to use banao
        await db.execute('''
         CREATE TABLE IF NOT EXISTS user_note_edits (
           id $idType,
@@ -279,7 +272,6 @@ class DatabaseHelper {
         )
       ''');
     }
-    // ⬆️=============================⬆️
   }
 
   // --- "My Notes" Functions ---
@@ -375,7 +367,9 @@ class DatabaseHelper {
       'subjectId': note.subjectId,
       'subSubjectId': note.subSubjectId,
       'subSubjectName': note.subSubjectName,
-      'timestamp': note.timestamp.toDate().toIso801String(),
+      // ⬇️===== YEH HAI FIX (Typo Hata Diya) =====⬇️
+      'timestamp': note.timestamp.toDate().toIso8601String(),
+      // ⬆️========================================⬆️
     };
     await db.insert('bookmarked_notes', row, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
@@ -388,7 +382,6 @@ class DatabaseHelper {
     final maps = await db.query('bookmarked_notes');
     return maps.map((json) => BookmarkedNote.fromDbMap(json)).toList();
   }
-
 
   // --- Bookmarked Schedules Functions ---
   Future<void> bookmarkSchedule(Schedule schedule) async {
