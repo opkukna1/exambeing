@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:exambeing/helpers/database_helper.dart';    // ✅ FIX: Using package import
-import 'package:exambeing/models/question_model.dart';     // ✅ FIX: Using package import
-import 'package:exambeing/models/public_note_model.dart';  // ✅ FIX: Using package import
+import 'package:exambeing/helpers/database_helper.dart';
+import 'package:exambeing/models/question_model.dart';
+// ⬇️===== NAYE IMPORTS (Bookmark Model Ke Liye) =====⬇️
+import 'package:exambeing/models/bookmarked_note_model.dart'; 
+// ⬆️================================================⬆️
+// ❌ (PublicNote model hata diya gaya hai)
 
 class BookmarksHomeScreen extends StatelessWidget {
   const BookmarksHomeScreen({super.key});
@@ -24,7 +27,7 @@ class BookmarksHomeScreen extends StatelessWidget {
         body: const TabBarView(
           children: [
             _McqBookmarksView(),
-            _NoteBookmarksView(),
+            _NoteBookmarksView(), // ✅ Ab yeh naya code istemal karega
           ],
         ),
       ),
@@ -32,6 +35,7 @@ class BookmarksHomeScreen extends StatelessWidget {
   }
 }
 
+// --- MCQ Bookmarks View (Yeh pehle se sahi tha) ---
 class _McqBookmarksView extends StatefulWidget {
   const _McqBookmarksView();
   @override
@@ -77,13 +81,9 @@ class _McqBookmarksViewState extends State<_McqBookmarksView> {
                 trailing: IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () async {
-                    // ✅ FIX: Capture context-dependent objects before await
                     final scaffoldMessenger = ScaffoldMessenger.of(context);
-                    
                     await DatabaseHelper.instance.unbookmarkQuestion(question.questionText);
                     _loadBookmarks();
-
-                    // Use the captured object after await
                     scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Bookmark removed')));
                   },
                 ),
@@ -99,6 +99,7 @@ class _McqBookmarksViewState extends State<_McqBookmarksView> {
   }
 }
 
+// --- Note Bookmarks View (Ise update kiya gaya hai) ---
 class _NoteBookmarksView extends StatefulWidget {
   const _NoteBookmarksView();
   @override
@@ -106,7 +107,9 @@ class _NoteBookmarksView extends StatefulWidget {
 }
 
 class __NoteBookmarksViewState extends State<_NoteBookmarksView> {
-  late Future<List<PublicNote>> _bookmarkedNotesFuture;
+  // ⬇️===== YEH HAI FIX (PublicNote -> BookmarkedNote) =====⬇️
+  late Future<List<BookmarkedNote>> _bookmarkedNotesFuture;
+  // ⬆️====================================================⬆️
 
   @override
   void initState() {
@@ -116,13 +119,16 @@ class __NoteBookmarksViewState extends State<_NoteBookmarksView> {
 
   void _loadBookmarks() {
     setState(() {
+      // ⬇️===== YEH HAI FIX (PublicNote -> BookmarkedNote) =====⬇️
       _bookmarkedNotesFuture = DatabaseHelper.instance.getAllBookmarkedNotes();
+      // ⬆️====================================================⬆️
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<PublicNote>>(
+    // ⬇️===== YEH HAI FIX (PublicNote -> BookmarkedNote) =====⬇️
+    return FutureBuilder<List<BookmarkedNote>>(
       future: _bookmarkedNotesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -136,26 +142,26 @@ class __NoteBookmarksViewState extends State<_NoteBookmarksView> {
           padding: const EdgeInsets.all(8.0),
           itemCount: notes.length,
           itemBuilder: (context, index) {
-            final note = notes[index];
+            final note = notes[index]; // ✅ Yeh ab 'BookmarkedNote' hai
             return Card(
               child: ListTile(
                 title: Text(note.title),
+                // ⬇️===== YEH HAI FIX (note.content ab 'String' hai, 'String?' nahi) =====⬇️
                 subtitle: Text(note.content, maxLines: 2, overflow: TextOverflow.ellipsis),
+                // ⬆️=====================================================================⬆️
                 trailing: IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () async {
-                    // ✅ FIX: Capture context-dependent objects before await
                     final scaffoldMessenger = ScaffoldMessenger.of(context);
-
-                    await DatabaseHelper.instance.unbookmarkNote(note.id);
+                    await DatabaseHelper.instance.unbookmarkNote(note.id); // ✅ ID (String) se delete
                     _loadBookmarks();
-
-                    // Use the captured object after await
                     scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Bookmark removed')));
                   },
                 ),
                 onTap: () {
+                  // ⬇️===== YEH HAI FIX (Ab hum 'BookmarkedNote' bhej rahe hain) =====⬇️
                   context.push('/bookmark-note-detail', extra: note);
+                  // ⬆️=============================================================⬆️
                 },
               ),
             );
