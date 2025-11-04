@@ -24,25 +24,15 @@ class NoteDetailScreen extends StatelessWidget {
                 note.title,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               
-              // 2. Image
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12.0),
-                child: Image.network(
-                  note.imageUrl,
-                  width: double.infinity,
-                  height: 200, // Detail page par badi image
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => 
-                    Container(
-                      height: 200, 
-                      color: Colors.grey[200], 
-                      child: const Center(child: Text('Image not available')),
-                    ),
-                ),
-              ),
-              const SizedBox(height: 24),
+              // ⬇️===== Image Hata Diya Gaya Hai =====⬇️
+              // ClipRRect(...)
+              // ⬆️===================================⬆️
+              
+              // ⬇️===== Image ki jagah Divider add kiya hai =====⬇️
+              const Divider(height: 24),
+              // ⬆️============================================⬆️
 
               // 3. Content
               Text(
