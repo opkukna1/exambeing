@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../../models/public_note_model.dart';
+// ⬇️===== YEH HAI FIX (PublicNote -> BookmarkedNote) =====⬇️
+import '../../../models/bookmarked_note_model.dart'; 
+// ⬆️====================================================⬆️
 
 class BookmarkedNoteDetailScreen extends StatelessWidget {
-  final PublicNote note;
+  // ⬇️===== YEH HAI FIX (PublicNote -> BookmarkedNote) =====⬇️
+  final BookmarkedNote note;
   const BookmarkedNoteDetailScreen({super.key, required this.note});
+  // ⬆️====================================================⬆️
 
   @override
   Widget build(BuildContext context) {
@@ -14,6 +18,7 @@ class BookmarkedNoteDetailScreen extends StatelessWidget {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Text(
+          // ✅ Ab yeh error nahi dega, kyonki BookmarkedNote.content 'String' hai
           note.content,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 18, height: 1.5),
         ),
