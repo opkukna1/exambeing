@@ -1,11 +1,13 @@
-import 'package:flutter/material.dart'; // ✅ Import Fix
+import 'package:flutter/material.dart';
 import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/models/note_content_model.dart';
 import 'package:exambeing/helpers/database_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:flutter_quill/flutter_quill.dart' as quill; // Naya Quill
-import 'dart:convert';
+// ⬇️===== NAYE IMPORTS (Rich Text Editor v11) =====⬇️
+import 'package:flutter_quill/flutter_quill.dart';
+import 'dart:convert'; // JSON encoding/decoding ke liye
+// ⬆️=============================================⬆️
 
 class NoteDetailScreen extends StatefulWidget {
   final PublicNote note; 
@@ -17,7 +19,7 @@ class NoteDetailScreen extends StatefulWidget {
 }
 
 class _NoteDetailScreenState extends State<NoteDetailScreen> {
-  quill.QuillController? _quillController;
+  QuillController? _quillController; // Naya Quill Controller
   bool _isLoading = true;
   final dbHelper = DatabaseHelper.instance;
 
@@ -42,8 +44,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       if (userEdit != null && userEdit.quillContentJson != null) {
         // --- RAASTA 1: User ne pehle se edit save kiya hai ---
         final savedJson = jsonDecode(userEdit.quillContentJson!);
-        final document = quill.Document.fromJson(savedJson);
-        _quillController = quill.QuillController(
+        final document = Document.fromJson(savedJson); // Naya tareeka
+        _quillController = QuillController(
           document: document,
           selection: const TextSelection.collapsed(offset: 0),
         );
@@ -61,16 +63,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         }
 
         // Firebase ke simple text ko Quill Document mein "Clone" (copy) karo
-        final document = quill.Document()..insert(0, firebaseContent);
-        _quillController = quill.QuillController(
+        final document = Document()..insert(0, firebaseContent); // Naya tareeka
+        _quillController = QuillController(
           document: document,
           selection: const TextSelection.collapsed(offset: 0),
         );
       }
     } catch (e) {
       debugPrint("Error loading note: $e");
-      final document = quill.Document()..insert(0, 'Error loading content: $e');
-      _quillController = quill.QuillController(
+      final document = Document()..insert(0, 'Error loading content: $e');
+      _quillController = QuillController(
           document: document,
           selection: const TextSelection.collapsed(offset: 0),
         );
@@ -124,32 +126,24 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          // ⬇️===== YEH HAI NAYA SAHI CODE (Quill v9+) =====⬇️
+          // ⬇️===== YEH HAI NAYA SAHI CODE (Quill v11) =====⬇️
           : Column(
               children: [
-                // Toolbar (Bold, Italic, Color, Highlight waale buttons)
-                quill.QuillToolbar.simple(
-                  configurations: quill.QuillSimpleToolbarConfigurations(
-                    controller: _quillController!,
-                    sharedConfigurations: const quill.QuillSharedConfigurations(
-                      locale: Locale('en'),
-                    ),
-                  ),
+                // Toolbar (Naya tareeka)
+                QuillToolbar.simple(
+                  controller: _quillController!,
+                  // Naye v11 mein 'configurations' ki jagah seedha controller
                 ),
                 const Divider(height: 1, thickness: 1),
 
-                // Editor (Jahaan user type/edit karega)
+                // Editor (Naya tareeka)
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: quill.QuillEditor.basic(
-                      configurations: quill.QuillBasicEditorConfigurations(
-                        controller: _quillController!,
-                        readOnly: false, // User edit kar sakta hai
-                        sharedConfigurations: const quill.QuillSharedConfigurations(
-                          locale: Locale('en'),
-                        ),
-                      ),
+                    child: QuillEditor.basic(
+                      controller: _quillController!,
+                      readOnly: false, // User edit kar sakta hai
+                      // Naye v11 mein 'configurations' ki jagah seedha controller
                     ),
                   ),
                 ),
