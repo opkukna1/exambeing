@@ -44,7 +44,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       if (userEdit != null && userEdit.quillContentJson != null) {
         // --- RAASTA 1: User ne pehle se edit save kiya hai ---
         final savedJson = jsonDecode(userEdit.quillContentJson!);
-        final document = Document.fromJson(savedJson); // Naya tareeka
+        final document = Document.fromJson(savedJson); // v11 tareeka
         _quillController = QuillController(
           document: document,
           selection: const TextSelection.collapsed(offset: 0),
@@ -63,7 +63,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         }
 
         // Firebase ke simple text ko Quill Document mein "Clone" (copy) karo
-        final document = Document()..insert(0, firebaseContent); // Naya tareeka
+        final document = Document()..insert(0, firebaseContent); // v11 tareeka
         _quillController = QuillController(
           document: document,
           selection: const TextSelection.collapsed(offset: 0),
@@ -130,9 +130,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           : Column(
               children: [
                 // Toolbar (Naya tareeka)
-                QuillToolbar.simple(
-                  controller: _quillController!,
-                  // Naye v11 mein 'configurations' ki jagah seedha controller
+                QuillToolbar.simple( // ✅ 'simple' constructor v11 mein hai
+                  configurations: QuillSimpleToolbarConfigurations( // ✅ v11 configurations
+                    controller: _quillController!,
+                    // Naye v11 mein sharedConfigurations ki zaroorat nahi
+                  ),
                 ),
                 const Divider(height: 1, thickness: 1),
 
@@ -140,10 +142,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: QuillEditor.basic(
-                      controller: _quillController!,
-                      readOnly: false, // User edit kar sakta hai
-                      // Naye v11 mein 'configurations' ki jagah seedha controller
+                    child: QuillEditor.basic( // ✅ 'basic' constructor v11 mein hai
+                      configurations: QuillBasicEditorConfigurations( // ✅ v11 configurations
+                        controller: _quillController!,
+                        readOnly: false, // ✅ 'readOnly' yahaan hai
+                      ),
                     ),
                   ),
                 ),
