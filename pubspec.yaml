@@ -12,38 +12,38 @@ dependencies:
     sdk: flutter
 
   # Core Packages
-  cupertino_icons: ^1.0.8 # Updated
-  go_router: ^14.2.0      # Updated
-  provider: ^6.1.2      # Updated
+  cupertino_icons: ^1.0.2
+  go_router: ^10.0.0
+  provider: ^6.0.5
   path: ^1.9.0
   path_provider: ^2.1.3
-  permission_handler: ^11.3.1 # Updated
+  permission_handler: ^11.0.1
   collection: ^1.18.0
   shared_preferences: ^2.2.3
   url_launcher: ^6.3.0 
 
   # UI & Media Packages
   percent_indicator: ^4.2.3
-  pinput: ^5.0.0 # Updated
-  google_fonts: ^6.2.1      # Updated
+  pinput: ^4.0.0
+  google_fonts: ^5.1.0
   screenshot: ^3.0.0
-  share_plus: ^9.0.0      # Updated
+  share_plus: ^7.2.2
 
   # To-Do List/Calendar
   table_calendar: ^3.1.2
-  intl: ^0.19.0
+  intl: ^0.20.2 # <-- YEH HAI ASLI FIX (0.19.0 se 0.20.2)
   
   # Notifications
   flutter_local_notifications: ^17.2.1
   timezone: ^0.9.4
 
   # Rich Text Editor
-  flutter_quill: ^9.4.1 # <-- UPDATED to latest stable version
+  flutter_quill: ^9.4.1 # <-- Naya version (jo humne daala tha)
 
   # Firebase Packages
-  firebase_core: ^2.31.0      # <-- UPDATED
-  cloud_firestore: ^4.17.3  # <-- UPDATED
-  firebase_auth: ^4.19.5      # <-- UPDATED
+  firebase_core: ^3.4.0
+  cloud_firestore: ^5.4.4
+  firebase_auth: ^5.3.1
   google_sign_in: ^6.2.1
   smart_auth: ^2.0.0
 
@@ -56,7 +56,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0 # Updated
+  flutter_lints: ^3.0.2
   flutter_launcher_icons: ^0.13.1
   change_app_package_name: ^1.1.0
 
@@ -72,4 +72,7 @@ flutter_launcher_icons:
   ios: false
   image_path: "assets/icon/app_icon.png"
 
-# ❌ (Dependency overrides hata diye gaye, kyonki ab zaroorat nahi hai)
+# Namespace errors ko theek karne ke liye
+dependency_overrides:
+  flutter_inappwebview: ^6.0.0
+  flutter_keyboard_visibility: ^6.0.0
