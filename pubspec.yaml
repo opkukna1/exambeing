@@ -31,7 +31,7 @@ dependencies:
 
   # To-Do List/Calendar
   table_calendar: ^3.1.2
-  intl: ^0.20.2 # ✅ Naya version (build log ke hisaab se zaroori)
+  intl: ^0.17.0 # ✅ Naya version (build log ke hisaab se zaroori)
   
   # Notifications
   flutter_local_notifications: ^17.2.1
@@ -39,7 +39,7 @@ dependencies:
 
   # Rich Text Editor
   # ⬇️===== YEH HAI ASLI FIX (Build Log Ke Hisaab Se) =====⬇️
-  flutter_quill: 6.3.5 # Naya version jo intl: ^0.20.2 ko support karta hai
+  flutter_quill: ^6.3.5 # Naya version jo intl: ^0.20.2 ko support karta hai
   # ⬆️==================================================⬆️
 
   # Firebase Packages
