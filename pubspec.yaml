@@ -30,19 +30,14 @@ dependencies:
   share_plus: ^7.2.2
 
   # To-Do List/Calendar
-  table_calendar: ^3.0.8
-  intl: ^0.17.0 # ✅ Naya version (build log ke hisaab se zaroori)
-  
-  # Notifications
-  flutter_local_notifications: ^17.2.1
-  timezone: ^0.9.4
+  table_calendar: ^3.1.2
+  intl: ^0.19.0         
 
-  # Rich Text Editor
-  # ⬇️===== YEH HAI ASLI FIX (Build Log Ke Hisaab Se) =====⬇️
-  flutter_quill: ^6.3.5 # Naya version jo intl: ^0.20.2 ko support karta hai
-  # ⬆️==================================================⬆️
-dependency_overrides:
-  device_info_plus: ^10.1.0
+  # ⬇️===== NAYE PACKAGES (Notification Ke Liye) =====⬇️
+  flutter_local_notifications: ^17.2.1 # Local notifications ke liye
+  timezone: ^0.9.4                     # Time zone setup ke liye (zaroori)
+  # ⬆️=============================================⬆️
+
   # Firebase Packages
   firebase_core: ^3.4.0
   cloud_firestore: ^5.4.4
@@ -74,8 +69,3 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/icon/app_icon.png"
-
-# Namespace errors ko theek karne ke liye (Safety ke liye rakhein)
-dependency_overrides:
-  flutter_inappwebview: ^6.0.0
-  flutter_keyboard_visibility: ^6.0.0
