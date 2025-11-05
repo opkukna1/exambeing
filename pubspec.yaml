@@ -30,7 +30,7 @@ dependencies:
   share_plus: ^7.2.2
 
   # To-Do List/Calendar
-  table_calendar: ^3.1.2
+  table_calendar: ^3.0.8
   intl: ^0.17.0 # ✅ Naya version (build log ke hisaab se zaroori)
   
   # Notifications
