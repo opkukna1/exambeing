@@ -33,12 +33,11 @@ dependencies:
   table_calendar: ^3.1.2
   intl: ^0.19.0         
 
-  # ⬇️===== NAYE PACKAGES (Notification Ke Liye) =====⬇️
-  flutter_local_notifications: ^17.2.1 # Local notifications ke liye
-  timezone: ^0.9.4                     # Time zone setup ke liye (zaroori)
-  # ⬆️=============================================⬆️
+  # Notifications
+  flutter_local_notifications: ^17.2.1
+  timezone: ^0.9.4
 
-  # Firebase Packages
+  # Firebase
   firebase_core: ^3.4.0
   cloud_firestore: ^5.4.4
   firebase_auth: ^5.3.1
@@ -48,11 +47,11 @@ dependencies:
   # Local Database
   sqflite: ^2.3.3
 
-  # AdMob Package
+  # AdMob
   google_mobile_ads: ^5.1.0
 
-  # Highlight Feature (नया जोड़ा गया)
-  text_highlighter: ^2.0.0
+  # Highlight Feature (working)
+  selectable_text_highlight: ^0.3.0
   flutter_colorpicker: ^1.0.3
 
 dev_dependencies:
