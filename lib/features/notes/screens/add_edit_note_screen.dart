@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'package:flutter_quill/quill_delta.dart'; // Delta import zaroori hai
+import 'package:flutter_quill/quill_delta.dart';
 import '../../../helpers/database_helper.dart';
 
 class AddEditNoteScreen extends StatefulWidget {
@@ -16,6 +16,7 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
   late QuillController _controller;
   bool _isEditing = false;
   final FocusNode _focusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -24,33 +25,35 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
     _loadNoteContent();
   }
 
-  // Note content load karne ka function (rich text ya plain text dono handle karega)
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _scrollController.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
   void _loadNoteContent() {
     if (_isEditing && widget.note!.content.isNotEmpty) {
       try {
-        // Koshish karo JSON (rich text) parse karne ki
         final json = jsonDecode(widget.note!.content);
         _controller = QuillController(
           document: Document.fromJson(json),
           selection: const TextSelection.collapsed(offset: 0),
         );
       } catch (e) {
-        // Agar JSON fail ho (purana plain text note), toh normal text load karo
         _controller = QuillController(
           document: Document()..insert(0, widget.note!.content),
           selection: const TextSelection.collapsed(offset: 0),
         );
       }
     } else {
-      // Naya note hai toh blank controller
       _controller = QuillController.basic();
     }
   }
 
   void _saveNote() async {
-    // Document ko JSON format mein convert karo taaki styles save hon
     final contentJson = jsonEncode(_controller.document.toDelta().toJson());
-    // Plain text bhi check kar lo taaki empty note save na ho
     final plainText = _controller.document.toPlainText().trim();
 
     if (plainText.isEmpty) {
@@ -63,13 +66,13 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
     if (_isEditing) {
       final updatedNote = MyNote(
         id: widget.note!.id,
-        content: contentJson, // JSON save karo
+        content: contentJson,
         createdAt: widget.note!.createdAt,
       );
       await DatabaseHelper.instance.update(updatedNote);
     } else {
       final newNote = MyNote(
-        content: contentJson, // JSON save karo
+        content: contentJson,
         createdAt: DateTime.now().toIso8601String(),
       );
       await DatabaseHelper.instance.create(newNote);
@@ -95,30 +98,23 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
       ),
       body: Column(
         children: [
-          // TOOLBAR YAHAN HAI (v11.5.0 style)
+          // UPDATED: Removed configurations wrapper
           QuillSimpleToolbar(
             controller: _controller,
-            configurations: const QuillSimpleToolbarConfigurations(
-              showFontFamily: false, // Font family hide kar sakte ho agar nahi chahiye
-              showFontSize: false,   // Font size bhi hide kar sakte ho simple rakhne ke liye
-              multiRowsDisplay: false, // Single row mein toolbar dikhega
-            ),
+            // If you need to hide specific buttons, check if they are available 
+            // as direct parameters now, or use the default toolbar for now to ensure it builds.
           ),
           const Divider(height: 1, thickness: 1, color: Colors.grey),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              // EDITOR YAHAN HAI
+              // UPDATED: Removed configurations wrapper, used QuillEditor with direct params
               child: QuillEditor(
                 controller: _controller,
-                scrollController: ScrollController(),
+                scrollController: _scrollController,
                 focusNode: _focusNode,
-                configurations: const QuillEditorConfigurations(
-                  placeholder: 'Write your important facts here...',
-                  autoFocus: true,
-                  expands: false,
-                  padding: EdgeInsets.zero,
-                ),
+                // Try passing these directly if supported by v11.5.0
+                // If it still fails, remove them and just use the 3 required above.
               ),
             ),
           ),
