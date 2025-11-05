@@ -13,7 +13,7 @@ import 'package:exambeing/models/bookmarked_note_model.dart';
 import 'package:exambeing/models/note_content_model.dart';
 
 
-// --- (Models: MyNote, Task, TimetableEntry) ---
+// --- (Saare Models: MyNote, Task, TimetableEntry) ---
 // (Yeh code pehle jaisa hi hai)
 class MyNote {
   final int? id;
@@ -75,23 +75,23 @@ class TimetableEntry {
   }
 }
 
-// ⬇️===== YEH HAI FIX (UserNoteEdit Model updated for Quill) =====⬇️
+// --- User Note Edit Model (v11) ---
 class UserNoteEdit {
   final int? id;
-  final String firebaseNoteId; // Firebase ke note ki ID
+  final String firebaseNoteId;
   final String? quillContentJson; // Quill editor ka poora data (JSON String)
 
   UserNoteEdit({
     this.id,
     required this.firebaseNoteId,
-    this.quillContentJson, // 'userContent' aur 'userHighlights' ko isse badal diya
+    this.quillContentJson,
   });
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'firebaseNoteId': firebaseNoteId,
-      'quillContentJson': quillContentJson, // Naya field
+      'quillContentJson': quillContentJson,
     };
   }
 
@@ -99,11 +99,10 @@ class UserNoteEdit {
     return UserNoteEdit(
       id: map['id'] as int?,
       firebaseNoteId: map['firebaseNoteId'] as String,
-      quillContentJson: map['quillContentJson'] as String?, // Naya field
+      quillContentJson: map['quillContentJson'] as String?,
     );
   }
 }
-// ⬆️===========================================================⬆️
 
 
 // --- Database Helper Class ---
@@ -121,7 +120,7 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    // ⬇️===== VERSION 10 se 11 KIYA GAYA =====⬇️
+    // ⬇️===== VERSION 11 KIYA GAYA =====⬇️
     return await openDatabase(path, version: 11, onCreate: _createDB, onUpgrade: _upgradeDB);
   }
 
@@ -136,39 +135,56 @@ class DatabaseHelper {
     const integerType = 'INTEGER NOT NULL';
     const nullableTextType = 'TEXT';
 
-    // (Puraane saare tables 'IF NOT EXISTS' ke saath)
+    // (Har table ko IF NOT EXISTS se banayenge, taaki toote hue DB bhi fix ho jaayein)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS my_notes ( 
-        id $idType, content $textType, createdAt $textType
+        id $idType, 
+        content $textType,
+        createdAt $textType
       )
     ''');
+    
     await db.execute('''
       CREATE TABLE IF NOT EXISTS bookmarked_questions (
         id $idType, questionText $uniqueTextType, options $textType,
         correctAnswerIndex $integerType, explanation $textType, topicId $textType
       )
     ''');
+    
     await db.execute('''
       CREATE TABLE IF NOT EXISTS bookmarked_notes (
-        id $idType, noteId $uniqueTextType, title $textType, content $textType,
-        subjectId $textType, subSubjectId $textType, subSubjectName $textType, timestamp $textType
+        id $idType,
+        noteId $uniqueTextType,
+        title $textType,
+        content $textType,
+        subjectId $textType,
+        subSubjectId $textType,
+        subSubjectName $textType,
+        timestamp $textType
       )
     ''');
+    
     await db.execute('''
       CREATE TABLE IF NOT EXISTS bookmarked_schedules (
         id $idType, scheduleId $uniqueTextType, title $textType,
         content $textType, subjectId $textType
       )
     ''');
+    
     await db.execute('''
       CREATE TABLE IF NOT EXISTS tasks (
         id $idType, title $textType, isDone $integerType, date $textType
       )
     ''');
+    
     await db.execute('''
       CREATE TABLE IF NOT EXISTS timetable_entries (
-        id $idType, subjectName $textType, startTime $textType, endTime $textType,
-        dayOfWeek $integerType, notificationId $integerType UNIQUE
+        id $idType,
+        subjectName $textType,
+        startTime $textType,
+        endTime $textType,
+        dayOfWeek $integerType,
+        notificationId $integerType UNIQUE
       )
     ''');
     
@@ -187,9 +203,6 @@ class DatabaseHelper {
     }
     // ⬆️===========================================================⬆️
   }
-
-  // --- (Baaki saare functions: My Notes, Bookmarks, Tasks, Timetable) ---
-  // (Yeh code pehle jaisa hi hai)
 
   // --- "My Notes" Functions ---
   Future<MyNote> create(MyNote note) async {
