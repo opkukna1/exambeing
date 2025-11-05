@@ -37,9 +37,9 @@ dependencies:
   flutter_local_notifications: ^17.2.1
   timezone: ^0.9.4
 
-  # ⬇️===== NAYE PACKAGES (Rich Text Editor) =====⬇️
-  flutter_quill: ^36.0.0 # Rich Text Editor
-  # ⬆️==========================================⬆️
+  # ⬇️===== YEH HAI FIX (Sahi Version) =====⬇️
+  flutter_quill: ^2.0.7 # Rich Text Editor (Aapke build log ke hisaab se)
+  # ⬆️====================================⬆️
 
   # Firebase Packages
   firebase_core: ^3.4.0
