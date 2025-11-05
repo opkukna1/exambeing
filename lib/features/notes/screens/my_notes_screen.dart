@@ -1,155 +1,125 @@
 import 'package:flutter/material.dart';
-import 'package:exambeing/models/public_note_model.dart';
-import 'package:exambeing/models/note_content_model.dart';
-import 'package:exambeing/helpers/database_helper.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_quill/flutter_quill.dart'; // ❗ अब as quill की जरूरत नहीं
+import 'package:go_router/go_router.dart';
+import '../../../helpers/database_helper.dart';
 
-import 'dart:convert'; // JSON encoding/decoding ke liye
-
-class NoteDetailScreen extends StatefulWidget {
-  final PublicNote note;
-
-  const NoteDetailScreen({super.key, required this.note});
+class MyNotesScreen extends StatefulWidget {
+  const MyNotesScreen({super.key});
 
   @override
-  State<NoteDetailScreen> createState() => _NoteDetailScreenState();
+  State<MyNotesScreen> createState() => _MyNotesScreenState();
 }
 
-class _NoteDetailScreenState extends State<NoteDetailScreen> {
-  QuillController? _quillController;
-  bool _isLoading = true;
-  final dbHelper = DatabaseHelper.instance;
+class _MyNotesScreenState extends State<MyNotesScreen> {
+  late Future<List<MyNote>> _notesFuture;
 
   @override
   void initState() {
     super.initState();
-    _loadAllContent();
+    _refreshNotes();
   }
 
-  @override
-  void dispose() {
-    _quillController?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadAllContent() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final userEdit = await dbHelper.getUserEdit(widget.note.id);
-
-      if (userEdit != null && userEdit.quillContentJson != null) {
-        final savedJson = jsonDecode(userEdit.quillContentJson!);
-        final document = Document.fromJson(savedJson);
-        _quillController = QuillController(
-          document: document,
-          selection: const TextSelection.collapsed(offset: 0),
-        );
-      } else {
-        final contentDoc = await FirebaseFirestore.instance
-            .collection('noteContent')
-            .doc(widget.note.id)
-            .get();
-
-        String firebaseContent = 'Error: Full content not found.';
-        if (contentDoc.exists) {
-          final contentModel = NoteContent.fromFirestore(contentDoc);
-          firebaseContent = contentModel.content;
-        }
-
-        final document = Document()..insert(0, firebaseContent);
-        _quillController = QuillController(
-          document: document,
-          selection: const TextSelection.collapsed(offset: 0),
-        );
-      }
-    } catch (e) {
-      debugPrint("Error loading note: $e");
-      final document = Document()..insert(0, 'Error loading content: $e');
-      _quillController = QuillController(
-        document: document,
-        selection: const TextSelection.collapsed(offset: 0),
-      );
-    }
-
-    setState(() => _isLoading = false);
-  }
-
-  Future<void> _saveLocalNotes() async {
-    if (_quillController == null) return;
-
-    final quillJson = jsonEncode(_quillController!.document.toDelta().toJson());
-
-    final userEdit = UserNoteEdit(
-      firebaseNoteId: widget.note.id,
-      quillContentJson: quillJson,
-    );
-
-    try {
-      await dbHelper.saveUserEdit(userEdit);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Your personal notes saved locally!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        FocusScope.of(context).unfocus();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save notes: $e')),
-        );
-      }
-    }
+  // Function to refresh the notes from the database
+  void _refreshNotes() {
+    setState(() {
+      _notesFuture = DatabaseHelper.instance.readAllNotes();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.note.subSubjectName),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save_outlined),
-            onPressed: _saveLocalNotes,
-            tooltip: 'Save My Notes',
-          ),
-        ],
+        title: const Text('My Notes'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // ✅ नया Toolbar (flutter_quill 11+)
-                QuillSimpleToolbar(
-                  configurations: QuillSimpleToolbarConfigurations(
-                    controller: _quillController!,
-                    showBackgroundColorButton: true,
-                    showColorButton: true,
-                  ),
-                ),
-                const Divider(height: 1, thickness: 1),
+      body: FutureBuilder<List<MyNote>>(
+        future: _notesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(
+              child: Text(
+                'You have no notes yet.\nTap the + button to add one!',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+            );
+          }
 
-                // ✅ नया Editor (autoFocus parameter हटा दो)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: QuillEditor.basic(
-                      configurations: QuillEditorConfigurations(
-                        controller: _quillController!,
-                        readOnly: false,
-                        sharedConfigurations: const QuillSharedConfigurations(
-                          locale: Locale('en'),
-                        ),
-                      ),
-                    ),
+          final notes = snapshot.data!;
+          return PageView.builder(
+            itemCount: notes.length,
+            itemBuilder: (context, index) {
+              final note = notes[index];
+              return _buildNoteCard(note);
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          // Navigate to the Add/Edit screen and refresh when we come back
+          final result = await context.push<bool>('/add-edit-note');
+          if (result == true) {
+            _refreshNotes();
+          }
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildNoteCard(MyNote note) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () async {
+                      final result = await context.push<bool>('/add-edit-note', extra: note);
+                      if (result == true) {
+                        _refreshNotes();
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    onPressed: () async {
+                      await DatabaseHelper.instance.delete(note.id!);
+                      _refreshNotes();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Note deleted')),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Text(
+                    note.content,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 18, height: 1.5),
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Created: ${note.createdAt}',
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
