@@ -13,7 +13,7 @@ import 'package:exambeing/models/bookmarked_note_model.dart';
 import 'package:exambeing/models/note_content_model.dart';
 
 
-// --- (Saare Models: MyNote, Task, TimetableEntry, UserNoteEdit) ---
+// --- (Models: MyNote, Task, TimetableEntry) ---
 // (Yeh code pehle jaisa hi hai)
 class MyNote {
   final int? id;
@@ -74,37 +74,36 @@ class TimetableEntry {
     );
   }
 }
+
+// ⬇️===== YEH HAI FIX (UserNoteEdit Model updated for Quill) =====⬇️
 class UserNoteEdit {
   final int? id;
-  final String firebaseNoteId;
-  final String? userContent;
-  final String? userHighlightsJson;
-  UserNoteEdit({ this.id, required this.firebaseNoteId, this.userContent, this.userHighlightsJson });
-  factory UserNoteEdit.create({ required String firebaseNoteId, String? userContent, List<String>? highlights }) {
-    return UserNoteEdit(
-      firebaseNoteId: firebaseNoteId, userContent: userContent,
-      userHighlightsJson: highlights != null ? jsonEncode(highlights) : null,
-    );
-  }
-  List<String> get highlights {
-    if (userHighlightsJson == null) return [];
-    try { return List<String>.from(jsonDecode(userHighlightsJson!)); } catch (e) { return []; }
-  }
+  final String firebaseNoteId; // Firebase ke note ki ID
+  final String? quillContentJson; // Quill editor ka poora data (JSON String)
+
+  UserNoteEdit({
+    this.id,
+    required this.firebaseNoteId,
+    this.quillContentJson, // 'userContent' aur 'userHighlights' ko isse badal diya
+  });
+
   Map<String, dynamic> toMap() {
     return {
-      'id': id, 'firebaseNoteId': firebaseNoteId,
-      'userContent': userContent, 'userHighlightsJson': userHighlightsJson,
+      'id': id,
+      'firebaseNoteId': firebaseNoteId,
+      'quillContentJson': quillContentJson, // Naya field
     };
   }
+
   static UserNoteEdit fromMap(Map<String, dynamic> map) {
     return UserNoteEdit(
-      id: map['id'] as int?, firebaseNoteId: map['firebaseNoteId'] as String,
-      userContent: map['userContent'] as String?,
-      userHighlightsJson: map['userHighlightsJson'] as String?,
+      id: map['id'] as int?,
+      firebaseNoteId: map['firebaseNoteId'] as String,
+      quillContentJson: map['quillContentJson'] as String?, // Naya field
     );
   }
 }
-// --- (Models Khatam) ---
+// ⬆️===========================================================⬆️
 
 
 // --- Database Helper Class ---
@@ -122,17 +121,14 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    // ⬇️===== VERSION 9 se 10 KIYA GAYA =====⬇️
-    return await openDatabase(path, version: 10, onCreate: _createDB, onUpgrade: _upgradeDB);
+    // ⬇️===== VERSION 10 se 11 KIYA GAYA =====⬇️
+    return await openDatabase(path, version: 11, onCreate: _createDB, onUpgrade: _upgradeDB);
   }
 
   Future _createDB(Database db, int version) async {
-    // Naya database hamesha poora schema banayega
     await _upgradeDB(db, 0, version);
   }
 
-  // ⬇️===== YEH HAI ASLI FIX (v10) - Sabhi tables ko 'IF NOT EXISTS' se banaya =====⬇️
-  // Yeh har 'onUpgrade' par chalega aur check karega ki koi table missing to nahi
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
     const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
     const textType = 'TEXT NOT NULL';
@@ -140,71 +136,60 @@ class DatabaseHelper {
     const integerType = 'INTEGER NOT NULL';
     const nullableTextType = 'TEXT';
 
+    // (Puraane saare tables 'IF NOT EXISTS' ke saath)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS my_notes ( 
-        id $idType, 
-        content $textType,
-        createdAt $textType
+        id $idType, content $textType, createdAt $textType
       )
     ''');
-    
     await db.execute('''
       CREATE TABLE IF NOT EXISTS bookmarked_questions (
         id $idType, questionText $uniqueTextType, options $textType,
         correctAnswerIndex $integerType, explanation $textType, topicId $textType
       )
     ''');
-    
     await db.execute('''
       CREATE TABLE IF NOT EXISTS bookmarked_notes (
-        id $idType,
-        noteId $uniqueTextType,
-        title $textType,
-        content $textType,
-        subjectId $textType,
-        subSubjectId $textType,
-        subSubjectName $textType,
-        timestamp $textType
+        id $idType, noteId $uniqueTextType, title $textType, content $textType,
+        subjectId $textType, subSubjectId $textType, subSubjectName $textType, timestamp $textType
       )
     ''');
-    
     await db.execute('''
       CREATE TABLE IF NOT EXISTS bookmarked_schedules (
         id $idType, scheduleId $uniqueTextType, title $textType,
         content $textType, subjectId $textType
       )
     ''');
-    
     await db.execute('''
       CREATE TABLE IF NOT EXISTS tasks (
         id $idType, title $textType, isDone $integerType, date $textType
       )
     ''');
-    
     await db.execute('''
       CREATE TABLE IF NOT EXISTS timetable_entries (
-        id $idType,
-        subjectName $textType,
-        startTime $textType,
-        endTime $textType,
-        dayOfWeek $integerType,
-        notificationId $integerType UNIQUE
+        id $idType, subjectName $textType, startTime $textType, endTime $textType,
+        dayOfWeek $integerType, notificationId $integerType UNIQUE
       )
     ''');
     
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS user_note_edits (
-        id $idType,
-        firebaseNoteId $uniqueTextType,
-        userContent $nullableTextType,
-        userHighlightsJson $nullableTextType
-      )
-    ''');
+    // ⬇️===== YEH HAI FIX (v11) - Table ko Quill ke liye badla =====⬇️
+    // Hum 'user_note_edits' table ko (agar v11 se puraana hai)
+    // drop karke dobara banayenge
+    if (oldVersion < 11) {
+      await db.execute('DROP TABLE IF EXISTS user_note_edits');
+      await db.execute('''
+        CREATE TABLE user_note_edits (
+          id $idType,
+          firebaseNoteId $uniqueTextType,
+          quillContentJson $nullableTextType
+        )
+      ''');
+    }
+    // ⬆️===========================================================⬆️
   }
-  // ⬆️======================================================================⬆️
 
-  // --- (Baaki saare functions: My Notes, Bookmarks, Tasks, Timetable, User Edits) ---
-  // (Yeh code pehle jaisa hi hai, maine ismein 'toIso8601String' waala typo bhi theek kar diya hai)
+  // --- (Baaki saare functions: My Notes, Bookmarks, Tasks, Timetable) ---
+  // (Yeh code pehle jaisa hi hai)
 
   // --- "My Notes" Functions ---
   Future<MyNote> create(MyNote note) async {
@@ -299,7 +284,7 @@ class DatabaseHelper {
       'subjectId': note.subjectId,
       'subSubjectId': note.subSubjectId,
       'subSubjectName': note.subSubjectName,
-      'timestamp': note.timestamp.toDate().toIso8601String(), // ✅ Typo Fix
+      'timestamp': note.timestamp.toDate().toIso8601String(),
     };
     await db.insert('bookmarked_notes', row, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
@@ -387,7 +372,8 @@ class DatabaseHelper {
     return await db.delete('timetable_entries', where: 'id = ?', whereArgs: [id]);
   }
 
-  // --- User Note Edits Functions (v6) ---
+  // --- User Note Edits Functions (v11) ---
+  // (Yeh functions ab naye `UserNoteEdit` model (v11) ka istemal kar rahe hain)
   Future<int> saveUserEdit(UserNoteEdit edit) async {
     final db = await instance.database;
     return await db.insert(
