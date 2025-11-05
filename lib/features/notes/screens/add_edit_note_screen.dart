@@ -15,8 +15,7 @@ class AddEditNoteScreen extends StatefulWidget {
 class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
   late QuillController _controller;
   bool _isEditing = false;
-  final FocusNode _focusNode = FocusNode();
-  final ScrollController _scrollController = ScrollController();
+  // FocusNode aur ScrollController ki zaroorat nahi agar QuillEditor.basic use karein
 
   @override
   void initState() {
@@ -27,8 +26,6 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
 
   @override
   void dispose() {
-    _focusNode.dispose();
-    _scrollController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -98,23 +95,27 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
       ),
       body: Column(
         children: [
-          // UPDATED: Removed configurations wrapper
+          // Simple Toolbar
           QuillSimpleToolbar(
             controller: _controller,
-            // If you need to hide specific buttons, check if they are available 
-            // as direct parameters now, or use the default toolbar for now to ensure it builds.
+            configurations: const QuillSimpleToolbarConfigurations(
+              multiRowsDisplay: false,
+              showFontFamily: false,
+              showFontSize: false,
+            ),
           ),
           const Divider(height: 1, thickness: 1, color: Colors.grey),
+          // Editor area
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              // UPDATED: Removed configurations wrapper, used QuillEditor with direct params
-              child: QuillEditor(
+              // QuillEditor.basic use kar rahe hain jo automatically render hota hai
+              child: QuillEditor.basic(
                 controller: _controller,
-                scrollController: _scrollController,
-                focusNode: _focusNode,
-                // Try passing these directly if supported by v11.5.0
-                // If it still fails, remove them and just use the 3 required above.
+                configurations: const QuillEditorConfigurations(
+                  placeholder: 'Start typing your note...',
+                  autoFocus: true,
+                ),
               ),
             ),
           ),
