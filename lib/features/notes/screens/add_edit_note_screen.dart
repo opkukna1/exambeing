@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart';
+import 'package:flutter_quill/quill_delta.dart'; // Delta import zaroori hai
 import '../../../helpers/database_helper.dart';
 
 class AddEditNoteScreen extends StatefulWidget {
-  // If a note is passed, we are editing. If not, we are adding.
   final MyNote? note;
   const AddEditNoteScreen({super.key, this.note});
 
@@ -11,43 +13,68 @@ class AddEditNoteScreen extends StatefulWidget {
 }
 
 class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
-  final TextEditingController _contentController = TextEditingController();
+  late QuillController _controller;
   bool _isEditing = false;
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    if (widget.note != null) {
-      _isEditing = true;
-      _contentController.text = widget.note!.content;
+    _isEditing = widget.note != null;
+    _loadNoteContent();
+  }
+
+  // Note content load karne ka function (rich text ya plain text dono handle karega)
+  void _loadNoteContent() {
+    if (_isEditing && widget.note!.content.isNotEmpty) {
+      try {
+        // Koshish karo JSON (rich text) parse karne ki
+        final json = jsonDecode(widget.note!.content);
+        _controller = QuillController(
+          document: Document.fromJson(json),
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+      } catch (e) {
+        // Agar JSON fail ho (purana plain text note), toh normal text load karo
+        _controller = QuillController(
+          document: Document()..insert(0, widget.note!.content),
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+      }
+    } else {
+      // Naya note hai toh blank controller
+      _controller = QuillController.basic();
     }
   }
 
   void _saveNote() async {
-    final content = _contentController.text;
-    if (content.isEmpty) {
-      // Don't save empty notes
+    // Document ko JSON format mein convert karo taaki styles save hon
+    final contentJson = jsonEncode(_controller.document.toDelta().toJson());
+    // Plain text bhi check kar lo taaki empty note save na ho
+    final plainText = _controller.document.toPlainText().trim();
+
+    if (plainText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot save an empty note')),
+      );
       return;
     }
 
     if (_isEditing) {
-      // Update existing note
       final updatedNote = MyNote(
         id: widget.note!.id,
-        content: content,
-        createdAt: widget.note!.createdAt, // Keep original creation date
+        content: contentJson, // JSON save karo
+        createdAt: widget.note!.createdAt,
       );
       await DatabaseHelper.instance.update(updatedNote);
     } else {
-      // Create new note
       final newNote = MyNote(
-        content: content,
-        createdAt: DateTime.now().toIso8601String(), // Save current time
+        content: contentJson, // JSON save karo
+        createdAt: DateTime.now().toIso8601String(),
       );
       await DatabaseHelper.instance.create(newNote);
     }
 
-    // Go back to the previous screen and signal that it should refresh
     if (mounted) {
       Navigator.of(context).pop(true);
     }
@@ -66,18 +93,36 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: TextField(
-          controller: _contentController,
-          autofocus: true,
-          maxLines: null, // Allows the text field to expand
-          expands: true,
-          decoration: const InputDecoration(
-            hintText: 'Write your important facts here...',
-            border: InputBorder.none,
+      body: Column(
+        children: [
+          // TOOLBAR YAHAN HAI (v11.5.0 style)
+          QuillSimpleToolbar(
+            controller: _controller,
+            configurations: const QuillSimpleToolbarConfigurations(
+              showFontFamily: false, // Font family hide kar sakte ho agar nahi chahiye
+              showFontSize: false,   // Font size bhi hide kar sakte ho simple rakhne ke liye
+              multiRowsDisplay: false, // Single row mein toolbar dikhega
+            ),
           ),
-        ),
+          const Divider(height: 1, thickness: 1, color: Colors.grey),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              // EDITOR YAHAN HAI
+              child: QuillEditor(
+                controller: _controller,
+                scrollController: ScrollController(),
+                focusNode: _focusNode,
+                configurations: const QuillEditorConfigurations(
+                  placeholder: 'Write your important facts here...',
+                  autoFocus: true,
+                  expands: false,
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
