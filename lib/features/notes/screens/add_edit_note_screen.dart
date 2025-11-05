@@ -15,7 +15,8 @@ class AddEditNoteScreen extends StatefulWidget {
 class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
   late QuillController _controller;
   bool _isEditing = false;
-  // FocusNode aur ScrollController ki zaroorat nahi agar QuillEditor.basic use karein
+  final FocusNode _focusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -27,6 +28,8 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -95,26 +98,32 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
       ),
       body: Column(
         children: [
-          // Simple Toolbar
+          // VERSION 11.5.0 COMPATIBLE TOOLBAR
+          // Configurations wrapper REMOVED
           QuillSimpleToolbar(
             controller: _controller,
-            configurations: const QuillSimpleToolbarConfigurations(
-              multiRowsDisplay: false,
+            // Direct settings (jitni available hain)
+            config: const QuillSimpleToolbarConfig(
               showFontFamily: false,
               showFontSize: false,
+              multiRowsDisplay: false,
             ),
           ),
           const Divider(height: 1, thickness: 1, color: Colors.grey),
-          // Editor area
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              // QuillEditor.basic use kar rahe hain jo automatically render hota hai
-              child: QuillEditor.basic(
+              // VERSION 11.5.0 COMPATIBLE EDITOR
+              // Configurations wrapper REMOVED, using QuillEditor with explicit params
+              child: QuillEditor(
                 controller: _controller,
-                configurations: const QuillEditorConfigurations(
-                  placeholder: 'Start typing your note...',
-                  autoFocus: true,
+                scrollController: _scrollController,
+                focusNode: _focusNode,
+                config: const QuillEditorConfig(
+                   placeholder: 'Write your important facts here...',
+                   autoFocus: true,
+                   expands: false,
+                   padding: EdgeInsets.zero,
                 ),
               ),
             ),
