@@ -3,15 +3,12 @@ import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/models/note_content_model.dart';
 import 'package:exambeing/helpers/database_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-// ⬇️===== NAYE IMPORTS (Rich Text Editor v2.0.7) =====⬇️
-import 'package:flutter_quill/flutter_quill.dart' as quill;
-import 'dart:convert'; // JSON encoding/decoding ke liye
-// ⬆️================================================⬆️
+import 'package:flutter_quill/flutter_quill.dart';
+import 'dart:convert';
 
 class NoteDetailScreen extends StatefulWidget {
-  final PublicNote note; 
-  
+  final PublicNote note;
+
   const NoteDetailScreen({super.key, required this.note});
 
   @override
@@ -19,7 +16,7 @@ class NoteDetailScreen extends StatefulWidget {
 }
 
 class _NoteDetailScreenState extends State<NoteDetailScreen> {
-  quill.QuillController? _quillController; // v2.0.7 Controller
+  QuillController? _quillController;
   bool _isLoading = true;
   final dbHelper = DatabaseHelper.instance;
 
@@ -37,20 +34,20 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
   Future<void> _loadAllContent() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final userEdit = await dbHelper.getUserEdit(widget.note.id);
 
       if (userEdit != null && userEdit.quillContentJson != null) {
-        // --- RAASTA 1: User ne pehle se edit save kiya hai ---
+        // --- Local saved version load karo ---
         final savedJson = jsonDecode(userEdit.quillContentJson!);
-        final document = quill.Document.fromJson(savedJson); // v2.0.7 tareeka
-        _quillController = quill.QuillController(
+        final document = Document.fromJson(savedJson);
+        _quillController = QuillController(
           document: document,
           selection: const TextSelection.collapsed(offset: 0),
         );
       } else {
-        // --- RAASTA 2: User pehli baar note khol raha hai ---
+        // --- Firebase se load karo ---
         final contentDoc = await FirebaseFirestore.instance
             .collection('noteContent')
             .doc(widget.note.id)
@@ -62,22 +59,21 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           firebaseContent = contentModel.content;
         }
 
-        // Firebase ke simple text ko Quill Document mein "Clone" (copy) karo
-        final document = quill.Document()..insert(0, firebaseContent); // v2.0.7 tareeka
-        _quillController = quill.QuillController(
+        final document = Document()..insert(0, firebaseContent);
+        _quillController = QuillController(
           document: document,
           selection: const TextSelection.collapsed(offset: 0),
         );
       }
     } catch (e) {
       debugPrint("Error loading note: $e");
-      final document = quill.Document()..insert(0, 'Error loading content: $e');
-      _quillController = quill.QuillController(
-          document: document,
-          selection: const TextSelection.collapsed(offset: 0),
-        );
+      final document = Document()..insert(0, 'Error loading content: $e');
+      _quillController = QuillController(
+        document: document,
+        selection: const TextSelection.collapsed(offset: 0),
+      );
     }
-    
+
     setState(() => _isLoading = false);
   }
 
@@ -85,7 +81,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (_quillController == null) return;
 
     final quillJson = jsonEncode(_quillController!.document.toDelta().toJson());
-    
+
     final userEdit = UserNoteEdit(
       firebaseNoteId: widget.note.id,
       quillContentJson: quillJson,
@@ -121,41 +117,41 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             icon: const Icon(Icons.save_outlined),
             onPressed: _saveLocalNotes,
             tooltip: 'Save My Notes',
-          )
+          ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          // ⬇️===== YEH HAI NAYA SAHI CODE (Quill v2.0.7) =====⬇️
           : Column(
               children: [
-                // Toolbar (Puraana tareeka)
-                quill.QuillToolbar.basic(
-                  controller: _quillController!,
-                  showBackgroundColorButton: true, // Highlight
-                  showColorButton: true, // Font color
+                // ✅ नया Toolbar (v11 compatible)
+                QuillSimpleToolbar(
+                  configurations: QuillSimpleToolbarConfigurations(
+                    controller: _quillController!,
+                    showBackgroundColorButton: true,
+                    showColorButton: true,
+                  ),
                 ),
+
                 const Divider(height: 1, thickness: 1),
 
-                // Editor (Puraana tareeka)
+                // ✅ नया Editor (autoFocus हटाया गया)
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: quill.QuillEditor( // ✅ 'QuillEditor' (bina .basic ke)
-                      controller: _quillController!,
-                      scrollController: ScrollController(),
-                      focusNode: FocusNode(),
-                      autoFocus: false, // ✅ 'autoFocus' yahaan hai
-                      readOnly: false,
-                      expands: false,
-                      padding: EdgeInsets.zero,
-                      scrollable: true,
+                    child: QuillEditor.basic(
+                      configurations: QuillEditorConfigurations(
+                        controller: _quillController!,
+                        readOnly: false,
+                        sharedConfigurations: const QuillSharedConfigurations(
+                          locale: Locale('en'),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-          // ⬆️=============================================⬆️
     );
   }
 }
