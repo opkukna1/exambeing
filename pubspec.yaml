@@ -39,7 +39,7 @@ dependencies:
 
   # Rich Text Editor
   # ⬇️===== YEH HAI ASLI FIX (Build Log Ke Hisaab Se) =====⬇️
-  flutter_quill: ^11.5.0 # Naya version jo intl: ^0.20.2 ko support karta hai
+  flutter_quill: ^10.9.1 # Naya version jo intl: ^0.20.2 ko support karta hai
   # ⬆️==================================================⬆️
 
   # Firebase Packages
