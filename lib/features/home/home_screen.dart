@@ -1,4 +1,4 @@
-import 'package.flutter/material.dart';
+import 'package:flutter/material.dart'; // ✅ YEH HAI ASLI FIX
 import 'package:go_router/go_router.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -9,11 +9,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Ad se related sabhi variables aur functions hata diye gaye hain.
-
   @override
   Widget build(BuildContext context) {
-    // Column aur Expanded ko hata diya gaya hai kyunki ab ad widget nahi hai.
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
@@ -25,9 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Schedules',
           subtitle: 'View daily schedules and updates',
           color: Colors.teal,
-          // ⬇️===== YEH HAI ASLI FIX (push -> go) =====⬇️
-          onTap: () => context.go('/schedules'),
-          // ⬆️========================================⬆️
+          onTap: () => context.go('/schedules'), // ✅ 'go' ka istemal
         ),
         const SizedBox(height: 16),
         _buildActionCard(
@@ -36,9 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Notes',
           subtitle: 'Read subject-wise short notes',
           color: Colors.orange,
-          // ⬇️===== YEH HAI ASLI FIX (push -> go) =====⬇️
-          onTap: () => context.go('/public-notes'),
-          // ⬆️========================================⬆️
+          onTap: () => context.go('/public-notes'), // ✅ 'go' ka istemal
         ),
       ],
     );
@@ -88,14 +81,13 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    // ⬇️ Dark Mode ke liye icon ka color theek kiya ⬇️
+    // Dark Mode ke liye icon ka color theek kiya
     Color iconColor = Theme.of(context).brightness == Brightness.dark 
                      ? color.shade300 
                      : color;
     Color iconBgColor = Theme.of(context).brightness == Brightness.dark
                      ? color.shade900.withOpacity(0.5)
                      : color.withOpacity(0.2);
-    // ⬆️=========================================⬆️
 
     return Card(
       child: InkWell(
@@ -107,8 +99,8 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               CircleAvatar(
                   radius: 28,
-                  backgroundColor: iconBgColor, // Updated
-                  child: Icon(icon, color: iconColor, size: 32)), // Updated
+                  backgroundColor: iconBgColor,
+                  child: Icon(icon, color: iconColor, size: 32)),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -120,9 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              // ⬇️ Dark Mode ke liye arrow color theek kiya ⬇️
               Icon(Icons.arrow_forward_ios_rounded, color: Theme.of(context).textTheme.bodySmall?.color, size: 20),
-              // ⬆️=======================================⬆️
             ],
           ),
         ),
