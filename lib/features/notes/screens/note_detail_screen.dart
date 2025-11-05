@@ -1,13 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:exambeing/models/public_note_model.dart'; // ✅ Asli model
-import 'package:exambeing/models/note_content_model.dart'; // ✅ Asli content ke liye model
-import 'package:exambeing/helpers/database_helper.dart'; // ✅ Local DB ke liye
-import 'package:cloud_firestore/cloud_firestore.dart'; // ✅ Firebase ke liye
+import 'package:flutter/material.dart'; // ✅ Import Fix
+import 'package:exambeing/models/public_note_model.dart';
+import 'package:exambeing/models/note_content_model.dart';
+import 'package:exambeing/helpers/database_helper.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ⬇️===== NAYE IMPORTS (Rich Text Editor) =====⬇️
-import 'package:flutter_quill/flutter_quill.dart' as quill;
-import 'dart:convert'; // JSON encoding/decoding ke liye
-// ⬆️==========================================⬆️
+import 'package:flutter_quill/flutter_quill.dart' as quill; // Naya Quill
+import 'dart:convert';
 
 class NoteDetailScreen extends StatefulWidget {
   final PublicNote note; 
@@ -19,39 +17,30 @@ class NoteDetailScreen extends StatefulWidget {
 }
 
 class _NoteDetailScreenState extends State<NoteDetailScreen> {
-  // ❌ (Puraana simple text controller hata diya)
-  // final TextEditingController _userContentController = TextEditingController();
-  
-  // ⬇️===== NAYA QUILL CONTROLLER (Editor Ke Liye) =====⬇️
   quill.QuillController? _quillController;
-  // ⬆️================================================⬆️
-  
   bool _isLoading = true;
   final dbHelper = DatabaseHelper.instance;
 
   @override
   void initState() {
     super.initState();
-    _loadAllContent(); // Saara content (Firebase + Local) load karo
+    _loadAllContent();
   }
 
   @override
   void dispose() {
-    _quillController?.dispose(); // Controller ko dispose karo
+    _quillController?.dispose();
     super.dispose();
   }
 
-  // Firebase (Read-Only) aur Local DB (Edits) dono se data load karo
   Future<void> _loadAllContent() async {
     setState(() => _isLoading = true);
     
     try {
-      // 1. Local DB se user ke save kiye hue edits laao
       final userEdit = await dbHelper.getUserEdit(widget.note.id);
 
       if (userEdit != null && userEdit.quillContentJson != null) {
         // --- RAASTA 1: User ne pehle se edit save kiya hai ---
-        // Local DB se saved JSON ko load karo
         final savedJson = jsonDecode(userEdit.quillContentJson!);
         final document = quill.Document.fromJson(savedJson);
         _quillController = quill.QuillController(
@@ -60,7 +49,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         );
       } else {
         // --- RAASTA 2: User pehli baar note khol raha hai ---
-        // Firebase se asli content "Lazy Load" karke laao
         final contentDoc = await FirebaseFirestore.instance
             .collection('noteContent')
             .doc(widget.note.id)
@@ -80,7 +68,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         );
       }
     } catch (e) {
-      // Koi bhi error aaye to ek khaali editor dikhao
       debugPrint("Error loading note: $e");
       final document = quill.Document()..insert(0, 'Error loading content: $e');
       _quillController = quill.QuillController(
@@ -89,20 +76,17 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         );
     }
     
-    setState(() => _isLoading = false); // Loading band karo
+    setState(() => _isLoading = false);
   }
 
-  // User ke personal content (Quill JSON) ko Local DB mein save karo
   Future<void> _saveLocalNotes() async {
-    if (_quillController == null) return; // Agar controller hi nahi hai
+    if (_quillController == null) return;
 
-    // Editor ke poore content ko JSON mein badlo
     final quillJson = jsonEncode(_quillController!.document.toDelta().toJson());
     
-    // Naya DB model (v11) banayo
     final userEdit = UserNoteEdit(
       firebaseNoteId: widget.note.id,
-      quillContentJson: quillJson, // ❌ userContent ki jagah naya field
+      quillContentJson: quillJson,
     );
 
     try {
@@ -114,7 +98,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        FocusScope.of(context).unfocus(); // Keyboard band karo
+        FocusScope.of(context).unfocus();
       }
     } catch (e) {
       if (mounted) {
@@ -129,8 +113,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.note.subSubjectName), // Sub-subject ka naam
-        // ⬇️===== NAYA SAVE BUTTON =====⬇️
+        title: Text(widget.note.subSubjectName),
         actions: [
           IconButton(
             icon: const Icon(Icons.save_outlined),
@@ -138,14 +121,13 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             tooltip: 'Save My Notes',
           )
         ],
-        // ⬆️==========================⬆️
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
+          // ⬇️===== YEH HAI NAYA SAHI CODE (Quill v9+) =====⬇️
           : Column(
               children: [
-                // ⬇️===== NAYA RICH TEXT EDITOR TOOLBAR =====⬇️
-                // (Bold, Italic, Color, Highlight waale buttons)
+                // Toolbar (Bold, Italic, Color, Highlight waale buttons)
                 quill.QuillToolbar.simple(
                   configurations: quill.QuillSimpleToolbarConfigurations(
                     controller: _quillController!,
@@ -155,9 +137,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   ),
                 ),
                 const Divider(height: 1, thickness: 1),
-                // ⬆️========================================⬆️
 
-                // ⬇️===== NAYA RICH TEXT EDITOR =====⬇️
+                // Editor (Jahaan user type/edit karega)
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -172,9 +153,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     ),
                   ),
                 ),
-                // ⬆️===============================⬆️
               ],
             ),
+          // ⬆️=============================================⬆️
     );
   }
 }
