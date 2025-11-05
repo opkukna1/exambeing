@@ -1,109 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:exambeing/models/public_note_model.dart';
-import 'package:exambeing/models/note_content_model.dart';
-import 'package:exambeing/helpers/database_helper.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_quill/flutter_quill.dart';
-import 'dart:convert';
+import 'package:flutter_quill/flutter_quill.dart' hide Text;
 
 class NoteDetailScreen extends StatefulWidget {
-  final PublicNote note;
+  final String? title;
+  final String? content;
 
-  const NoteDetailScreen({super.key, required this.note});
+  const NoteDetailScreen({
+    super.key,
+    this.title,
+    this.content,
+  });
 
   @override
   State<NoteDetailScreen> createState() => _NoteDetailScreenState();
 }
 
 class _NoteDetailScreenState extends State<NoteDetailScreen> {
-  QuillController? _quillController;
-  bool _isLoading = true;
-  final dbHelper = DatabaseHelper.instance;
+  late QuillController _controller;
 
   @override
   void initState() {
     super.initState();
-    _loadAllContent();
-  }
-
-  @override
-  void dispose() {
-    _quillController?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadAllContent() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final userEdit = await dbHelper.getUserEdit(widget.note.id);
-
-      if (userEdit != null && userEdit.quillContentJson != null) {
-        // --- Local saved version load karo ---
-        final savedJson = jsonDecode(userEdit.quillContentJson!);
-        final document = Document.fromJson(savedJson);
-        _quillController = QuillController(
-          document: document,
-          selection: const TextSelection.collapsed(offset: 0),
-        );
-      } else {
-        // --- Firebase se load karo ---
-        final contentDoc = await FirebaseFirestore.instance
-            .collection('noteContent')
-            .doc(widget.note.id)
-            .get();
-
-        String firebaseContent = 'Error: Full content not found.';
-        if (contentDoc.exists) {
-          final contentModel = NoteContent.fromFirestore(contentDoc);
-          firebaseContent = contentModel.content;
-        }
-
-        final document = Document()..insert(0, firebaseContent);
-        _quillController = QuillController(
-          document: document,
-          selection: const TextSelection.collapsed(offset: 0),
-        );
-      }
-    } catch (e) {
-      debugPrint("Error loading note: $e");
-      final document = Document()..insert(0, 'Error loading content: $e');
-      _quillController = QuillController(
-        document: document,
-        selection: const TextSelection.collapsed(offset: 0),
-      );
-    }
-
-    setState(() => _isLoading = false);
-  }
-
-  Future<void> _saveLocalNotes() async {
-    if (_quillController == null) return;
-
-    final quillJson = jsonEncode(_quillController!.document.toDelta().toJson());
-
-    final userEdit = UserNoteEdit(
-      firebaseNoteId: widget.note.id,
-      quillContentJson: quillJson,
-    );
-
-    try {
-      await dbHelper.saveUserEdit(userEdit);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Your personal notes saved locally!'),
-            backgroundColor: Colors.green,
+    if (widget.content != null && widget.content!.isNotEmpty) {
+      try {
+        final doc = Document.fromJson(
+          List<Map<String, dynamic>>.from(
+            Document.fromDelta(
+              Delta()..insert(widget.content!),
+            ).toDelta().toJson(),
           ),
         );
-        FocusScope.of(context).unfocus();
+        _controller = QuillController(document: doc, selection: const TextSelection.collapsed(offset: 0));
+      } catch (_) {
+        _controller = QuillController.basic();
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save notes: $e')),
-        );
-      }
+    } else {
+      _controller = QuillController.basic();
     }
   }
 
@@ -111,47 +43,34 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.note.subSubjectName),
+        title: Text(widget.title ?? 'Note Detail'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.save_outlined),
-            onPressed: _saveLocalNotes,
-            tooltip: 'Save My Notes',
+            icon: const Icon(Icons.save),
+            onPressed: () {
+              // Save functionality here
+            },
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // ✅ नया Toolbar (v11 compatible)
-                QuillSimpleToolbar(
-                  configurations: QuillSimpleToolbarConfigurations(
-                    controller: _quillController!,
-                    showBackgroundColorButton: true,
-                    showColorButton: true,
-                  ),
-                ),
-
-                const Divider(height: 1, thickness: 1),
-
-                // ✅ नया Editor (autoFocus हटाया गया)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: QuillEditor.basic(
-                      configurations: QuillEditorConfigurations(
-                        controller: _quillController!,
-                        readOnly: false,
-                        sharedConfigurations: const QuillSharedConfigurations(
-                          locale: Locale('en'),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+      body: Column(
+        children: [
+          QuillSimpleToolbar(
+            controller: _controller,
+            configurations: const QuillSimpleToolbarConfigurations(
+              showAlignmentButtons: true,
+              showFontSize: true,
+              showColorButton: true,
             ),
+          ),
+          Expanded(
+            child: QuillEditor.basic(
+              controller: _controller,
+              readOnly: false, // user can edit
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
