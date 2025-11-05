@@ -1,4 +1,4 @@
-import 'package.flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:exambeing/models/public_note_model.dart'; // ✅ Asli model
 import 'package:exambeing/models/note_content_model.dart'; // ✅ Asli content ke liye model
 import 'package:exambeing/helpers/database_helper.dart'; // ✅ Local DB ke liye
