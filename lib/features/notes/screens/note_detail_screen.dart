@@ -4,10 +4,10 @@ import 'package:exambeing/models/note_content_model.dart';
 import 'package:exambeing/helpers/database_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ⬇️===== NAYE IMPORTS (Rich Text Editor v11) =====⬇️
-import 'package:flutter_quill/flutter_quill.dart';
+// ⬇️===== NAYE IMPORTS (Rich Text Editor v2.0.7) =====⬇️
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'dart:convert'; // JSON encoding/decoding ke liye
-// ⬆️=============================================⬆️
+// ⬆️================================================⬆️
 
 class NoteDetailScreen extends StatefulWidget {
   final PublicNote note; 
@@ -19,7 +19,7 @@ class NoteDetailScreen extends StatefulWidget {
 }
 
 class _NoteDetailScreenState extends State<NoteDetailScreen> {
-  QuillController? _quillController; // Naya Quill Controller
+  quill.QuillController? _quillController; // v2.0.7 Controller
   bool _isLoading = true;
   final dbHelper = DatabaseHelper.instance;
 
@@ -44,8 +44,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       if (userEdit != null && userEdit.quillContentJson != null) {
         // --- RAASTA 1: User ne pehle se edit save kiya hai ---
         final savedJson = jsonDecode(userEdit.quillContentJson!);
-        final document = Document.fromJson(savedJson); // v11 tareeka
-        _quillController = QuillController(
+        final document = quill.Document.fromJson(savedJson); // v2.0.7 tareeka
+        _quillController = quill.QuillController(
           document: document,
           selection: const TextSelection.collapsed(offset: 0),
         );
@@ -63,16 +63,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         }
 
         // Firebase ke simple text ko Quill Document mein "Clone" (copy) karo
-        final document = Document()..insert(0, firebaseContent); // v11 tareeka
-        _quillController = QuillController(
+        final document = quill.Document()..insert(0, firebaseContent); // v2.0.7 tareeka
+        _quillController = quill.QuillController(
           document: document,
           selection: const TextSelection.collapsed(offset: 0),
         );
       }
     } catch (e) {
       debugPrint("Error loading note: $e");
-      final document = Document()..insert(0, 'Error loading content: $e');
-      _quillController = QuillController(
+      final document = quill.Document()..insert(0, 'Error loading content: $e');
+      _quillController = quill.QuillController(
           document: document,
           selection: const TextSelection.collapsed(offset: 0),
         );
@@ -126,26 +126,30 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          // ⬇️===== YEH HAI NAYA SAHI CODE (Quill v11) =====⬇️
+          // ⬇️===== YEH HAI NAYA SAHI CODE (Quill v2.0.7) =====⬇️
           : Column(
               children: [
-                // Toolbar (Naya tareeka)
-                QuillToolbar.simple( // ✅ 'simple' constructor v11 mein hai
-                  configurations: QuillSimpleToolbarConfigurations( // ✅ v11 configurations
-                    controller: _quillController!,
-                  ),
+                // Toolbar (Puraana tareeka)
+                quill.QuillToolbar.basic(
+                  controller: _quillController!,
+                  showBackgroundColorButton: true, // Highlight
+                  showColorButton: true, // Font color
                 ),
                 const Divider(height: 1, thickness: 1),
 
-                // Editor (Naya tareeka)
+                // Editor (Puraana tareeka)
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: QuillEditor.basic( // ✅ 'basic' constructor v11 mein hai
-                      configurations: QuillBasicEditorConfigurations( // ✅ v11 configurations
-                        controller: _quillController!,
-                        readOnly: false, // ✅ 'readOnly' yahaan hai
-                      ),
+                    child: quill.QuillEditor( // ✅ 'QuillEditor' (bina .basic ke)
+                      controller: _quillController!,
+                      scrollController: ScrollController(),
+                      focusNode: FocusNode(),
+                      autoFocus: false, // ✅ 'autoFocus' yahaan hai
+                      readOnly: false,
+                      expands: false,
+                      padding: EdgeInsets.zero,
+                      scrollable: true,
                     ),
                   ),
                 ),
