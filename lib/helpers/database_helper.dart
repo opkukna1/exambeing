@@ -14,7 +14,6 @@ import 'package:exambeing/models/note_content_model.dart';
 
 
 // --- (Saare Models: MyNote, Task, TimetableEntry) ---
-// (Yeh code pehle jaisa hi hai)
 class MyNote {
   final int? id;
   final String content;
@@ -189,8 +188,6 @@ class DatabaseHelper {
     ''');
     
     // ⬇️===== YEH HAI FIX (v11) - Table ko Quill ke liye badla =====⬇️
-    // Hum 'user_note_edits' table ko (agar v11 se puraana hai)
-    // drop karke dobara banayenge
     if (oldVersion < 11) {
       await db.execute('DROP TABLE IF EXISTS user_note_edits');
       await db.execute('''
@@ -386,7 +383,6 @@ class DatabaseHelper {
   }
 
   // --- User Note Edits Functions (v11) ---
-  // (Yeh functions ab naye `UserNoteEdit` model (v11) ka istemal kar rahe hain)
   Future<int> saveUserEdit(UserNoteEdit edit) async {
     final db = await instance.database;
     return await db.insert(
