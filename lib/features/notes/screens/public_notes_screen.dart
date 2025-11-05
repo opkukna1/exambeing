@@ -24,9 +24,7 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
   late Stream<QuerySnapshot> _latestNotesStream;
   String? _selectedMainSubjectId;
 
-  // ⬇️===== SUB-SUBJECTS KO STATE MEIN SAVE KARNE KE LIYE =====⬇️
   List<NoteSubSubject> _currentSubSubjects = [];
-  // ⬆️======================================================⬆️
 
   @override
   void initState() {
@@ -53,78 +51,88 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Exambeing Notes'),
-        // ⬇️===== YEH HAI ASLI FIX (AppBar Error) =====⬇️
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight), // TabBar ki height
-          child: StreamBuilder<QuerySnapshot>( // StreamBuilder ab PreferredSize ke andar hai
-            stream: _mainSubjectsStream,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                // Loading state mein ek khaali (lekin sahi size ka) container
-                return Container(height: kToolbarHeight); 
-              }
-              if (snapshot.data!.docs.isEmpty) {
-                // Data na hone par
-                return Container(height: kToolbarHeight, alignment: Alignment.center, child: const Text('No subjects found'));
-              }
+    // ⬇️===== YEH HAI ASLI FIX (Back Button Ke Liye) =====⬇️
+    return PopScope(
+      canPop: false, // Android ke back button ko roko
+      onPopInvoked: (bool didPop) {
+        if (didPop) return; // Agar pop ho gaya (jo nahi hoga), to kuchh mat karo
+        context.go('/'); // Home screen par vaapas jao
+      },
+      child: Scaffold(
+      // ⬆️================================================⬆️
+        appBar: AppBar(
+          title: const Text('Exambeing Notes'),
+          // ⬇️ AppBar ka back button bhi Home par bhejega ⬇️
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go('/'),
+          ),
+          // ⬆️=======================================⬆️
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(kToolbarHeight),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _mainSubjectsStream,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return Container(height: kToolbarHeight); 
+                }
+                if (snapshot.data!.docs.isEmpty) {
+                  return Container(height: kToolbarHeight, alignment: Alignment.center, child: const Text('No subjects found'));
+                }
 
-              final mainSubjects = snapshot.data!.docs
-                  .map((doc) => NoteSubject.fromFirestore(doc))
-                  .toList();
+                final mainSubjects = snapshot.data!.docs
+                    .map((doc) => NoteSubject.fromFirestore(doc))
+                    .toList();
 
-              if (_selectedMainSubjectId == null && mainSubjects.isNotEmpty) {
-                _selectedMainSubjectId = mainSubjects[0].id;
-              }
+                if (_selectedMainSubjectId == null && mainSubjects.isNotEmpty) {
+                  _selectedMainSubjectId = mainSubjects[0].id;
+                }
 
-              if (_mainTabController == null || _mainTabController!.length != mainSubjects.length) {
-                _mainTabController?.dispose();
-                _mainTabController = TabController(length: mainSubjects.length, vsync: this);
-                _mainTabController!.addListener(() {
-                  if (_mainTabController!.indexIsChanging) {
-                    setState(() {
-                      _selectedMainSubjectId = mainSubjects[_mainTabController!.index].id;
-                    });
-                  }
-                });
-              }
+                if (_mainTabController == null || _mainTabController!.length != mainSubjects.length) {
+                  _mainTabController?.dispose();
+                  _mainTabController = TabController(length: mainSubjects.length, vsync: this);
+                  _mainTabController!.addListener(() {
+                    if (_mainTabController!.indexIsChanging) {
+                      setState(() {
+                        _selectedMainSubjectId = mainSubjects[_mainTabController!.index].id;
+                      });
+                    }
+                  });
+                }
 
-              return TabBar(
-                controller: _mainTabController,
-                isScrollable: true,
-                tabs: mainSubjects.map((subject) => Tab(text: subject.name)).toList(),
-              );
-            },
+                return TabBar(
+                  controller: _mainTabController,
+                  isScrollable: true,
+                  tabs: mainSubjects.map((subject) => Tab(text: subject.name)).toList(),
+                );
+              },
+            ),
           ),
         ),
-        // ⬆️============================================⬆️
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. "Latest Notes" Horizontal List (Firebase se)
-          _buildLatestNotesList(context),
-          
-          // 2. Sub-Subject Tab Bar (Firebase se)
-          _buildSubTabBar(context),
-          
-          const Divider(height: 1),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. "Latest Notes" Horizontal List (Firebase se)
+            _buildLatestNotesList(context),
+            
+            // 2. Sub-Subject Tab Bar (Firebase se)
+            _buildSubTabBar(context),
+            
+            const Divider(height: 1),
 
-          // 3. Notes List (TabBarView) (Firebase se)
-          Expanded(
-            child: _subTabController == null
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _subTabController,
-                    children: _currentSubSubjects.map((subSubject) {
-                      // Ab hum saved list se ID le rahe hain
-                      return _buildNotesListForSubSubject(subSubject.id);
-                    }).toList(),
-                  ),
-          ),
-        ],
+            // 3. Notes List (TabBarView) (Firebase se)
+            Expanded(
+              child: _subTabController == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                      controller: _subTabController,
+                      children: _currentSubSubjects.map((subSubject) {
+                        return _buildNotesListForSubSubject(subSubject.id);
+                      }).toList(),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -179,7 +187,7 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
       clipBehavior: Clip.antiAlias,
       margin: const EdgeInsets.only(right: 12),
       child: InkWell(
-        onTap: () => context.push('/note-detail', extra: note), // ✅ Ab yeh PublicNote bhejega
+        onTap: () => context.push('/note-detail', extra: note), // ✅ 'push' yahaan sahi hai
         child: SizedBox(
           width: 220,
           child: Padding(
@@ -226,11 +234,9 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
           return const SizedBox(height: 50, child: Center(child: LinearProgressIndicator()));
         }
         
-        // ⬇️===== YEH HAI FIX (Sub-subjects ko save karna) =====⬇️
         _currentSubSubjects = snapshot.data!.docs
             .map((doc) => NoteSubSubject.fromFirestore(doc))
             .toList();
-        // ⬆️=================================================⬆️
             
         if (_subTabController == null || _subTabController!.length != _currentSubSubjects.length) {
            _updateSubTabController(_currentSubSubjects.length);
@@ -257,11 +263,10 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
 
   // Vertical list (TabBarView ke andar)
   Widget _buildNotesListForSubSubject(String subSubjectId) {
-    // ⬇️===== YEH HAI FIX (Seedha query karna) =====⬇️
     return StreamBuilder<QuerySnapshot>(
       stream: _firestore
           .collection('publicNotes')
-          .where('subSubjectId', isEqualTo: subSubjectId) // Sahi ID se query
+          .where('subSubjectId', isEqualTo: subSubjectId)
           .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, noteSnapshot) {
@@ -285,7 +290,6 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
         );
       },
     );
-    // ⬆️===========================================⬆️
   }
 
   // Vertical list ka card
@@ -293,7 +297,7 @@ class _PublicNotesScreenState extends State<PublicNotesScreen>
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
-        onTap: () => context.push('/note-detail', extra: note), // ✅ Ab yeh PublicNote bhejega
+        onTap: () => context.push('/note-detail', extra: note), // ✅ 'push' yahaan sahi hai
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           title: Text(
