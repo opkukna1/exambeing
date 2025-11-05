@@ -72,8 +72,8 @@ flutter_launcher_icons:
   ios: false
   image_path: "assets/icon/app_icon.png"
 
-# ⬇️===== YEH HAI ASLI FIX (Namespace Error Ke Liye) =====⬇️
-# Yeh flutter_quill ko naya webview istemal karne ke liye force karega
+# ⬇️===== YEH HAI ASLI FIX (Dono overrides) =====⬇️
 dependency_overrides:
   flutter_inappwebview: ^6.0.0
-# ⬆️==================================================⬆️
+  flutter_keyboard_visibility: ^6.0.0 # <-- YEH NAYI LINE ADD KI HAI
+# ⬆️==========================================⬆️
