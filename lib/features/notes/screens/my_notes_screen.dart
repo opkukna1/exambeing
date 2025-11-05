@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_quill/flutter_quill.dart' as quill; // Quill import
-import 'dart:convert'; // JSON decode ke liye
+import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'dart:convert';
 import '../../../helpers/database_helper.dart';
 
 class MyNotesScreen extends StatefulWidget {
@@ -56,8 +56,6 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
           }
 
           final notes = snapshot.data!;
-          // PageView se better ListView/GridView rehta hai agar notes zyada hon,
-          // par tumhare design ke hisab se PageView rakha hai.
           return PageView.builder(
             itemCount: notes.length,
             itemBuilder: (context, index) {
@@ -69,7 +67,6 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // Naya note add karne ke liye route
           final result = await context.push('/add-edit-note');
           if (result == true) {
             _refreshNotes();
@@ -81,18 +78,15 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
   }
 
   Widget _buildNoteCard(MyNote note) {
-    // Quill controller setup for read-only view
-    quill.QuillController? _controller;
+    quill.QuillController _controller;
     try {
-      // Koshish karo JSON ki tarah parse karne ki (agar rich text hai)
       final json = jsonDecode(note.content);
       _controller = quill.QuillController(
         document: quill.Document.fromJson(json),
         selection: const TextSelection.collapsed(offset: 0),
-        readOnly: true, // Sirf dekhne ke liye
+        readOnly: true, // Ye ensure karega ki edit na ho
       );
     } catch (e) {
-      // Agar plain text hai, toh use convert karo
       _controller = quill.QuillController(
         document: quill.Document()..insert(0, note.content),
         selection: const TextSelection.collapsed(offset: 0),
@@ -110,21 +104,18 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Action Buttons Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Created: ${note.createdAt.split(' ')[0]}', // Sirf date dikhao
+                    'Created: ${note.createdAt.split(' ')[0]}',
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
                   ),
                   Row(
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
-                        tooltip: 'Edit Note',
                         onPressed: () async {
-                          // Edit ke liye note object pass karo
                           final result = await context.push('/add-edit-note', extra: note);
                           if (result == true) {
                             _refreshNotes();
@@ -133,7 +124,6 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
-                        tooltip: 'Delete Note',
                         onPressed: () => _confirmDelete(note.id!),
                       ),
                     ],
@@ -141,16 +131,11 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
                 ],
               ),
               const Divider(),
-              // Note Content Area (using Quill Editor for rich text display)
               Expanded(
+                // FIX: Configurations hata di, simple call rakhi hai.
+                // Controller ka 'readOnly: true' apna kaam karega.
                 child: quill.QuillEditor.basic(
                   controller: _controller,
-                  // v11.5.0 mein configurations aise pass hoti hain:
-                  configurations: const quill.QuillEditorConfigurations(
-                    sharedConfigurations: quill.QuillSharedConfigurations(
-                      locale: Locale('en'),
-                    ),
-                  ),
                 ),
               ),
             ],
@@ -160,7 +145,6 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
     );
   }
 
-  // Delete confirmation dialog
   void _confirmDelete(int noteId) {
     showDialog(
       context: context,
@@ -177,11 +161,6 @@ class _MyNotesScreenState extends State<MyNotesScreen> {
               Navigator.pop(context);
               await DatabaseHelper.instance.delete(noteId);
               _refreshNotes();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Note deleted successfully')),
-                );
-              }
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete'),
