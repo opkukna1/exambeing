@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart'; // ✅ YEH HAI ASLI FIX
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,8 +21,8 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Icons.calendar_month_outlined,
           title: 'Schedules',
           subtitle: 'View daily schedules and updates',
-          color: Colors.teal,
-          onTap: () => context.go('/schedules'), // ✅ 'go' ka istemal
+          color: Colors.teal, // Yeh ek MaterialColor hai
+          onTap: () => context.go('/schedules'),
         ),
         const SizedBox(height: 16),
         _buildActionCard(
@@ -30,8 +30,8 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Icons.note_alt_outlined,
           title: 'Notes',
           subtitle: 'Read subject-wise short notes',
-          color: Colors.orange,
-          onTap: () => context.go('/public-notes'), // ✅ 'go' ka istemal
+          color: Colors.orange, // Yeh bhi ek MaterialColor hai
+          onTap: () => context.go('/public-notes'),
         ),
       ],
     );
@@ -78,15 +78,17 @@ class _HomeScreenState extends State<HomeScreen> {
     required IconData icon,
     required String title,
     required String subtitle,
-    required Color color,
+    // ⬇️===== YEH HAI ASLI FIX (Color -> MaterialColor) =====⬇️
+    required MaterialColor color,
+    // ⬆️==================================================⬆️
     required VoidCallback onTap,
   }) {
     // Dark Mode ke liye icon ka color theek kiya
     Color iconColor = Theme.of(context).brightness == Brightness.dark 
-                     ? color.shade300 
+                     ? color.shade300 // ✅ Ab yeh kaam karega
                      : color;
     Color iconBgColor = Theme.of(context).brightness == Brightness.dark
-                     ? color.shade900.withOpacity(0.5)
+                     ? color.shade900.withOpacity(0.5) // ✅ Ab yeh kaam karega
                      : color.withOpacity(0.2);
 
     return Card(
