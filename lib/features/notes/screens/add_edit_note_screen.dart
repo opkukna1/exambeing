@@ -98,17 +98,22 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
       ),
       body: Column(
         children: [
+          //---------------------------------------------------------
+          // FIX: Configurations hata diya hai.
+          // Sirf controller pass kiya hai jo zaroori hai.
+          //---------------------------------------------------------
           QuillSimpleToolbar(
             controller: _controller,
-            configurations: const QuillSimpleToolbarConfigurations(),
           ),
           const Divider(height: 1, thickness: 1, color: Colors.grey),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
+              //---------------------------------------------------------
+              // FIX: Yahan se bhi configurations hata diya hai.
+              //---------------------------------------------------------
               child: QuillEditor.basic(
                 controller: _controller,
-                configurations: const QuillEditorConfigurations(),
               ),
             ),
           ),
