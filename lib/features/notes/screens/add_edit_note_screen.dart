@@ -98,9 +98,9 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
       ),
       body: Column(
         children: [
-          QuillSimpleToolbar( // Use QuillSimpleToolbar instead of QuillToolbar.simple
+          QuillSimpleToolbar(
             controller: _controller,
-            configurations: const QuillSimpleToolbarConfigurations(), // This might work now
+            configurations: const QuillSimpleToolbarConfigurations(),
           ),
           const Divider(height: 1, thickness: 1, color: Colors.grey),
           Expanded(
@@ -108,8 +108,7 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
               padding: const EdgeInsets.all(16.0),
               child: QuillEditor.basic(
                 controller: _controller,
-                // Removed configurations to let it use defaults if it fails again
-                // If it needs config, it might be passed differently now.
+                configurations: const QuillEditorConfigurations(),
               ),
             ),
           ),
