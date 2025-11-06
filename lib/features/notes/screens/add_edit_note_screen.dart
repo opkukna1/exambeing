@@ -98,32 +98,19 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
       ),
       body: Column(
         children: [
-          // VERSION 11.5.0 COMPATIBLE TOOLBAR
-          // Configurations wrapper REMOVED
-          QuillSimpleToolbar(
+          // YAHAN CHANGE HAI: QuillToolbar.simple use kiya hai
+          QuillToolbar.simple(
             controller: _controller,
-            // Direct settings (jitni available hain)
-            config: const QuillSimpleToolbarConfig(
-              showFontFamily: false,
-              showFontSize: false,
-              multiRowsDisplay: false,
-            ),
           ),
           const Divider(height: 1, thickness: 1, color: Colors.grey),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              // VERSION 11.5.0 COMPATIBLE EDITOR
-              // Configurations wrapper REMOVED, using QuillEditor with explicit params
-              child: QuillEditor(
+              // QuillEditor.basic defaults ke saath
+              child: QuillEditor.basic(
                 controller: _controller,
-                scrollController: _scrollController,
-                focusNode: _focusNode,
-                config: const QuillEditorConfig(
-                   placeholder: 'Write your important facts here...',
-                   autoFocus: true,
-                   expands: false,
-                   padding: EdgeInsets.zero,
+                configurations: const QuillEditorConfigurations(
+                  placeholder: 'Write your important facts here...',
                 ),
               ),
             ),
