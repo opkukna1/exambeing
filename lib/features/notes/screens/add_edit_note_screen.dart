@@ -98,20 +98,18 @@ class _AddEditNoteScreenState extends State<AddEditNoteScreen> {
       ),
       body: Column(
         children: [
-          // YAHAN CHANGE HAI: QuillToolbar.simple use kiya hai
-          QuillToolbar.simple(
+          QuillSimpleToolbar( // Use QuillSimpleToolbar instead of QuillToolbar.simple
             controller: _controller,
+            configurations: const QuillSimpleToolbarConfigurations(), // This might work now
           ),
           const Divider(height: 1, thickness: 1, color: Colors.grey),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              // QuillEditor.basic defaults ke saath
               child: QuillEditor.basic(
                 controller: _controller,
-                configurations: const QuillEditorConfigurations(
-                  placeholder: 'Write your important facts here...',
-                ),
+                // Removed configurations to let it use defaults if it fails again
+                // If it needs config, it might be passed differently now.
               ),
             ),
           ),
