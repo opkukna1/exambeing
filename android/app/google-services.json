@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "265258409167-lr2pjb4oibi09su18tf1jjahf73pgb1c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.opkukna.exambeing",
+            "certificate_hash": "ecdb19bf774633c8ef6809c8d7f57158d88dd849"
+          }
+        },
+        {
           "client_id": "265258409167-nefapqot31hi73avic8bni719jbtnjeb.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
