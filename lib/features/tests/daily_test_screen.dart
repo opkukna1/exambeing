@@ -335,6 +335,7 @@ class _DailyTestScreenState extends State<DailyTestScreen> {
   }
 
   // --- Scoring & Submission ---
+  // ⚠️ YEH RAHA UPDATED FUNCTION ⚠️
   void _submitTest() {
     _timer?.cancel(); // Timer roko
     
@@ -347,9 +348,7 @@ class _DailyTestScreenState extends State<DailyTestScreen> {
     int wrong = 0;
     int unattempted = 0;
 
-    // Questions list ko future se bahar nikalna padega (ye thoda complex hai, 
-    // but hum assume kar rahe hain ki _questionsFuture resolve ho chuka hai)
-    
+    // Questions list ko future se bahar nikalna padega
     _questionsFuture.then((questions) {
       if (questions.isEmpty) return; // Agar question hi nahi toh
       
@@ -371,18 +370,19 @@ class _DailyTestScreenState extends State<DailyTestScreen> {
       // Negative score ko 0 kar do (optional, but good)
       if (score < 0) score = 0;
 
-      print("Test Submitted!");
-      print("Total Score: ${score.toStringAsFixed(2)}");
-      print("Correct: $correct");
-      print("Wrong: $wrong");
-      print("Unattempted: $unattempted");
+      print("Test Submitted! Score: $score");
 
-      // Yahan se Result Screen par bhejo
-      // context.go('/result-screen', extra: {'score': score, 'correct': correct, ...});
-      
-      // Abhi ke liye, bas Home screen par wapas bhej dete hain
+      // Nayi 'ResultScreen' par saara data bhejo
       if (mounted) {
-         context.pop(); // PopScope ko bypass karke safely piche jao
+         context.go('/result-screen', extra: {
+           'score': score,
+           'correct': correct,
+           'wrong': wrong,
+           'unattempted': unattempted,
+           'questions': questions, // Poori questions ki list
+           'userAnswers': _userAnswers, // User ke answers ka map
+           'topicName': "Daily Test", // Topic ka naam
+         });
       }
     });
   }
