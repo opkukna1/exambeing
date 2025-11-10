@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // 👈 Naya Import
-import 'package:intl/intl.dart'; // 👈 Naya Import
+import 'package:cloud_firestore/cloud_firestore.dart'; // 👈 Import zaroori hai
+import 'package:intl/intl.dart'; // 👈 Import zaroori hai
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,11 +19,11 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildWelcomeCard(context),
         const SizedBox(height: 24),
         
-        // 1. SCHEDULES HATA KAR DAILY TEST ADD KAR DIYA HAI
+        // 1. "Schedules" ki jagah naya "Daily Test" card
         _buildDailyTestCard(context),
         const SizedBox(height: 24),
 
-        // 2. "NOTES" WALA CARD WAISE HI RAKHA HAI
+        // 2. "Notes" wala card
         _buildActionCard(
           context: context,
           icon: Icons.note_alt_outlined,
@@ -34,13 +34,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 24),
 
-        // 3. NAYA "TEST SERIES" SECTION ADD KIYA HAI
+        // 3. Naya "Test Series" section
         _buildTestSeriesSection(context),
       ],
     );
-  }
+  } // <--- ⚠️ BUILD METHOD YAHAN KHATAM HOTA HAI ⚠️
 
-  // YE NAYA WIDGET HAI (DAILY TEST KE LIYE)
+  // --- NAYE HELPER METHODS YAHAN SE SHURU HAIN ---
+
+  // Naya Daily Test Card Widget
   Widget _buildDailyTestCard(BuildContext context) {
     // Aaj ki tareekh YYYY-MM-DD format mein (jaise: 2025-11-10)
     final String todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -127,6 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     onPressed: () {
                       // Test Screen par question IDs ki list bhej do
+                      // Make sure your router handles this route and data
                       context.go('/test-screen', extra: {'ids': questionIds});
                     },
                     child: const Text(
@@ -138,10 +141,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+        );
+      },
     );
   }
 
-  // YE BHI NAYA WIDGET HAI (TEST SERIES GRID KE LIYE)
+  // Naya Test Series Grid Widget
   Widget _buildTestSeriesSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,18 +187,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 final title = data['title'] ?? "N/A";
                 final subtitle = data['subtitle'] ?? "View Tests";
                 final category = data['category'] ?? "Exam"; // Jaise "RSSB"
-                final color = data['colorCode'] != null 
-                    ? Color(int.parse(data['colorCode'])) 
-                    : Colors.teal.shade50; // Default color
+                
+                // Color parsing (safe way)
+                Color cardColor = Colors.teal.shade50; // Default color
+                if (data['colorCode'] != null) {
+                  try {
+                    // Assuming colorCode is hex string like "0xFFE0F2F1"
+                    cardColor = Color(int.parse(data['colorCode']));
+                  } catch (e) {
+                    // fallback
+                  }
+                }
 
                 return Card(
-                  color: color.withOpacity(0.3),
+                  color: cardColor.withOpacity(0.3),
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(15),
                     onTap: () {
                       // Test List Page par bhej do series ki ID ke saath
+                      // Make sure your router handles this route
                       context.go('/test-list', extra: series.id);
                     },
                     child: Padding(
@@ -233,8 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-  // --- AAPKE PURANE WIDGETS (KOI CHANGE NAHI) ---
+  // --- AAPKE PURANE HELPER METHODS ---
 
   Widget _buildWelcomeCard(BuildContext context) {
     return Container(
@@ -317,4 +330,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-}
+} // <--- ⚠️ _HomeScreenState CLASS YAHAN KHATAM HOTI HAI ⚠️
