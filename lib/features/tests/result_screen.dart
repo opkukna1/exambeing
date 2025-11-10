@@ -9,11 +9,8 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ⚠️ Naye Imports ⚠️
-// Hum 'Question' model ki jagah apna 'TestQuestion' model use karenge
+// Hamara 'TestQuestion' model
 import 'daily_test_screen.dart'; 
-// Hum 'AdServiceProvider' ki jagah simple navigation use karenge
-// (Aap ad provider baad mein add kar sakte hain)
 
 
 class ResultScreen extends StatefulWidget {
@@ -61,6 +58,13 @@ class _ResultScreenState extends State<ResultScreen> {
     });
   }
 
+  // Home page par jaane ke liye naya function
+  void _navigateToHome() {
+    if (mounted) {
+      context.go('/'); // ⚠️ FIX: '/home' ki jagah '/' use kiya
+    }
+  }
+
   // User stats update karne ka logic
   Future<void> _updateUserStats() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -76,7 +80,6 @@ class _ResultScreenState extends State<ResultScreen> {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final userDoc = await transaction.get(userRef);
         
-        // Data ko apne variable names se update kiya
         final int totalQuestions = widget.questions.length;
         final int correctCount = widget.correct;
 
@@ -205,7 +208,7 @@ class _ResultScreenState extends State<ResultScreen> {
               child: Image.asset(
                 'assets/logo.png', // Make sure logo 'assets/logo.png' par hai
                 height: 40,
-                errorBuilder: (c, e, s) => SizedBox(), // Agar logo na mile toh error na aaye
+                errorBuilder: (c, e, s) => const SizedBox(), // Agar logo na mile toh error na aaye
               ),
             ),
           )
@@ -213,61 +216,68 @@ class _ResultScreenState extends State<ResultScreen> {
       ),
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Result'),
-        automaticallyImplyLeading: false,
-        actions: [
-          if (_isUpdatingStats)
-            const Padding(
-              padding: EdgeInsets.only(right: 16.0),
-              child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2)),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.share),
-              onPressed: () => _shareScoreCard(context),
-            ),
-        ],
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Screenshot(
-                  controller: _screenshotController,
-                  child: scoreCard,
-                ),
-                
-                const SizedBox(height: 30),
+    // ⚠️ FIX: BACK BUTTON KO HANDLE KARNE KE LIYE POPSCOPE ADD KIYA GAYA HAI
+    return PopScope(
+      canPop: false, // Default back button ko disable karo
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        _navigateToHome(); // Back button dabane par Home jao
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Result'),
+          automaticallyImplyLeading: false, // AppBar mein back button nahi dikhega
+          actions: [
+            if (_isUpdatingStats)
+              const Padding(
+                padding: EdgeInsets.only(right: 16.0),
+                child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.share),
+                onPressed: () => _shareScoreCard(context),
+              ),
+          ],
+        ),
+        body: Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Screenshot(
+                    controller: _screenshotController,
+                    child: scoreCard,
+                  ),
+                  
+                  const SizedBox(height: 30),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.home),
-                    label: const Text('Go to Home'),
-                    onPressed: () => context.go('/home'), // '/home' route par bhej dega
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.home),
+                      label: const Text('Go to Home'),
+                      onPressed: _navigateToHome, // ⚠️ FIX: Naya function use kiya
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.list_alt_rounded),
-                    label: const Text('View Detailed Solution'),
-                    // AdProvider hata diya, simple navigation rakha hai
-                    onPressed: () {
-                      _navigateToSolutions(); // Seedha solution screen par jao
-                    },
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.list_alt_rounded),
+                      label: const Text('View Detailed Solution'),
+                      onPressed: () {
+                        _navigateToSolutions(); // Seedha solution screen par jao
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
