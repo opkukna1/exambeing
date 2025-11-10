@@ -33,7 +33,13 @@ import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
 import 'package:exambeing/features/tools/screens/timetable_screen.dart';
 import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
 
-// ⬇️===== NAYA IMPORT (Bookmark Model Ke Liye) =====⬇️
+// ⬇️===== NAYE DAILY TEST IMPORTS (YAHAN ADD KIYE HAIN) =====⬇️
+import 'package:exambeing/features/tests/daily_test_screen.dart';
+import 'package:exambeing/features/tests/result_screen.dart';
+import 'package:exambeing/features/tests/solution_screen.dart';
+// ⬆️=======================================================⬆️
+
+// ⬇️===== NAYE IMPORTS (Bookmark Model Ke Liye) =====⬇️
 import 'package:exambeing/models/bookmarked_note_model.dart';
 // ⬆️=============================================⬆️
 
@@ -97,6 +103,76 @@ final GoRouter router = GoRouter(
         GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
       ],
     ),
+
+    // ⬇️===== NAYE DAILY TEST ROUTES (YAHAN ADD KIYE HAIN) =====⬇️
+    GoRoute(
+      path: '/test-screen',
+      builder: (context, state) {
+        // Home screen se 'extra' data nikalo
+        final extra = state.extra as Map<String, dynamic>?;
+        
+        // 'ids' wali list nikalo
+        final List<String> questionIds = (extra?['ids'] as List<dynamic>?)
+            ?.map((e) => e as String)
+            .toList() ?? []; // Agar data na mile toh empty list
+
+        // Bina questions ke test screen par nahi jaana
+        if (questionIds.isEmpty) {
+          return _ErrorRouteScreen(path: state.matchedLocation);
+        }
+        // Nayi screen ko IDs pass karo
+        return DailyTestScreen(questionIds: questionIds);
+      },
+    ),
+    GoRoute(
+      path: '/result-screen',
+      builder: (context, state) {
+        final data = state.extra;
+        if (data is Map<String, dynamic> &&
+            data.containsKey('score') &&
+            data.containsKey('correct') &&
+            data.containsKey('wrong') &&
+            data.containsKey('unattempted') &&
+            data.containsKey('questions') &&
+            data.containsKey('userAnswers') &&
+            data.containsKey('topicName')) {
+          try {
+            return ResultScreen(
+              score: data['score'] as double,
+              correct: data['correct'] as int,
+              wrong: data['wrong'] as int,
+              unattempted: data['unattempted'] as int,
+              questions: data['questions'] as List<TestQuestion>, // Hamara naya model
+              userAnswers: data['userAnswers'] as Map<String, int>, // Hamara naya map format
+              topicName: data['topicName'] as String,
+            );
+          } catch (e) {
+            return _ErrorRouteScreen(path: state.matchedLocation);
+          }
+        }
+        return _ErrorRouteScreen(path: state.matchedLocation);
+      },
+    ),
+    GoRoute(
+      path: '/solution-screen',
+      builder: (context, state) {
+        final data = state.extra;
+        if (data is Map<String, dynamic> &&
+            data.containsKey('questions') &&
+            data.containsKey('userAnswers')) {
+          try {
+            return SolutionScreen(
+              questions: data['questions'] as List<TestQuestion>, // Hamara naya model
+              userAnswers: data['userAnswers'] as Map<String, int>, // Hamara naya map format
+            );
+          } catch (e) {
+            return _ErrorRouteScreen(path: state.matchedLocation);
+          }
+        }
+        return _ErrorRouteScreen(path: state.matchedLocation);
+      },
+    ),
+    // ⬆️====================================================⬆️
 
     // 🧠 Practice Routes
     GoRoute(
