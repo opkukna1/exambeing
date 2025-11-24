@@ -5,13 +5,17 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 class AdManager {
   static InterstitialAd? _interstitialAd;
   static bool _isAdLoaded = false;
+  
+  // 🆕 Counter Logic
+  static int _clickCount = 0; 
+  static const int _adFrequency = 3; // Har 3rd click par ad dikhega
 
-  // 1. Test Ad Unit ID (Android) - Testing ke liye yehi use karein
+  // Test Ad Unit ID
   static final String _adUnitId = Platform.isAndroid
       ? 'ca-app-pub-3940256099942544/1033173712' 
       : 'ca-app-pub-3940256099942544/4411468910';
 
-  // 2. Ad Load Karne Ka Function (App start hote hi call kar dena)
+  // 1. Load Ad
   static void loadInterstitialAd() {
     InterstitialAd.load(
       adUnitId: _adUnitId,
@@ -29,30 +33,43 @@ class AdManager {
     );
   }
 
-  // 3. Ad Dikhane Ka Function
-  // 'onAdClosed' wo function hai jo Ad band hone ke baad chalega (Jese navigate karna)
+  // 2. Show Ad with Logic
   static void showInterstitialAd(VoidCallback onAdClosed) {
-    if (_isAdLoaded && _interstitialAd != null) {
+    // Counter badhao
+    _clickCount++;
+
+    // Check karo: Kya ye 3rd click hai? (1, 2 skip... 3rd par show)
+    // Aur kya Ad loaded hai?
+    if (_clickCount % _adFrequency == 0 && _isAdLoaded && _interstitialAd != null) {
+      
       _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
         onAdDismissedFullScreenContent: (ad) {
           ad.dispose();
           _isAdLoaded = false;
-          loadInterstitialAd(); // Agli baar ke liye naya ad load karo
-          onAdClosed(); // ✅ Ad band hone par User ko aage bhejo
+          loadInterstitialAd(); // Agla ad load karo
+          onAdClosed(); // User ko aage bhejo
         },
         onAdFailedToShowFullScreenContent: (ad, error) {
           ad.dispose();
           _isAdLoaded = false;
           loadInterstitialAd();
-          onAdClosed(); // ✅ Error aaye to bhi user ko aage bhejo
+          onAdClosed();
         },
       );
+      
       _interstitialAd!.show();
+      
     } else {
-      // Agar Ad load nahi hua, to user ko wait mat karao, seedha aage bhejo
-      print("Ad not ready, moving forward...");
+      // Agar bari nahi hai ya ad load nahi hua, to seedha aage bhejo
+      // User ko lagega app bahut fast hai
+      print("Ad Skipped (Counter: $_clickCount)");
+      
+      // Agar Ad load nahi tha, to background me try karo load karne ka
+      if (!_isAdLoaded) {
+        loadInterstitialAd();
+      }
+      
       onAdClosed();
-      loadInterstitialAd(); // Try loading again
     }
   }
 }
