@@ -2,36 +2,46 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 
-// Model bana lete hain taaki code saaf rahe
+// ✅ Model Update: Ab ye 'subjectId' bhi store karega
 class TestInfo {
   final String id;
   final String title;
   final int duration;
   final String seriesId;
+  final String subjectId; // New field for nested path
 
   TestInfo({
     required this.id,
     required this.title,
     required this.duration,
     required this.seriesId,
+    required this.subjectId,
   });
 
-  factory TestInfo.fromSnapshot(DocumentSnapshot doc) {
+  // Factory ab parent IDs bhi leta hai
+  factory TestInfo.fromSnapshot(DocumentSnapshot doc, String seriesId, String subjectId) {
     final data = doc.data() as Map<String, dynamic>;
     return TestInfo(
       id: doc.id,
       title: data['title'] ?? 'Untitled Test',
       duration: (data['duration'] as num?)?.toInt() ?? 60,
-      seriesId: data['seriesId'] ?? '',
+      seriesId: seriesId,
+      subjectId: subjectId,
     );
   }
 }
 
-
 class TestListScreen extends StatefulWidget {
-  final String seriesId; // Ye 'cet_12th' jaisi ID Home Screen se aayegi
-  
-  const TestListScreen({super.key, required this.seriesId});
+  final String seriesId;
+  final String subjectId; // ✅ Subject ID zaroori hai nested query ke liye
+  final String subjectTitle; // AppBar ke liye title
+
+  const TestListScreen({
+    super.key, 
+    required this.seriesId,
+    required this.subjectId,
+    required this.subjectTitle,
+  });
 
   @override
   State<TestListScreen> createState() => _TestListScreenState();
@@ -46,17 +56,23 @@ class _TestListScreenState extends State<TestListScreen> {
     _testsFuture = _fetchTests();
   }
 
-  // Firestore se 'Tests' collection se data fetch karo
+  // ✅ Updated: Nested Query Logic
   Future<List<TestInfo>> _fetchTests() async {
     try {
+      // Path: testSeriesHome -> Series -> subjects -> Subject -> tests
       final snapshot = await FirebaseFirestore.instance
-          .collection('Tests') // Ye 'Tests' collection se data layega
-          .where('seriesId', isEqualTo: widget.seriesId) // Sirf is series ke (jaise 'cet_12th')
+          .collection('testSeriesHome')
+          .doc(widget.seriesId)
+          .collection('subjects')
+          .doc(widget.subjectId)
+          .collection('tests')
           .get();
           
-      return snapshot.docs.map((doc) => TestInfo.fromSnapshot(doc)).toList();
+      return snapshot.docs.map((doc) => 
+        TestInfo.fromSnapshot(doc, widget.seriesId, widget.subjectId)
+      ).toList();
     } catch (e) {
-      print("Error fetching tests: $e");
+      debugPrint("Error fetching tests: $e");
       return [];
     }
   }
@@ -65,7 +81,7 @@ class _TestListScreenState extends State<TestListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Available Tests'), // Aap yahan series ka naam bhi dikha sakte ho
+        title: Text(widget.subjectTitle), // Subject ka naam dikhao (e.g. History)
       ),
       body: FutureBuilder<List<TestInfo>>(
         future: _testsFuture,
@@ -76,7 +92,7 @@ class _TestListScreenState extends State<TestListScreen> {
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(
               child: Text(
-                'No tests found for this series.\nThey will be added soon!',
+                'No tests found in this subject.\nThey will be added soon!',
                 textAlign: TextAlign.center,
               ),
             );
@@ -84,22 +100,38 @@ class _TestListScreenState extends State<TestListScreen> {
 
           final tests = snapshot.data!;
 
-          // Test ki list dikhao
           return ListView.builder(
+            padding: const EdgeInsets.all(12),
             itemCount: tests.length,
             itemBuilder: (context, index) {
               final test = tests[index];
               return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                elevation: 2,
                 child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurple.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.quiz, color: Colors.deepPurple),
+                  ),
                   title: Text(test.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text('${test.duration} Minutes'),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded),
-                  onTap: () {
-                    // Ab is test ko shuru karne ke liye
-                    // test screen par bhej do
-                    context.push('/series-test-screen', extra: test);
-                  },
+                  trailing: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                    onPressed: () {
+                      // Series Test Screen par bhejo (TestInfo object ke sath)
+                      context.push('/series-test-screen', extra: test);
+                    },
+                    child: const Text("Start"),
+                  ),
                 ),
               );
             },
