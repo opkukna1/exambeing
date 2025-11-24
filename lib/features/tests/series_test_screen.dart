@@ -46,15 +46,21 @@ class _SeriesTestScreenState extends State<SeriesTestScreen> {
     super.dispose();
   }
 
-  // --- Data Fetching (Logic Change Yahan Hai) ---
+  // --- ⚠️ DEEP NESTED DATA FETCHING LOGIC ⚠️ ---
   Future<List<TestQuestion>> _fetchQuestions() async {
     setState(() { _isLoading = true; });
     try {
-      // Hum 'Questions' collection mein search karenge jahan 'testId' match kare
-      // (Aapne jo CSV upload ki hogi, wo 'Questions' collection mein honi chahiye)
+      // Hum specific path par jakar questions layenge:
+      // testSeriesHome -> Series -> subjects -> Subject -> tests -> Test -> questions
+      
       final snapshot = await FirebaseFirestore.instance
-          .collection('Questions') 
-          .where('testId', isEqualTo: widget.testInfo.id)
+          .collection('testSeriesHome')
+          .doc(widget.testInfo.seriesId)
+          .collection('subjects')
+          .doc(widget.testInfo.subjectId)
+          .collection('tests')
+          .doc(widget.testInfo.id) // Test ID
+          .collection('questions') // Sub-collection
           .get();
 
       final questions = snapshot.docs.map((doc) => TestQuestion.fromSnapshot(doc)).toList();
@@ -63,7 +69,7 @@ class _SeriesTestScreenState extends State<SeriesTestScreen> {
       return questions;
     } catch (e) {
       setState(() { _isLoading = false; });
-      print("Error fetching questions: $e");
+      debugPrint("Error fetching questions form nested path: $e");
       return [];
     }
   }
@@ -154,9 +160,30 @@ class _SeriesTestScreenState extends State<SeriesTestScreen> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
+                  
+                  // Error handling agar data na mile
                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(
-                      child: Text('No questions found for this test ID.'),
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No questions found inside this test.',
+                              style: TextStyle(fontSize: 16, color: Colors.grey),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Path: .../tests/${widget.testInfo.id}/questions',
+                              style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   }
 
@@ -188,7 +215,7 @@ class _SeriesTestScreenState extends State<SeriesTestScreen> {
     );
   }
 
-  // --- UI Widgets (Same as DailyTestScreen) ---
+  // --- UI Widgets ---
   Widget _buildQuestionCard(TestQuestion question) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
