@@ -130,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildWelcomeCard(context),
         const SizedBox(height: 24),
         
-        // 1. Daily Test Card (Date ke saath)
+        // 1. Daily Test Card
         _buildDailyTestCard(context),
         const SizedBox(height: 24),
 
@@ -145,19 +145,16 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 24),
 
-        // 3. Test Series Section
+        // 3. Test Series Section (UPDATED LOGIC HERE)
         _buildTestSeriesSection(context),
       ],
     );
   }
 
-  // --- 📅 UPDATED DAILY TEST CARD (DATE AS TITLE) ---
+  // --- DAILY TEST CARD ---
   Widget _buildDailyTestCard(BuildContext context) {
     final DateTime now = DateTime.now();
-    // Firestore ID: 2025-11-24
     final String todayDocId = DateFormat('yyyy-MM-dd').format(now);
-    
-    // Screen Title: 24 November 2025
     final String dateTitle = DateFormat('dd MMMM yyyy').format(now);
 
     return FutureBuilder<DocumentSnapshot>(
@@ -192,7 +189,6 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
-        // Title hum date se lenge, subtitle Firebase se (ya default)
         final subtitle = data['subtitle'] ?? "Daily Practice Test";
         final questionIds = List<String>.from(data['questionIds'] ?? []);
         
@@ -205,7 +201,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 🆕 TITLE ROW (DATE KE SAATH)
                 Row(
                   children: [
                     Icon(
@@ -215,7 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      "Daily Target - $dateTitle", // Example: Daily Target - 24 November 2025
+                      "Daily Target - $dateTitle",
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onPrimaryContainer,
                         fontSize: 16,
@@ -224,10 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-                
                 const SizedBox(height: 12),
-                
-                // Subtitle (Bada Font)
                 Text(
                   subtitle,
                   style: TextStyle(
@@ -236,10 +228,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                
                 const SizedBox(height: 8),
-                
-                // Questions Count Badge
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
@@ -262,10 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 20),
-                
-                // Start Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -295,6 +281,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // --- ✅ UPDATED TEST SERIES SECTION (Dynamic Routing) ---
   Widget _buildTestSeriesSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,6 +323,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 final subtitle = data['subtitle'] ?? "View Tests";
                 final category = data['category'] ?? "Exam";
                 
+                // ✅ NAYA FIELD: type ('direct' or 'subject')
+                // Agar type nahi mila, to default 'direct' rahega
+                final String type = data['type'] ?? 'direct'; 
+                
                 Color cardColor = Colors.teal.shade50;
                 if (data['colorCode'] != null) {
                   try {
@@ -350,7 +341,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(15),
                     onTap: () {
-                      context.go('/test-list', extra: series.id);
+                      // 🚀 DYNAMIC ROUTING LOGIC 🚀
+                      if (type == 'subject') {
+                        // RPSC jaisa flow (Subject List -> Topic List)
+                        context.go('/subject-list', extra: {
+                          'seriesId': series.id,
+                          'seriesTitle': title,
+                        });
+                      } else {
+                        // CET jaisa flow (Direct Test List)
+                        context.go('/test-list', extra: series.id);
+                      }
                     },
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
