@@ -33,23 +33,17 @@ import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
 import 'package:exambeing/features/tools/screens/timetable_screen.dart';
 import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
 
-// ⬇️===== NAYE DAILY TEST IMPORTS =====⬇️
+// ⬇️===== TEST & SERIES IMPORTS =====⬇️
 import 'package:exambeing/features/tests/daily_test_screen.dart';
 import 'package:exambeing/features/tests/result_screen.dart';
 import 'package:exambeing/features/tests/solution_screen.dart';
-// ⬆️===================================⬆️
-
-// ⬇️===== NAYE TEST SERIES IMPORTS (YAHAN ADD KIYE HAIN) =====⬇️
 import 'package:exambeing/features/tests/test_list_screen.dart';
 import 'package:exambeing/features/tests/series_test_screen.dart';
-// ⬆️========================================================⬆️
+// ⬆️=================================⬆️
 
-// ⬇️===== NAYE IMPORTS (Bookmark Model Ke Liye) =====⬇️
 import 'package:exambeing/models/bookmarked_note_model.dart';
-// ⬆️=============================================⬆️
 
-
-/// 🚨 Safe Error Screen for bad route data
+/// 🚨 Safe Error Screen
 class _ErrorRouteScreen extends StatelessWidget {
   final String path;
   const _ErrorRouteScreen({required this.path});
@@ -61,17 +55,16 @@ class _ErrorRouteScreen extends StatelessWidget {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Text(
-            'Routing Error: Invalid or missing data for route "$path".\nPlease go back and try again.',
-            textAlign: TextAlign.center,
-          ),
+          child: Text('Page not found: $path'),
         ),
       ),
     );
   }
 }
 
+// 🔑 Navigators Keys (Tabs vs Full Screen control karne ke liye)
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
+final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 /// 🔥 Main Router Config
 final GoRouter router = GoRouter(
@@ -80,7 +73,7 @@ final GoRouter router = GoRouter(
   initialLocation: '/',
 
   routes: [
-    // 🔐 Auth Routes
+    // 🔐 Auth Routes (Full Screen)
     GoRoute(
       path: '/login-hub',
       builder: (context, state) => const LoginHubScreen(),
@@ -89,15 +82,17 @@ final GoRouter router = GoRouter(
       path: '/otp',
       builder: (context, state) {
         if (state.extra is String) {
-          final verificationId = state.extra as String;
-          return OtpScreen(verificationId: verificationId);
+          return OtpScreen(verificationId: state.extra as String);
         }
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
 
-    // 🏠 Shell Route with Bottom Navigation
+    // =================================================================
+    // 🏠 SHELL ROUTE (Yahan Bottom Tabs Dikhayi Denge)
+    // =================================================================
     ShellRoute(
+      navigatorKey: _shellNavigatorKey,
       builder: (context, state, child) {
         return MainScreen(child: child);
       },
@@ -106,262 +101,200 @@ final GoRouter router = GoRouter(
         GoRoute(path: '/test-series', builder: (context, state) => const TestSeriesScreen()),
         GoRoute(path: '/bookmarks_home', builder: (context, state) => const BookmarksHomeScreen()),
         GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
+        
+        // Other Tab Pages
+        GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
+        GoRoute(path: '/public-notes', builder: (context, state) => const PublicNotesScreen()),
+        GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
+        GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
+        GoRoute(path: '/pomodoro', builder: (context, state) => const PomodoroScreen()),
+        GoRoute(path: '/todo-list', builder: (context, state) => const TodoListScreen()),
+        GoRoute(path: '/timetable', builder: (context, state) => const TimetableScreen()),
       ],
     ),
+    
+    // =================================================================
+    // 🛑 FULL SCREEN ROUTES (Yahan Tabs nahi dikhenge)
+    // =================================================================
 
-    // ⬇️===== DAILY TEST ROUTES =====⬇️
+    // 1. PRACTICE MCQ SCREEN (Practice & Test Mode both Full Screen)
+    GoRoute(
+      path: '/practice-mcq',
+      parentNavigatorKey: _rootNavigatorKey, // Force Full Screen
+      builder: (context, state) {
+        if (state.extra is Map<String, dynamic>) {
+          return PracticeMcqScreen(quizData: state.extra as Map<String, dynamic>);
+        }
+        return _ErrorRouteScreen(path: state.matchedLocation);
+      },
+    ),
+
+    // 2. DAILY TEST SCREENS
     GoRoute(
       path: '/test-screen',
+      parentNavigatorKey: _rootNavigatorKey, // Force Full Screen
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
         final List<String> questionIds = (extra?['ids'] as List<dynamic>?)
             ?.map((e) => e as String)
             .toList() ?? [];
-
-        if (questionIds.isEmpty) {
-          return _ErrorRouteScreen(path: state.matchedLocation);
-        }
+        if (questionIds.isEmpty) return _ErrorRouteScreen(path: state.matchedLocation);
         return DailyTestScreen(questionIds: questionIds);
       },
     ),
-    GoRoute(
-      path: '/result-screen',
-      builder: (context, state) {
-        final data = state.extra;
-        if (data is Map<String, dynamic> &&
-            data.containsKey('score') &&
-            data.containsKey('correct') &&
-            data.containsKey('wrong') &&
-            data.containsKey('unattempted') &&
-            data.containsKey('questions') &&
-            data.containsKey('userAnswers') &&
-            data.containsKey('topicName')) {
-          try {
-            return ResultScreen(
-              score: data['score'] as double,
-              correct: data['correct'] as int,
-              wrong: data['wrong'] as int,
-              unattempted: data['unattempted'] as int,
-              questions: data['questions'] as List<TestQuestion>,
-              userAnswers: data['userAnswers'] as Map<String, int>,
-              topicName: data['topicName'] as String,
-            );
-          } catch (e) {
-            return _ErrorRouteScreen(path: state.matchedLocation);
-          }
-        }
-        return _ErrorRouteScreen(path: state.matchedLocation);
-      },
-    ),
-    GoRoute(
-      path: '/solution-screen',
-      builder: (context, state) {
-        final data = state.extra;
-        if (data is Map<String, dynamic> &&
-            data.containsKey('questions') &&
-            data.containsKey('userAnswers')) {
-          try {
-            return SolutionScreen(
-              questions: data['questions'] as List<TestQuestion>,
-              userAnswers: data['userAnswers'] as Map<String, int>,
-            );
-          } catch (e) {
-            return _ErrorRouteScreen(path: state.matchedLocation);
-          }
-        }
-        return _ErrorRouteScreen(path: state.matchedLocation);
-      },
-    ),
-    // ⬆️==============================⬆️
 
-    // ⬇️===== ⚠️ NAYE TEST SERIES ROUTES (YAHAN ADD KIYE HAIN) ⚠️ =====⬇️
+    // 3. TEST SERIES SCREENS (List & Test Execution)
     GoRoute(
       path: '/test-list',
+      parentNavigatorKey: _rootNavigatorKey, // Force Full Screen
       builder: (context, state) {
-        // Home screen se 'seriesId' string aayegi
         final seriesId = state.extra as String?;
-        
-        if (seriesId == null) {
-          return _ErrorRouteScreen(path: state.matchedLocation);
-        }
+        if (seriesId == null) return _ErrorRouteScreen(path: state.matchedLocation);
         return TestListScreen(seriesId: seriesId);
       },
     ),
     GoRoute(
       path: '/series-test-screen',
+      parentNavigatorKey: _rootNavigatorKey, // Force Full Screen
       builder: (context, state) {
-        // Test List se 'TestInfo' object aayega
         final testInfo = state.extra as TestInfo?;
-
-        if (testInfo == null) {
-          return _ErrorRouteScreen(path: state.matchedLocation);
-        }
+        if (testInfo == null) return _ErrorRouteScreen(path: state.matchedLocation);
         return SeriesTestScreen(testInfo: testInfo);
       },
     ),
-    // ⬆️==============================================================⬆️
 
-    // 🧠 Practice Routes
+    // 4. RESULT & SOLUTIONS
+    GoRoute(
+      path: '/score',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final data = state.extra as Map<String, dynamic>?;
+        if (data == null) return _ErrorRouteScreen(path: state.matchedLocation);
+        return ScoreScreen(
+          totalQuestions: data['totalQuestions'],
+          finalScore: data['finalScore'],
+          correctCount: data['correctCount'],
+          wrongCount: data['wrongCount'],
+          unattemptedCount: data['unattemptedCount'],
+          topicName: data['topicName'],
+          questions: data['questions'],
+          userAnswers: data['userAnswers'],
+        );
+      },
+    ),
+    GoRoute(
+      path: '/result-screen',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final data = state.extra as Map<String, dynamic>?;
+        if (data == null) return _ErrorRouteScreen(path: state.matchedLocation);
+        return ResultScreen(
+          score: data['score'],
+          correct: data['correct'],
+          wrong: data['wrong'],
+          unattempted: data['unattempted'],
+          questions: data['questions'],
+          userAnswers: data['userAnswers'],
+          topicName: data['topicName'],
+        );
+      },
+    ),
+    GoRoute(
+      path: '/solutions',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final data = state.extra as Map<String, dynamic>?;
+        if (data == null) return _ErrorRouteScreen(path: state.matchedLocation);
+        return SolutionsScreen(
+          questions: data['questions'],
+          userAnswers: data['userAnswers'],
+        );
+      },
+    ),
+    GoRoute(
+      path: '/solution-screen',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final data = state.extra as Map<String, dynamic>?;
+        if (data == null) return _ErrorRouteScreen(path: state.matchedLocation);
+        return SolutionScreen(
+          questions: data['questions'],
+          userAnswers: data['userAnswers'],
+        );
+      },
+    ),
+
+    // 5. DRILL DOWN PRACTICE (Subjects -> Topics -> Sets)
     GoRoute(
       path: '/subjects',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         if (state.extra is Map<String, String>) {
-          final seriesData = state.extra as Map<String, String>;
-          return SubjectsScreen(seriesData: seriesData);
+          return SubjectsScreen(seriesData: state.extra as Map<String, String>);
         }
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
     GoRoute(
       path: '/topics',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         if (state.extra is Map<String, String>) {
-          final subjectData = state.extra as Map<String, String>;
-          return TopicsScreen(subjectData: subjectData);
+          return TopicsScreen(subjectData: state.extra as Map<String, String>);
         }
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
     GoRoute(
       path: '/sets',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         if (state.extra is Map<String, String>) {
-          final topicData = state.extra as Map<String, String>;
-          return SetsScreen(topicData: topicData);
-        }
-        return _ErrorRouteScreen(path: state.matchedLocation);
-      },
-    ),
-    GoRoute(
-      path: '/practice-mcq',
-      builder: (context, state) {
-        if (state.extra is Map<String, dynamic>) {
-          final quizData = state.extra as Map<String, dynamic>;
-          return PracticeMcqScreen(quizData: quizData);
-        }
-        return _ErrorRouteScreen(path: state.matchedLocation);
-      },
-    ),
-    GoRoute(
-      path: '/score',
-      builder: (context, state) {
-        final data = state.extra;
-        if (data is Map<String, dynamic> &&
-            data.containsKey('totalQuestions') &&
-            data.containsKey('finalScore') &&
-            data.containsKey('correctCount') &&
-            data.containsKey('wrongCount') &&
-            data.containsKey('unattemptedCount') &&
-            data.containsKey('topicName') &&
-            data.containsKey('questions') &&
-            data.containsKey('userAnswers')) {
-          try {
-            return ScoreScreen(
-              totalQuestions: data['totalQuestions'] as int,
-              finalScore: data['finalScore'] as double,
-              correctCount: data['correctCount'] as int,
-              wrongCount: data['wrongCount'] as int,
-              unattemptedCount: data['unattemptedCount'] as int,
-              topicName: data['topicName'] as String,
-              questions: data['questions'] as List<Question>,
-              userAnswers: data['userAnswers'] as Map<int, String>,
-            );
-          } catch (e) {
-            return _ErrorRouteScreen(path: state.matchedLocation);
-          }
-        }
-        return _ErrorRouteScreen(path: state.matchedLocation);
-      },
-    ),
-    GoRoute(
-      path: '/solutions',
-      builder: (context, state) {
-        final data = state.extra;
-        if (data is Map<String, dynamic> &&
-            data.containsKey('questions') &&
-            data.containsKey('userAnswers')) {
-          try {
-            return SolutionsScreen(
-              questions: data['questions'] as List<Question>,
-              userAnswers: data['userAnswers'] as Map<int, String>,
-            );
-          } catch (e) {
-            return _ErrorRouteScreen(path: state.matchedLocation);
-          }
+          return SetsScreen(topicData: state.extra as Map<String, String>);
         }
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
 
-    // 📒 Notes
-    GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
+    // 6. NOTES & BOOKMARKS DETAILS (Full Screen)
     GoRoute(
       path: '/add-edit-note',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        final MyNote? note = state.extra as MyNote?;
-        return AddEditNoteScreen(note: note);
+        return AddEditNoteScreen(note: state.extra as MyNote?);
       },
     ),
-    GoRoute(path: '/public-notes', builder: (context, state) => const PublicNotesScreen()),
-    
     GoRoute(
       path: '/note-detail',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         if (state.extra is PublicNote) { 
-          final note = state.extra as PublicNote;
-          return NoteDetailScreen(note: note);
+          return NoteDetailScreen(note: state.extra as PublicNote);
         }
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-
-    // 📅 Schedules
-    GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
-
-    // 📘 Bookmarks
     GoRoute(
       path: '/bookmark-question-detail',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         if (state.extra is Question) {
-          final question = state.extra as Question;
-          return BookmarkedQuestionDetailScreen(question: question);
+          return BookmarkedQuestionDetailScreen(question: state.extra as Question);
         }
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-    
     GoRoute(
       path: '/bookmark-note-detail',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         if (state.extra is BookmarkedNote) {
-          final note = state.extra as BookmarkedNote;
-          return BookmarkedNoteDetailScreen(note: note);
+          return BookmarkedNoteDetailScreen(note: state.extra as BookmarkedNote);
         }
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-
-    // ⚙️ Settings
-    GoRoute(
-      path: '/settings',
-      builder: (context, state) => const SettingsScreen(),
-    ),
-
-    // 🛠️ Tools
-    GoRoute(
-      path: '/pomodoro',
-      builder: (context, state) => const PomodoroScreen(),
-    ),
-    GoRoute(
-      path: '/todo-list',
-      builder: (context, state) => const TodoListScreen(),
-    ),
-    GoRoute(
-      path: '/timetable',
-      builder: (context, state) => const TimetableScreen(),
-    ),
-
-  ], 
+  ],
 
   redirect: (BuildContext context, GoRouterState state) {
     if (Firebase.apps.isEmpty) return null;
@@ -377,15 +310,12 @@ final GoRouter router = GoRouter(
   },
 );
 
-/// 🔁 Helper class to auto-refresh GoRouter on auth state change
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
     notifyListeners();
-    _subscription =
-        stream.asBroadcastStream().listen((dynamic _) => notifyListeners());
+    _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
   }
   late final StreamSubscription<dynamic> _subscription;
-
   @override
   void dispose() {
     _subscription.cancel();
