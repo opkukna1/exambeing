@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// ✅ AdManager Import kiya
+import 'package:exambeing/services/ad_manager.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -18,6 +21,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _activateLuckyTrial();
+    
+    // ✅ Ad Pre-load kar lo taaki button dabate hi turant dikhe
+    AdManager.loadInterstitialAd();
   }
 
   // --- 🎉 LUCKY TRIAL LOGIC ---
@@ -141,11 +147,11 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Notes',
           subtitle: 'Read subject-wise short notes',
           color: Colors.orange,
-          onTap: () => context.push('/public-notes'), // push use kiya taaki back aa sakein
+          onTap: () => context.go('/public-notes'),
         ),
         const SizedBox(height: 24),
 
-        // 3. Test Series Section (Fixed Color & Navigation)
+        // 3. Test Series Section
         _buildTestSeriesSection(context),
       ],
     );
@@ -265,7 +271,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       elevation: 2,
                     ),
                     onPressed: () {
-                      context.push('/test-screen', extra: {'ids': questionIds}); // push use kiya
+                      // ✅ AD LOGIC: Pehle Ad dikhao, fir Navigate karo
+                      AdManager.showInterstitialAd(() {
+                        context.push('/test-screen', extra: {'ids': questionIds});
+                      });
                     },
                     child: const Text(
                       "Start Today's Test",
@@ -281,7 +290,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- ✅ FIXED TEST SERIES SECTION ---
   Widget _buildTestSeriesSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,24 +332,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 final category = data['category'] ?? "Exam";
                 final String type = data['type'] ?? 'direct'; 
                 
-                // ✅ COLOR FIX: Opacity hata di hai taki color bright dikhe
-                Color cardColor = Colors.teal.shade100; // Default thoda dark kiya
+                Color cardColor = Colors.teal.shade50;
                 if (data['colorCode'] != null) {
                   try {
-                    // Agar color code hai to use karo, bina opacity ke
                     cardColor = Color(int.parse(data['colorCode']));
                   } catch (e) { }
                 }
 
                 return Card(
-                  color: cardColor, // ⚠️ Opacity removed here
-                  elevation: 2, // Thoda shadow add kiya better look ke liye
+                  color: cardColor.withOpacity(0.3),
+                  elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(15),
                     onTap: () {
-                      // 🚀 NAVIGATION FIX: 'context.go' ki jagah 'context.push'
-                      // Isse Back button dabane par Home screen wapas aayegi
                       if (type == 'subject') {
                         context.push('/subject-list', extra: {
                           'seriesId': series.id,
@@ -350,7 +354,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       } else {
                         context.push('/test-list', extra: {
                           'seriesId': series.id,
-                          'subjectId': 'default', // Direct tests ke liye dummy
+                          'subjectId': 'default',
                           'subjectTitle': title,
                         });
                       }
@@ -363,28 +367,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text(
                             category.toUpperCase(),
-                            style: TextStyle(
-                                color: Colors.black.withOpacity(0.6), // Darker text for better contrast
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             title,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                                color: Colors.black87 // Dark Title
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             subtitle,
-                            style: const TextStyle(
-                              color: Colors.black54, // Dark Subtitle
-                              fontSize: 14
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],
                       ),
