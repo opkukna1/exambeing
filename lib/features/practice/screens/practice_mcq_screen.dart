@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:exambeing/models/question_model.dart'; // ✅ FIX: Using package import
+import 'package:exambeing/models/question_model.dart';
 
 class PracticeMcqScreen extends StatefulWidget {
   final Map<String, dynamic> quizData;
@@ -32,23 +32,15 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     topicName = widget.quizData['topicName'] as String;
     mode = widget.quizData['mode'] as String;
 
-    _pageController.addListener(() {
-      final newPage = _pageController.page?.round() ?? 0;
-      if (newPage != _currentPage) {
-        setState(() {
-          _currentPage = newPage;
-        });
-      }
-    });
-    
     if (mode == 'test') {
-      _start = questions.length * 60;
+      _start = questions.length * 60; // 1 min per question
       startTimer();
     }
   }
 
   void startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
       if (_start <= 0) {
         timer.cancel();
         if (!_isSubmitted) _submitQuiz();
@@ -88,8 +80,10 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
       }
     }
 
+    if (finalScore < 0) finalScore = 0;
+
     if (mounted) {
-      context.go(
+      context.replace( // Use replace to prevent going back to quiz
         '/score',
         extra: {
           'totalQuestions': questions.length,
@@ -106,6 +100,7 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   }
 
   void _handleAnswer(int questionIndex, String selectedOption) {
+    // Practice mode me answer change nahi kar sakte agar sahi/galat dikh gaya ho
     if (mode == 'practice' && _selectedAnswers.containsKey(questionIndex)) {
        return;
     }
@@ -139,10 +134,11 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
         content: const Text('Are you sure you want to exit? Your current attempt will be submitted.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Continue Test')),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context, true); 
             },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             child: const Text('Submit & Exit'),
           ),
         ],
@@ -170,21 +166,35 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
         _showExitDialog();
       },
       child: Scaffold(
+        backgroundColor: Colors.white, // Clean White Background
         appBar: AppBar(
-          title: Text(topicName),
-          actions: mode == 'test'
-              ? [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16.0),
-                    child: Center(child: Text(_timerText, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                  )
-                ]
-              : null,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          iconTheme: const IconThemeData(color: Colors.black),
+          title: Column(
+            children: [
+              Text(
+                topicName,
+                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              if (mode == 'test')
+                Text(
+                  'Time Left: $_timerText',
+                  style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+            ],
+          ),
         ),
         body: PageView.builder(
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics: const BouncingScrollPhysics(),
           controller: _pageController,
           itemCount: questions.length,
+          onPageChanged: (index) {
+            setState(() {
+              _currentPage = index;
+            });
+          },
           itemBuilder: (context, index) {
             final question = questions[index];
             return _buildQuestionCard(question, index);
@@ -204,27 +214,41 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Q ${index + 1}: ${question.questionText}', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            'Q ${index + 1}: ${question.questionText}', 
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, height: 1.4),
+          ),
           const SizedBox(height: 24),
           
-          for (var optionText in question.options)
-            _buildOptionItem(index, optionText, isAnswered, correctAnswer),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: question.options.length,
+            separatorBuilder: (ctx, i) => const SizedBox(height: 12),
+            itemBuilder: (ctx, optIndex) {
+              final optionText = question.options[optIndex];
+              return _buildOptionItem(index, optionText, isAnswered, correctAnswer);
+            },
+          ),
           
           const SizedBox(height: 20),
+          
+          // Explanation only in Practice mode after answering
           if (mode == 'practice' && isAnswered && question.explanation.isNotEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade100),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("💡 Explanation", style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const Text("💡 Explanation", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
                   const SizedBox(height: 8),
-                  Text(question.explanation, style: Theme.of(context).textTheme.bodyLarge),
+                  Text(question.explanation),
                 ],
               ),
             ),
@@ -235,46 +259,54 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
 
   Widget _buildOptionItem(int index, String optionText, bool isAnswered, String correctAnswer) {
     Color borderColor = Colors.grey.shade300;
-    Color? tileColor;
+    Color bgColor = Colors.white;
+    Color textColor = Colors.black87;
     Widget? trailingIcon;
+
+    final bool isSelected = _selectedAnswers[index] == optionText;
 
     if (isAnswered) {
       if (mode == 'practice') {
+        // Practice Mode Logic
         if (optionText == correctAnswer) {
           borderColor = Colors.green;
-          tileColor = Colors.green.withOpacity(0.1);
+          bgColor = Colors.green.shade50;
           trailingIcon = const Icon(Icons.check_circle, color: Colors.green);
-        } else if (optionText == _selectedAnswers[index]) {
+        } else if (isSelected) {
           borderColor = Colors.red;
-          tileColor = Colors.red.withOpacity(0.1);
+          bgColor = Colors.red.shade50;
           trailingIcon = const Icon(Icons.cancel, color: Colors.red);
         }
-      } else { // Test Mode
-        if (optionText == _selectedAnswers[index]) {
-          borderColor = Theme.of(context).colorScheme.primary;
-          tileColor = Theme.of(context).colorScheme.primary.withOpacity(0.1);
+      } else { 
+        // Test Mode Logic (Sirf selection dikhao, sahi/galat nahi)
+        if (isSelected) {
+          borderColor = const Color(0xFF6750A4); // Purple border
+          bgColor = const Color(0xFFF3EDF7); // Light purple bg
+          textColor = const Color(0xFF6750A4);
         }
       }
     }
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6.0),
-      decoration: BoxDecoration(
-        color: tileColor,
-        border: Border.all(color: borderColor, width: 1.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: () => _handleAnswer(index, optionText),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-          child: Row(
-            children: [
-              Expanded(child: Text(optionText, style: Theme.of(context).textTheme.bodyLarge)),
-              if (trailingIcon != null) trailingIcon,
-            ],
-          ),
+    return InkWell(
+      onTap: () => _handleAnswer(index, optionText),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          border: Border.all(color: borderColor, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                optionText, 
+                style: TextStyle(fontSize: 16, color: textColor, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal),
+              ),
+            ),
+            if (trailingIcon != null) trailingIcon,
+          ],
         ),
       ),
     );
@@ -283,26 +315,50 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   Widget _buildBottomNavBar() {
     bool isLastQuestion = _currentPage == questions.length - 1;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Previous Button
           ElevatedButton(
             onPressed: _currentPage == 0 ? null : _goToPreviousPage,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey.shade200,
+              foregroundColor: Colors.black,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            ),
             child: const Text('Previous'),
           ),
           
+          // Counter
           Text(
             '${_currentPage + 1}/${questions.length}',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
 
-          // ✅ FIX: This button was completely broken, it has been rebuilt.
+          // Next / Submit Button
           ElevatedButton(
             onPressed: isLastQuestion ? _submitQuiz : _goToNextPage,
             style: ElevatedButton.styleFrom(
-              backgroundColor: isLastQuestion ? Colors.green : Theme.of(context).colorScheme.primary,
+              // ✅ Last question par GREEN, baaki time PURPLE
+              backgroundColor: isLastQuestion ? Colors.green : const Color(0xFF6750A4),
+              foregroundColor: Colors.white,
+              elevation: 2,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             ),
             child: Text(isLastQuestion ? 'Submit' : 'Next'),
           ),
