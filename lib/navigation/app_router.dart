@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// 📱 Screens Imports
+// ... (Baaki imports same rahenge) ...
 import 'package:exambeing/features/home/main_screen.dart';
 import 'package:exambeing/features/home/home_screen.dart';
 import 'package:exambeing/features/auth/screens/login_hub_screen.dart';
@@ -26,83 +26,62 @@ import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_scre
 import 'package:exambeing/features/profile/screens/profile_screen.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
-import 'package:exambeing/helpers/database_helper.dart';
 import 'package:exambeing/features/profile/screens/settings_screen.dart';
 import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
 import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
 import 'package:exambeing/features/tools/screens/timetable_screen.dart';
 import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
+import 'package:exambeing/models/bookmarked_note_model.dart';
 
-// ⬇️===== TEST & SERIES IMPORTS =====⬇️
+// ⬇️===== TEST SYSTEM IMPORTS =====⬇️
 import 'package:exambeing/features/tests/daily_test_screen.dart';
 import 'package:exambeing/features/tests/result_screen.dart';
 import 'package:exambeing/features/tests/solution_screen.dart';
+// Naya: Subject List
+import 'package:exambeing/features/tests/subject_list_screen.dart'; 
 import 'package:exambeing/features/tests/test_list_screen.dart';
 import 'package:exambeing/features/tests/series_test_screen.dart';
-// ⬆️=================================⬆️
+// ⬆️=============================⬆️
 
-import 'package:exambeing/models/bookmarked_note_model.dart';
-
-/// 🚨 Safe Error Screen
 class _ErrorRouteScreen extends StatelessWidget {
   final String path;
   const _ErrorRouteScreen({required this.path});
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Error')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text('Page not found: $path'),
-        ),
-      ),
+      body: Center(child: Text('Page not found: $path')),
     );
   }
 }
 
-// 🔑 Navigators Keys (Tabs vs Full Screen control karne ke liye)
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
-/// 🔥 Main Router Config
 final GoRouter router = GoRouter(
   navigatorKey: _rootNavigatorKey,
   refreshListenable: GoRouterRefreshStream(FirebaseAuth.instance.authStateChanges()),
   initialLocation: '/',
 
   routes: [
-    // 🔐 Auth Routes (Full Screen)
-    GoRoute(
-      path: '/login-hub',
-      builder: (context, state) => const LoginHubScreen(),
-    ),
-    GoRoute(
-      path: '/otp',
-      builder: (context, state) {
-        if (state.extra is String) {
-          return OtpScreen(verificationId: state.extra as String);
-        }
+    // Auth Routes...
+    GoRoute(path: '/login-hub', builder: (context, state) => const LoginHubScreen()),
+    GoRoute(path: '/otp', builder: (context, state) {
+        if (state.extra is String) return OtpScreen(verificationId: state.extra as String);
         return _ErrorRouteScreen(path: state.matchedLocation);
-      },
-    ),
+    }),
 
-    // =================================================================
-    // 🏠 SHELL ROUTE (Yahan Bottom Tabs Dikhayi Denge)
-    // =================================================================
+    // Shell Route (Tabs)
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
-      builder: (context, state, child) {
-        return MainScreen(child: child);
-      },
+      builder: (context, state, child) => MainScreen(child: child),
       routes: [
         GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
         GoRoute(path: '/test-series', builder: (context, state) => const TestSeriesScreen()),
         GoRoute(path: '/bookmarks_home', builder: (context, state) => const BookmarksHomeScreen()),
         GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
         
-        // Other Tab Pages
+        // Other Tab Routes...
         GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
         GoRoute(path: '/public-notes', builder: (context, state) => const PublicNotesScreen()),
         GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
@@ -112,50 +91,45 @@ final GoRouter router = GoRouter(
         GoRoute(path: '/timetable', builder: (context, state) => const TimetableScreen()),
       ],
     ),
-    
+
     // =================================================================
-    // 🛑 FULL SCREEN ROUTES (Yahan Tabs nahi dikhenge)
+    // 🛑 FULL SCREEN TEST ROUTES (Updated for Nested Structure)
     // =================================================================
 
-    // 1. PRACTICE MCQ SCREEN (Practice & Test Mode both Full Screen)
+    // 1. SUBJECT LIST SCREEN (New)
     GoRoute(
-      path: '/practice-mcq',
-      parentNavigatorKey: _rootNavigatorKey, // Force Full Screen
+      path: '/subject-list',
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        if (state.extra is Map<String, dynamic>) {
-          return PracticeMcqScreen(quizData: state.extra as Map<String, dynamic>);
-        }
-        return _ErrorRouteScreen(path: state.matchedLocation);
+        final data = state.extra as Map<String, dynamic>?;
+        if (data == null) return _ErrorRouteScreen(path: state.matchedLocation);
+        return SubjectListScreen(
+          seriesId: data['seriesId'], 
+          seriesTitle: data['seriesTitle']
+        );
       },
     ),
 
-    // 2. DAILY TEST SCREENS
-    GoRoute(
-      path: '/test-screen',
-      parentNavigatorKey: _rootNavigatorKey, // Force Full Screen
-      builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>?;
-        final List<String> questionIds = (extra?['ids'] as List<dynamic>?)
-            ?.map((e) => e as String)
-            .toList() ?? [];
-        if (questionIds.isEmpty) return _ErrorRouteScreen(path: state.matchedLocation);
-        return DailyTestScreen(questionIds: questionIds);
-      },
-    ),
-
-    // 3. TEST SERIES SCREENS (List & Test Execution)
+    // 2. TEST LIST SCREEN (Updated to accept Map)
     GoRoute(
       path: '/test-list',
-      parentNavigatorKey: _rootNavigatorKey, // Force Full Screen
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        final seriesId = state.extra as String?;
-        if (seriesId == null) return _ErrorRouteScreen(path: state.matchedLocation);
-        return TestListScreen(seriesId: seriesId);
+        final data = state.extra as Map<String, dynamic>?;
+        if (data == null) return _ErrorRouteScreen(path: state.matchedLocation);
+        
+        return TestListScreen(
+          seriesId: data['seriesId'],
+          subjectId: data['subjectId'], // Ab Subject ID bhi pass hogi
+          subjectTitle: data['subjectTitle'] ?? 'Tests',
+        );
       },
     ),
+
+    // 3. SERIES TEST SCREEN (Updated)
     GoRoute(
       path: '/series-test-screen',
-      parentNavigatorKey: _rootNavigatorKey, // Force Full Screen
+      parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final testInfo = state.extra as TestInfo?;
         if (testInfo == null) return _ErrorRouteScreen(path: state.matchedLocation);
@@ -163,7 +137,25 @@ final GoRouter router = GoRouter(
       },
     ),
 
-    // 4. RESULT & SOLUTIONS
+    // ... (Baaki Daily Test, Score, Result, Practice routes same rahenge) ...
+    GoRoute(
+      path: '/practice-mcq',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        if (state.extra is Map<String, dynamic>) return PracticeMcqScreen(quizData: state.extra as Map<String, dynamic>);
+        return _ErrorRouteScreen(path: state.matchedLocation);
+      },
+    ),
+    GoRoute(
+      path: '/test-screen',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final questionIds = (extra?['ids'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [];
+        if (questionIds.isEmpty) return _ErrorRouteScreen(path: state.matchedLocation);
+        return DailyTestScreen(questionIds: questionIds);
+      },
+    ),
     GoRoute(
       path: '/score',
       parentNavigatorKey: _rootNavigatorKey,
@@ -223,15 +215,13 @@ final GoRouter router = GoRouter(
         );
       },
     ),
-
-    // 5. DRILL DOWN PRACTICE (Subjects -> Topics -> Sets)
+    
+    // Drill down & Notes routes...
     GoRoute(
       path: '/subjects',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        if (state.extra is Map<String, String>) {
-          return SubjectsScreen(seriesData: state.extra as Map<String, String>);
-        }
+        if (state.extra is Map<String, String>) return SubjectsScreen(seriesData: state.extra as Map<String, String>);
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
@@ -239,9 +229,7 @@ final GoRouter router = GoRouter(
       path: '/topics',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        if (state.extra is Map<String, String>) {
-          return TopicsScreen(subjectData: state.extra as Map<String, String>);
-        }
+        if (state.extra is Map<String, String>) return TopicsScreen(subjectData: state.extra as Map<String, String>);
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
@@ -249,28 +237,20 @@ final GoRouter router = GoRouter(
       path: '/sets',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        if (state.extra is Map<String, String>) {
-          return SetsScreen(topicData: state.extra as Map<String, String>);
-        }
+        if (state.extra is Map<String, String>) return SetsScreen(topicData: state.extra as Map<String, String>);
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-
-    // 6. NOTES & BOOKMARKS DETAILS (Full Screen)
     GoRoute(
       path: '/add-edit-note',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        return AddEditNoteScreen(note: state.extra as MyNote?);
-      },
+      builder: (context, state) => AddEditNoteScreen(note: state.extra as MyNote?),
     ),
     GoRoute(
       path: '/note-detail',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        if (state.extra is PublicNote) { 
-          return NoteDetailScreen(note: state.extra as PublicNote);
-        }
+        if (state.extra is PublicNote) return NoteDetailScreen(note: state.extra as PublicNote);
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
@@ -278,9 +258,7 @@ final GoRouter router = GoRouter(
       path: '/bookmark-question-detail',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        if (state.extra is Question) {
-          return BookmarkedQuestionDetailScreen(question: state.extra as Question);
-        }
+        if (state.extra is Question) return BookmarkedQuestionDetailScreen(question: state.extra as Question);
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
@@ -288,9 +266,7 @@ final GoRouter router = GoRouter(
       path: '/bookmark-note-detail',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        if (state.extra is BookmarkedNote) {
-          return BookmarkedNoteDetailScreen(note: state.extra as BookmarkedNote);
-        }
+        if (state.extra is BookmarkedNote) return BookmarkedNoteDetailScreen(note: state.extra as BookmarkedNote);
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
@@ -300,12 +276,8 @@ final GoRouter router = GoRouter(
     if (Firebase.apps.isEmpty) return null;
     final user = FirebaseAuth.instance.currentUser;
     final loggingIn = state.matchedLocation == '/login-hub' || state.matchedLocation == '/otp';
-    if (user == null) {
-      return loggingIn ? null : '/login-hub';
-    }
-    if (loggingIn) {
-      return '/';
-    }
+    if (user == null) return loggingIn ? null : '/login-hub';
+    if (loggingIn) return '/';
     return null;
   },
 );
