@@ -19,18 +19,13 @@ class _TopicsScreenState extends State<TopicsScreen> {
   late String subjectName;
   bool _isLoadingTest = false;
 
-  // RewardedAd related variables and methods have been removed.
-
   @override
   void initState() {
     super.initState();
     subjectId = widget.subjectData['subjectId']!;
     subjectName = widget.subjectData['subjectName']!;
     _topicsFuture = dataService.getTopics(subjectId);
-    // _loadRewardedAd() call removed.
   }
-
-  // _loadRewardedAd() and _showRewardedAdAndStartTest() methods removed.
 
   void _navigateToQuiz(Topic topic, String mode) {
     if (mode == 'practice') {
@@ -102,7 +97,6 @@ class _TopicsScreenState extends State<TopicsScreen> {
                 subtitle: const Text('Practice in sets with solutions'),
                 onTap: () {
                   Navigator.pop(dialogContext);
-                  // Directly navigate, bypassing the ad.
                   _navigateToQuiz(topic, 'practice');
                 },
               ),
@@ -113,7 +107,6 @@ class _TopicsScreenState extends State<TopicsScreen> {
                 subtitle: const Text('Full test for this topic'),
                 onTap: () {
                   Navigator.pop(dialogContext);
-                  // Directly navigate, bypassing the ad.
                   _navigateToQuiz(topic, 'test');
                 },
               ),
@@ -130,7 +123,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
       appBar: AppBar(
         title: Text(subjectName),
       ),
-      bottomNavigationBar: _buildBuyNowBar(context),
+      // ❌ Bottom Navigation Bar hata diya gaya hai
       body: Stack(
         children: [
           FutureBuilder<List<Topic>>(
@@ -236,31 +229,6 @@ class _TopicsScreenState extends State<TopicsScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildBuyNowBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: ElevatedButton(
-        onPressed: () { /* Handle purchase logic */ },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.teal.shade400,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-        child: const Text('₹199 Buy Now'),
       ),
     );
   }
