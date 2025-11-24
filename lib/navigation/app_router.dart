@@ -32,14 +32,17 @@ import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
 import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
 import 'package:exambeing/features/tools/screens/timetable_screen.dart';
 import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
-import 'package:exambeing/features/tests/test_list_screen.dart'; // TestInfo ke liye
-import 'package:exambeing/features/tests/series_test_screen.dart'; // ✅ Ye line add karo
 
-// ⬇️===== NAYE DAILY TEST IMPORTS (YAHAN ADD KIYE HAIN) =====⬇️
+// ⬇️===== NAYE DAILY TEST IMPORTS =====⬇️
 import 'package:exambeing/features/tests/daily_test_screen.dart';
 import 'package:exambeing/features/tests/result_screen.dart';
 import 'package:exambeing/features/tests/solution_screen.dart';
-// ⬆️=======================================================⬆️
+// ⬆️===================================⬆️
+
+// ⬇️===== NAYE TEST SERIES IMPORTS (YAHAN ADD KIYE HAIN) =====⬇️
+import 'package:exambeing/features/tests/test_list_screen.dart';
+import 'package:exambeing/features/tests/series_test_screen.dart';
+// ⬆️========================================================⬆️
 
 // ⬇️===== NAYE IMPORTS (Bookmark Model Ke Liye) =====⬇️
 import 'package:exambeing/models/bookmarked_note_model.dart';
@@ -106,23 +109,18 @@ final GoRouter router = GoRouter(
       ],
     ),
 
-    // ⬇️===== NAYE DAILY TEST ROUTES (YAHAN ADD KIYE HAIN) =====⬇️
+    // ⬇️===== DAILY TEST ROUTES =====⬇️
     GoRoute(
       path: '/test-screen',
       builder: (context, state) {
-        // Home screen se 'extra' data nikalo
         final extra = state.extra as Map<String, dynamic>?;
-        
-        // 'ids' wali list nikalo
         final List<String> questionIds = (extra?['ids'] as List<dynamic>?)
             ?.map((e) => e as String)
-            .toList() ?? []; // Agar data na mile toh empty list
+            .toList() ?? [];
 
-        // Bina questions ke test screen par nahi jaana
         if (questionIds.isEmpty) {
           return _ErrorRouteScreen(path: state.matchedLocation);
         }
-        // Nayi screen ko IDs pass karo
         return DailyTestScreen(questionIds: questionIds);
       },
     ),
@@ -144,8 +142,8 @@ final GoRouter router = GoRouter(
               correct: data['correct'] as int,
               wrong: data['wrong'] as int,
               unattempted: data['unattempted'] as int,
-              questions: data['questions'] as List<TestQuestion>, // Hamara naya model
-              userAnswers: data['userAnswers'] as Map<String, int>, // Hamara naya map format
+              questions: data['questions'] as List<TestQuestion>,
+              userAnswers: data['userAnswers'] as Map<String, int>,
               topicName: data['topicName'] as String,
             );
           } catch (e) {
@@ -164,8 +162,8 @@ final GoRouter router = GoRouter(
             data.containsKey('userAnswers')) {
           try {
             return SolutionScreen(
-              questions: data['questions'] as List<TestQuestion>, // Hamara naya model
-              userAnswers: data['userAnswers'] as Map<String, int>, // Hamara naya map format
+              questions: data['questions'] as List<TestQuestion>,
+              userAnswers: data['userAnswers'] as Map<String, int>,
             );
           } catch (e) {
             return _ErrorRouteScreen(path: state.matchedLocation);
@@ -174,7 +172,34 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-    // ⬆️====================================================⬆️
+    // ⬆️==============================⬆️
+
+    // ⬇️===== ⚠️ NAYE TEST SERIES ROUTES (YAHAN ADD KIYE HAIN) ⚠️ =====⬇️
+    GoRoute(
+      path: '/test-list',
+      builder: (context, state) {
+        // Home screen se 'seriesId' string aayegi
+        final seriesId = state.extra as String?;
+        
+        if (seriesId == null) {
+          return _ErrorRouteScreen(path: state.matchedLocation);
+        }
+        return TestListScreen(seriesId: seriesId);
+      },
+    ),
+    GoRoute(
+      path: '/series-test-screen',
+      builder: (context, state) {
+        // Test List se 'TestInfo' object aayega
+        final testInfo = state.extra as TestInfo?;
+
+        if (testInfo == null) {
+          return _ErrorRouteScreen(path: state.matchedLocation);
+        }
+        return SeriesTestScreen(testInfo: testInfo);
+      },
+    ),
+    // ⬆️==============================================================⬆️
 
     // 🧠 Practice Routes
     GoRoute(
@@ -282,7 +307,7 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/note-detail',
       builder: (context, state) {
-        if (state.extra is PublicNote) { // ✅ PublicNote use karo
+        if (state.extra is PublicNote) { 
           final note = state.extra as PublicNote;
           return NoteDetailScreen(note: note);
         }
@@ -305,18 +330,16 @@ final GoRouter router = GoRouter(
       },
     ),
     
-    // ⬇️===== YEH HAI ASLI FIX (PublicNote -> BookmarkedNote) =====⬇️
     GoRoute(
       path: '/bookmark-note-detail',
       builder: (context, state) {
-        if (state.extra is BookmarkedNote) { // ✅ Ab yeh BookmarkedNote check karega
-          final note = state.extra as BookmarkedNote; // ✅ Asli model use karo
+        if (state.extra is BookmarkedNote) {
+          final note = state.extra as BookmarkedNote;
           return BookmarkedNoteDetailScreen(note: note);
         }
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-    // ⬆️==================================================⬆️
 
     // ⚙️ Settings
     GoRoute(
@@ -338,7 +361,7 @@ final GoRouter router = GoRouter(
       builder: (context, state) => const TimetableScreen(),
     ),
 
-  ], // <-- routes ki list yahaan band hoti hai
+  ], 
 
   redirect: (BuildContext context, GoRouterState state) {
     if (Firebase.apps.isEmpty) return null;
