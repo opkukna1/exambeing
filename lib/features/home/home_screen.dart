@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 👈 Naya Import
-import 'package:shared_preferences/shared_preferences.dart'; // 👈 Naya Import
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,36 +17,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // App khulte hi "Lucky Trial" check karo
     _activateLuckyTrial();
   }
 
-  // --- 🎉 LUCKY TRIAL LOGIC (3 MONTHS FREE) ---
+  // --- 🎉 LUCKY TRIAL LOGIC ---
   Future<void> _activateLuckyTrial() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Local storage check karo (taki bar-bar popup na aaye)
     final prefs = await SharedPreferences.getInstance();
-    // Key check: kya user ne ye offer pehle dekha hai?
     bool hasClaimedOffer = prefs.getBool('lucky_trial_claimed_${user.uid}') ?? false;
 
     if (!hasClaimedOffer) {
-      // 1. Firebase par 3 Month Premium activate karo
       try {
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'isPremium': true,
-          // Aaj se 90 din baad ki expiry date
           'premiumExpiry': DateTime.now().add(const Duration(days: 90)).toIso8601String(),
           'planType': 'Lucky Trial (3 Months)',
-        }, SetOptions(merge: true)); // Merge true taaki baki data delete na ho
+        }, SetOptions(merge: true));
 
-        // 2. Popup dikhao (sirf agar widget screen par hai)
         if (mounted) {
           _showLuckyDialog();
         }
 
-        // 3. Local storage mein save kar lo ki offer mil gaya
         await prefs.setBool('lucky_trial_claimed_${user.uid}', true);
         
       } catch (e) {
@@ -55,11 +48,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- 🎁 POPUP DIALOG UI ---
   void _showLuckyDialog() {
     showDialog(
       context: context,
-      barrierDismissible: false, // Bahar click karne se band nahi hoga
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: Colors.white,
@@ -119,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
               ),
               onPressed: () {
-                Navigator.pop(context); // Dialog band karo
+                Navigator.pop(context);
               },
               child: const Text("Claim Offer Now", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
@@ -138,11 +130,11 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildWelcomeCard(context),
         const SizedBox(height: 24),
         
-        // 1. "Schedules" ki jagah naya "Daily Test" card
+        // 1. Daily Test Card (Date ke saath)
         _buildDailyTestCard(context),
         const SizedBox(height: 24),
 
-        // 2. "Notes" wala card
+        // 2. Notes Card
         _buildActionCard(
           context: context,
           icon: Icons.note_alt_outlined,
@@ -153,17 +145,20 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 24),
 
-        // 3. Naya "Test Series" section
+        // 3. Test Series Section
         _buildTestSeriesSection(context),
       ],
     );
   }
 
-  // --- HELPER METHODS ---
-
+  // --- 📅 UPDATED DAILY TEST CARD (DATE AS TITLE) ---
   Widget _buildDailyTestCard(BuildContext context) {
-    // Aaj ki tareekh YYYY-MM-DD format mein
-    final String todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final DateTime now = DateTime.now();
+    // Firestore ID: 2025-11-24
+    final String todayDocId = DateFormat('yyyy-MM-dd').format(now);
+    
+    // Screen Title: 24 November 2025
+    final String dateTitle = DateFormat('dd MMMM yyyy').format(now);
 
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
@@ -178,12 +173,18 @@ class _HomeScreenState extends State<HomeScreen> {
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return Card(
             margin: const EdgeInsets.all(0),
-            child: const Padding(
-              padding: EdgeInsets.all(20.0),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
               child: Center(
-                child: Text(
-                  "Today's test is not available yet.",
-                  style: TextStyle(fontSize: 16),
+                child: Column(
+                  children: [
+                    const Icon(Icons.sentiment_dissatisfied, size: 40, color: Colors.grey),
+                    const SizedBox(height: 10),
+                    Text(
+                      "Test for $dateTitle is not uploaded yet.",
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -191,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
-        final title = data['title'] ?? "Today's Target";
+        // Title hum date se lenge, subtitle Firebase se (ya default)
         final subtitle = data['subtitle'] ?? "Daily Practice Test";
         final questionIds = List<String>.from(data['questionIds'] ?? []);
         
@@ -204,48 +205,85 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                // 🆕 TITLE ROW (DATE KE SAATH)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_month_outlined, 
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Daily Target - $dateTitle", // Example: Daily Target - 24 November 2025
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
+                
+                const SizedBox(height: 12),
+                
+                // Subtitle (Bada Font)
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.9),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 15),
-                Text(
-                  "${questionIds.length} Questions Practice",
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.8),
-                    fontSize: 14,
+                
+                const SizedBox(height: 8),
+                
+                // Questions Count Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.list_alt, size: 14, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                      const SizedBox(width: 6),
+                      Text(
+                        "${questionIds.length} Questions",
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+
                 const SizedBox(height: 20),
-                Center(
+                
+                // Start Button
+                SizedBox(
+                  width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                      elevation: 2,
                     ),
                     onPressed: () {
                       context.go('/test-screen', extra: {'ids': questionIds});
                     },
                     child: const Text(
-                      "Start Test >",
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      "Start Today's Test",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),
                 ),
@@ -269,7 +307,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
         StreamBuilder<QuerySnapshot>(
-          // ⚠️ Note: Collection name 'testSeriesHome' use kiya hai jo aapne bataya tha
           stream: FirebaseFirestore.instance.collection('testSeriesHome').snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -303,9 +340,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (data['colorCode'] != null) {
                   try {
                     cardColor = Color(int.parse(data['colorCode']));
-                  } catch (e) {
-                    // fallback
-                  }
+                  } catch (e) { }
                 }
 
                 return Card(
