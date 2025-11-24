@@ -4,6 +4,9 @@ import '../../../models/topic_model.dart';
 import '../../../models/question_model.dart';
 import '../../../services/firebase_data_service.dart';
 
+// ✅ AdManager Import kiya
+import 'package:exambeing/services/ad_manager.dart';
+
 class TopicsScreen extends StatefulWidget {
   final Map<String, String> subjectData;
   const TopicsScreen({super.key, required this.subjectData});
@@ -25,6 +28,9 @@ class _TopicsScreenState extends State<TopicsScreen> {
     subjectId = widget.subjectData['subjectId']!;
     subjectName = widget.subjectData['subjectName']!;
     _topicsFuture = dataService.getTopics(subjectId);
+    
+    // ✅ Ad Pre-load karo taaki Test Mode click karte hi turant dikhe
+    AdManager.loadInterstitialAd();
   }
 
   void _navigateToQuiz(Topic topic, String mode) {
@@ -91,23 +97,32 @@ class _TopicsScreenState extends State<TopicsScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // --- PRACTICE MODE (No Ad) ---
               ListTile(
                 leading: Icon(Icons.edit_note, color: Theme.of(context).colorScheme.primary),
                 title: const Text('Practice Mode'),
                 subtitle: const Text('Practice in sets with solutions'),
                 onTap: () {
                   Navigator.pop(dialogContext);
+                  // ✅ Practice Mode: Seedha jao, Ad ki zarurat nahi
                   _navigateToQuiz(topic, 'practice');
                 },
               ),
               const Divider(),
+              
+              // --- TEST MODE (With Ad) ---
               ListTile(
                 leading: Icon(Icons.timer, color: Theme.of(context).colorScheme.secondary),
                 title: const Text('Test Mode'),
                 subtitle: const Text('Full test for this topic'),
                 onTap: () {
                   Navigator.pop(dialogContext);
-                  _navigateToQuiz(topic, 'test');
+                  
+                  // ✅ Test Mode: Pehle Ad dikhao
+                  AdManager.showInterstitialAd(() {
+                    // Ad band hone ke baad Test shuru hoga
+                    _navigateToQuiz(topic, 'test');
+                  });
                 },
               ),
             ],
@@ -123,7 +138,6 @@ class _TopicsScreenState extends State<TopicsScreen> {
       appBar: AppBar(
         title: Text(subjectName),
       ),
-      // ❌ Bottom Navigation Bar hata diya gaya hai
       body: Stack(
         children: [
           FutureBuilder<List<Topic>>(
