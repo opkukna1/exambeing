@@ -9,12 +9,14 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Hamara 'TestQuestion' model
+// TestQuestion Model
 import 'daily_test_screen.dart'; 
+
+// ✅ AdManager Import kiya
+import 'package:exambeing/services/ad_manager.dart';
 
 
 class ResultScreen extends StatefulWidget {
-  // Data jo 'DailyTestScreen' se aa raha hai
   final double score;
   final int correct;
   final int wrong;
@@ -31,7 +33,7 @@ class ResultScreen extends StatefulWidget {
     required this.unattempted,
     required this.questions,
     required this.userAnswers,
-    this.topicName = "Daily Test", // Topic ka naam
+    this.topicName = "Daily Test",
   });
 
   @override
@@ -46,26 +48,25 @@ class _ResultScreenState extends State<ResultScreen> {
   void initState() {
     super.initState();
     _updateUserStats();
+    
+    // ✅ Optional: Ad pre-load kar lo taaki button dabate hi turant dikhe
+    AdManager.loadInterstitialAd();
   }
 
-  // Solutions page par jaane ke liye naya function
   void _navigateToSolutions() {
     if (!mounted) return;
-    // Hum 'SolutionScreen' ko apna data pass kar rahe hain
     context.push('/solution-screen', extra: {
       'questions': widget.questions,
       'userAnswers': widget.userAnswers,
     });
   }
 
-  // Home page par jaane ke liye naya function
   void _navigateToHome() {
     if (mounted) {
-      context.go('/'); // ⚠️ FIX: '/home' ki jagah '/' use kiya
+      context.go('/');
     }
   }
 
-  // User stats update karne ka logic
   Future<void> _updateUserStats() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -73,8 +74,7 @@ class _ResultScreenState extends State<ResultScreen> {
       return;
     }
 
-    final userRef =
-        FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
 
     try {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
@@ -94,10 +94,8 @@ class _ResultScreenState extends State<ResultScreen> {
         } else {
           final data = userDoc.data()!;
           int newTestsTaken = (data['tests_taken'] ?? 0) + 1;
-          int newQuestionsAnswered =
-              (data['total_questions_answered'] ?? 0) + totalQuestions;
-          int newCorrectAnswers =
-              (data['total_correct_answers'] ?? 0) + correctCount;
+          int newQuestionsAnswered = (data['total_questions_answered'] ?? 0) + totalQuestions;
+          int newCorrectAnswers = (data['total_correct_answers'] ?? 0) + correctCount;
 
           transaction.update(userRef, {
             'tests_taken': newTestsTaken,
@@ -115,7 +113,6 @@ class _ResultScreenState extends State<ResultScreen> {
     }
   }
 
-  // Score card share karne ka logic
   void _shareScoreCard(BuildContext context) async {
     final Uint8List? image = await _screenshotController.capture();
     if (image == null) return;
@@ -129,7 +126,6 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  // Feedback logic
   Map<String, dynamic> _getFeedback(double score) {
     if (score >= 80) {
       return {'message': 'Outstanding! 🏆', 'color': Colors.green};
@@ -148,7 +144,6 @@ class _ResultScreenState extends State<ResultScreen> {
     final double scorePercent = totalQuestions > 0 ? (widget.correct / totalQuestions) * 100 : 0;
     final feedback = _getFeedback(scorePercent);
     
-    // Score card ka UI
     Widget scoreCard = Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
@@ -206,9 +201,9 @@ class _ResultScreenState extends State<ResultScreen> {
             child: Opacity(
               opacity: 0.2,
               child: Image.asset(
-                'assets/logo.png', // Make sure logo 'assets/logo.png' par hai
+                'assets/logo.png', 
                 height: 40,
-                errorBuilder: (c, e, s) => const SizedBox(), // Agar logo na mile toh error na aaye
+                errorBuilder: (c, e, s) => const SizedBox(),
               ),
             ),
           )
@@ -216,17 +211,16 @@ class _ResultScreenState extends State<ResultScreen> {
       ),
     );
 
-    // ⚠️ FIX: BACK BUTTON KO HANDLE KARNE KE LIYE POPSCOPE ADD KIYA GAYA HAI
     return PopScope(
-      canPop: false, // Default back button ko disable karo
+      canPop: false, 
       onPopInvoked: (didPop) {
         if (didPop) return;
-        _navigateToHome(); // Back button dabane par Home jao
+        _navigateToHome(); 
       },
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Result'),
-          automaticallyImplyLeading: false, // AppBar mein back button nahi dikhega
+          automaticallyImplyLeading: false,
           actions: [
             if (_isUpdatingStats)
               const Padding(
@@ -262,17 +256,23 @@ class _ResultScreenState extends State<ResultScreen> {
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.home),
                       label: const Text('Go to Home'),
-                      onPressed: _navigateToHome, // ⚠️ FIX: Naya function use kiya
+                      onPressed: _navigateToHome,
                     ),
                   ),
                   const SizedBox(height: 12),
+                  
+                  // ✅ "View Detailed Solution" Button Updated
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.list_alt_rounded),
                       label: const Text('View Detailed Solution'),
                       onPressed: () {
-                        _navigateToSolutions(); // Seedha solution screen par jao
+                        // 1. Ad Dikhao
+                        AdManager.showInterstitialAd(() {
+                          // 2. Ad band hone ke baad Navigate karo
+                          _navigateToSolutions();
+                        });
                       },
                     ),
                   ),
