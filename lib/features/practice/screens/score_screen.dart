@@ -10,12 +10,8 @@ import '../../../models/question_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ⬇️===== NAYE IMPORTS =====⬇️
-import 'package:provider/provider.dart';
-import '../../../services/ad_service_provider.dart'; // Hamari Ad Service file
-// ⬆️=======================⬆️
-
-// ❌ (google_mobile_ads import hata diya gaya)
+// ✅ 1. AdManager Import kiya (Simple aur Fast)
+import 'package:exambeing/services/ad_manager.dart';
 
 class ScoreScreen extends StatefulWidget {
   final int totalQuestions;
@@ -47,24 +43,17 @@ class _ScoreScreenState extends State<ScoreScreen> {
   final ScreenshotController _screenshotController = ScreenshotController();
   bool _isUpdatingStats = true;
 
-  // ❌ (Ad-related variables hata diye gaye)
-  // InterstitialAd? _interstitialAd;
-  // bool _isAdLoaded = false;
-  // final String _adUnitId = ...;
-
   @override
   void initState() {
     super.initState();
     _updateUserStats();
-    // ❌ (_loadInterstitialAd() call hata diya gaya)
+    
+    // Optional: Agar aap chahte hain ki Result screen par aate hi 
+    // agla Ad load hona shuru ho jaye taaki button dabane par turant dikhe
+    AdManager.loadInterstitialAd();
   }
 
-  // ❌ (dispose() method hata diya gaya, kyonki ad yahaan manage nahi ho raha)
-
-  // ❌ (Saare puraane ad functions hata diye gaye: 
-  // _loadInterstitialAd, _setAdCallbacks, _showInterstitialAd)
-
-  // Solutions page par jaane ke liye naya function
+  // Solutions page par jaane ke liye function
   void _navigateToSolutions() {
     if (!mounted) return;
     context.push('/solutions', extra: {
@@ -208,6 +197,7 @@ class _ScoreScreenState extends State<ScoreScreen> {
               child: Image.asset(
                 'assets/logo.png',
                 height: 40,
+                errorBuilder: (context, error, stackTrace) => const SizedBox(), // Error handle kiya
               ),
             ),
           )
@@ -258,26 +248,20 @@ class _ScoreScreenState extends State<ScoreScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                
+                // ✅ 2. "View Detailed Solution" Button with Ad Logic
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.list_alt_rounded),
                     label: const Text('View Detailed Solution'),
-                    // ⬇️===== 'onPressed' KO NAYE PROVIDER SE UPDATE KIYA GAYA HAI =====⬇️
                     onPressed: () {
-                      // 1. Provider ko access karo
-                      final adProvider = Provider.of<AdServiceProvider>(context, listen: false);
-
-                      // 2. Ad dikhane ke liye kaho.
-                      // Ad band hone ke baad 'onAdDismissed' function chalega.
-                      adProvider.showAdAndNavigate(
-                        () {
-                          // Yeh code ad band hone ke baad chalega
-                          _navigateToSolutions(); // Wahi function call karo
-                        },
-                      );
+                      // AdManager ko call kiya
+                      AdManager.showInterstitialAd(() {
+                        // Ad band hone ke baad ye chalega
+                        _navigateToSolutions();
+                      });
                     },
-                    // ⬆️=========================================================⬆️
                   ),
                 ),
               ],
