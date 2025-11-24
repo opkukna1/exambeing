@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 
-// ✅ Model Update: Ab ye 'subjectId' bhi store karega
+// ✅ AdManager Import kiya
+import 'package:exambeing/services/ad_manager.dart';
+
+// Model Class
 class TestInfo {
   final String id;
   final String title;
   final int duration;
   final String seriesId;
-  final String subjectId; // New field for nested path
+  final String subjectId; 
 
   TestInfo({
     required this.id,
@@ -18,7 +21,6 @@ class TestInfo {
     required this.subjectId,
   });
 
-  // Factory ab parent IDs bhi leta hai
   factory TestInfo.fromSnapshot(DocumentSnapshot doc, String seriesId, String subjectId) {
     final data = doc.data() as Map<String, dynamic>;
     return TestInfo(
@@ -33,8 +35,8 @@ class TestInfo {
 
 class TestListScreen extends StatefulWidget {
   final String seriesId;
-  final String subjectId; // ✅ Subject ID zaroori hai nested query ke liye
-  final String subjectTitle; // AppBar ke liye title
+  final String subjectId;
+  final String subjectTitle;
 
   const TestListScreen({
     super.key, 
@@ -54,12 +56,13 @@ class _TestListScreenState extends State<TestListScreen> {
   void initState() {
     super.initState();
     _testsFuture = _fetchTests();
+    
+    // ✅ Ad Pre-load kar lo taaki click karte hi turant dikhe
+    AdManager.loadInterstitialAd();
   }
 
-  // ✅ Updated: Nested Query Logic
   Future<List<TestInfo>> _fetchTests() async {
     try {
-      // Path: testSeriesHome -> Series -> subjects -> Subject -> tests
       final snapshot = await FirebaseFirestore.instance
           .collection('testSeriesHome')
           .doc(widget.seriesId)
@@ -81,7 +84,7 @@ class _TestListScreenState extends State<TestListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.subjectTitle), // Subject ka naam dikhao (e.g. History)
+        title: Text(widget.subjectTitle),
       ),
       body: FutureBuilder<List<TestInfo>>(
         future: _testsFuture,
@@ -127,8 +130,12 @@ class _TestListScreenState extends State<TestListScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                     onPressed: () {
-                      // Series Test Screen par bhejo (TestInfo object ke sath)
-                      context.push('/series-test-screen', extra: test);
+                      // ✅ AD LOGIC: Pehle Ad dikhao, fir Navigate karo
+                      AdManager.showInterstitialAd(() {
+                        if (mounted) {
+                          context.push('/series-test-screen', extra: test);
+                        }
+                      });
                     },
                     child: const Text("Start"),
                   ),
