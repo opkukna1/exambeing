@@ -3,8 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../../../models/question_model.dart';
 import '../../../services/firebase_data_service.dart';
 
-import 'package:provider/provider.dart';
-import '../../../services/ad_service_provider.dart'; // Hamari Ad Service file
+// ✅ 1. AdManager Import kiya
+import 'package:exambeing/services/ad_manager.dart';
 
 class SetsScreen extends StatefulWidget {
   final Map<String, String> topicData;
@@ -28,6 +28,9 @@ class _SetsScreenState extends State<SetsScreen> {
     topicId = widget.topicData['topicId']!;
     topicName = widget.topicData['topicName']!;
     _questionsFuture = dataService.getQuestions(topicId);
+    
+    // Pre-load Ad (Taaki click karte hi turant dikhe)
+    AdManager.loadInterstitialAd();
   }
   
   void _showModeSelectionDialog(List<Question> questionSet) {
@@ -46,10 +49,10 @@ class _SetsScreenState extends State<SetsScreen> {
                 subtitle: const Text('Get instant feedback & explanations.'),
                 onTap: () {
                   Navigator.pop(dialogContext);
-                  // ⬇️===== YEH HAI ASLI FIX (push -> go) =====⬇️
-                  context.go(
+                  
+                  // ✅ FIX: 'context.push' use kiya taaki Back button kaam kare
+                  context.push(
                     '/practice-mcq',
-                  // ⬆️========================================⬆️
                     extra: {
                       'questions': questionSet,
                       'topicName': topicName,
@@ -65,10 +68,10 @@ class _SetsScreenState extends State<SetsScreen> {
                 subtitle: const Text('Simulate a real exam with a timer.'),
                 onTap: () {
                   Navigator.pop(dialogContext);
-                  // ⬇️===== YEH HAI ASLI FIX (push -> go) =====⬇️
-                  context.go(
+                  
+                  // ✅ FIX: 'context.push' use kiya
+                  context.push(
                     '/practice-mcq',
-                  // ⬆️========================================⬆️
                     extra: {
                       'questions': questionSet,
                       'topicName': topicName,
@@ -149,15 +152,16 @@ class _SetsScreenState extends State<SetsScreen> {
         ),
         subtitle: Text('${questionSet.length} Questions'),
         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+        
+        // ✅ AD LOGIC YAHAN HAI
         onTap: () {
-          final adProvider = Provider.of<AdServiceProvider>(context, listen: false);
-          adProvider.showAdAndNavigate(
-            () {
-              if (mounted) { 
-                _showModeSelectionDialog(questionSet);
-              }
-            },
-          );
+          // Pehle Ad dikhao
+          AdManager.showInterstitialAd(() {
+            // Jab Ad band hoga, tab Dialog khulega
+            if (mounted) {
+               _showModeSelectionDialog(questionSet);
+            }
+          });
         },
       ),
     );
