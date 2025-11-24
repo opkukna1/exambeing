@@ -32,6 +32,8 @@ import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
 import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
 import 'package:exambeing/features/tools/screens/timetable_screen.dart';
 import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
+import 'package:exambeing/features/tests/test_list_screen.dart'; // TestInfo ke liye
+import 'package:exambeing/features/tests/series_test_screen.dart'; // ✅ Ye line add karo
 
 // ⬇️===== NAYE DAILY TEST IMPORTS (YAHAN ADD KIYE HAIN) =====⬇️
 import 'package:exambeing/features/tests/daily_test_screen.dart';
