@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// ... (Baaki imports same rahenge) ...
+// 📱 Screens Imports
 import 'package:exambeing/features/home/main_screen.dart';
 import 'package:exambeing/features/home/home_screen.dart';
 import 'package:exambeing/features/auth/screens/login_hub_screen.dart';
@@ -26,62 +26,84 @@ import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_scre
 import 'package:exambeing/features/profile/screens/profile_screen.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
+import 'package:exambeing/helpers/database_helper.dart';
 import 'package:exambeing/features/profile/screens/settings_screen.dart';
 import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
 import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
 import 'package:exambeing/features/tools/screens/timetable_screen.dart';
 import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
-import 'package:exambeing/models/bookmarked_note_model.dart';
 
-// ⬇️===== TEST SYSTEM IMPORTS =====⬇️
+// ⬇️===== TEST & SERIES IMPORTS =====⬇️
 import 'package:exambeing/features/tests/daily_test_screen.dart';
 import 'package:exambeing/features/tests/result_screen.dart';
 import 'package:exambeing/features/tests/solution_screen.dart';
-// Naya: Subject List
-import 'package:exambeing/features/tests/subject_list_screen.dart'; 
 import 'package:exambeing/features/tests/test_list_screen.dart';
 import 'package:exambeing/features/tests/series_test_screen.dart';
-// ⬆️=============================⬆️
+import 'package:exambeing/features/tests/subject_list_screen.dart'; // Isko bhi add kiya hai
+// ⬆️=================================⬆️
 
+import 'package:exambeing/models/bookmarked_note_model.dart';
+
+/// 🚨 Safe Error Screen
 class _ErrorRouteScreen extends StatelessWidget {
   final String path;
   const _ErrorRouteScreen({required this.path});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Error')),
-      body: Center(child: Text('Page not found: $path')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text('Page not found: $path'),
+        ),
+      ),
     );
   }
 }
 
+// 🔑 Navigators Keys
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+/// 🔥 Main Router Config
 final GoRouter router = GoRouter(
   navigatorKey: _rootNavigatorKey,
   refreshListenable: GoRouterRefreshStream(FirebaseAuth.instance.authStateChanges()),
   initialLocation: '/',
 
   routes: [
-    // Auth Routes...
-    GoRoute(path: '/login-hub', builder: (context, state) => const LoginHubScreen()),
-    GoRoute(path: '/otp', builder: (context, state) {
-        if (state.extra is String) return OtpScreen(verificationId: state.extra as String);
+    // 🔐 Auth Routes (Full Screen)
+    GoRoute(
+      path: '/login-hub',
+      builder: (context, state) => const LoginHubScreen(),
+    ),
+    GoRoute(
+      path: '/otp',
+      builder: (context, state) {
+        if (state.extra is String) {
+          return OtpScreen(verificationId: state.extra as String);
+        }
         return _ErrorRouteScreen(path: state.matchedLocation);
-    }),
+      },
+    ),
 
-    // Shell Route (Tabs)
+    // =================================================================
+    // 🏠 SHELL ROUTE (Yahan Bottom Tabs Dikhayi Denge)
+    // =================================================================
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
-      builder: (context, state, child) => MainScreen(child: child),
+      builder: (context, state, child) {
+        return MainScreen(child: child);
+      },
       routes: [
         GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
         GoRoute(path: '/test-series', builder: (context, state) => const TestSeriesScreen()),
         GoRoute(path: '/bookmarks_home', builder: (context, state) => const BookmarksHomeScreen()),
         GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
         
-        // Other Tab Routes...
+        // Other Tab Routes
         GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
         GoRoute(path: '/public-notes', builder: (context, state) => const PublicNotesScreen()),
         GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
@@ -91,12 +113,12 @@ final GoRouter router = GoRouter(
         GoRoute(path: '/timetable', builder: (context, state) => const TimetableScreen()),
       ],
     ),
-
+    
     // =================================================================
-    // 🛑 FULL SCREEN TEST ROUTES (Updated for Nested Structure)
+    // 🛑 FULL SCREEN ROUTES (Yahan Tabs nahi dikhenge)
     // =================================================================
 
-    // 1. SUBJECT LIST SCREEN (New)
+    // 1. TEST SERIES (Nested)
     GoRoute(
       path: '/subject-list',
       parentNavigatorKey: _rootNavigatorKey,
@@ -109,24 +131,29 @@ final GoRouter router = GoRouter(
         );
       },
     ),
-
-    // 2. TEST LIST SCREEN (Updated to accept Map)
     GoRoute(
       path: '/test-list',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
+        // Ab ye Map expect karega (SeriesID + SubjectID)
         final data = state.extra as Map<String, dynamic>?;
+        
+        // Agar direct CET jaisa hai (purana tarika), to usko handle karo
+        if (state.extra is String) {
+           // (Optional: Agar aap purana direct method bhi rakhna chahte ho)
+           // return TestListScreen(seriesId: state.extra as String, subjectId: 'default', subjectTitle: 'Tests');
+           return _ErrorRouteScreen(path: state.matchedLocation);
+        }
+
         if (data == null) return _ErrorRouteScreen(path: state.matchedLocation);
         
         return TestListScreen(
           seriesId: data['seriesId'],
-          subjectId: data['subjectId'], // Ab Subject ID bhi pass hogi
+          subjectId: data['subjectId'],
           subjectTitle: data['subjectTitle'] ?? 'Tests',
         );
       },
     ),
-
-    // 3. SERIES TEST SCREEN (Updated)
     GoRoute(
       path: '/series-test-screen',
       parentNavigatorKey: _rootNavigatorKey,
@@ -137,15 +164,7 @@ final GoRouter router = GoRouter(
       },
     ),
 
-    // ... (Baaki Daily Test, Score, Result, Practice routes same rahenge) ...
-    GoRoute(
-      path: '/practice-mcq',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        if (state.extra is Map<String, dynamic>) return PracticeMcqScreen(quizData: state.extra as Map<String, dynamic>);
-        return _ErrorRouteScreen(path: state.matchedLocation);
-      },
-    ),
+    // 2. DAILY TEST
     GoRoute(
       path: '/test-screen',
       parentNavigatorKey: _rootNavigatorKey,
@@ -154,6 +173,16 @@ final GoRouter router = GoRouter(
         final questionIds = (extra?['ids'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [];
         if (questionIds.isEmpty) return _ErrorRouteScreen(path: state.matchedLocation);
         return DailyTestScreen(questionIds: questionIds);
+      },
+    ),
+
+    // 3. RESULTS & PRACTICE
+    GoRoute(
+      path: '/practice-mcq',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        if (state.extra is Map<String, dynamic>) return PracticeMcqScreen(quizData: state.extra as Map<String, dynamic>);
+        return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
     GoRoute(
@@ -215,8 +244,8 @@ final GoRouter router = GoRouter(
         );
       },
     ),
-    
-    // Drill down & Notes routes...
+
+    // 4. DRILL DOWN (Subjects -> Topics -> Sets)
     GoRoute(
       path: '/subjects',
       parentNavigatorKey: _rootNavigatorKey,
@@ -241,6 +270,8 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
+
+    // 5. NOTES & BOOKMARKS
     GoRoute(
       path: '/add-edit-note',
       parentNavigatorKey: _rootNavigatorKey,
