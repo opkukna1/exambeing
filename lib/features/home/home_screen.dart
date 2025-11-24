@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // 👈 Import zaroori hai
-import 'package:intl/intl.dart'; // 👈 Import zaroori hai
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // 👈 Naya Import
+import 'package:shared_preferences/shared_preferences.dart'; // 👈 Naya Import
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,6 +13,123 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  
+  @override
+  void initState() {
+    super.initState();
+    // App khulte hi "Lucky Trial" check karo
+    _activateLuckyTrial();
+  }
+
+  // --- 🎉 LUCKY TRIAL LOGIC (3 MONTHS FREE) ---
+  Future<void> _activateLuckyTrial() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Local storage check karo (taki bar-bar popup na aaye)
+    final prefs = await SharedPreferences.getInstance();
+    // Key check: kya user ne ye offer pehle dekha hai?
+    bool hasClaimedOffer = prefs.getBool('lucky_trial_claimed_${user.uid}') ?? false;
+
+    if (!hasClaimedOffer) {
+      // 1. Firebase par 3 Month Premium activate karo
+      try {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'isPremium': true,
+          // Aaj se 90 din baad ki expiry date
+          'premiumExpiry': DateTime.now().add(const Duration(days: 90)).toIso8601String(),
+          'planType': 'Lucky Trial (3 Months)',
+        }, SetOptions(merge: true)); // Merge true taaki baki data delete na ho
+
+        // 2. Popup dikhao (sirf agar widget screen par hai)
+        if (mounted) {
+          _showLuckyDialog();
+        }
+
+        // 3. Local storage mein save kar lo ki offer mil gaya
+        await prefs.setBool('lucky_trial_claimed_${user.uid}', true);
+        
+      } catch (e) {
+        debugPrint("Error activating trial: $e");
+      }
+    }
+  }
+
+  // --- 🎁 POPUP DIALOG UI ---
+  void _showLuckyDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Bahar click karne se band nahi hoga
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        title: Column(
+          children: [
+            const Icon(Icons.celebration, size: 60, color: Colors.orange),
+            const SizedBox(height: 10),
+            Text(
+              "🎉 Congratulations!",
+              style: TextStyle(
+                color: Colors.green.shade700,
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Text(
+              "You are our Lucky User #1000! 🏆",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Text(
+              "As a special gift, you have received:",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+            SizedBox(height: 8),
+            Text(
+              "3 MONTHS FREE PREMIUM",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20, 
+                color: Colors.blue, 
+                fontWeight: FontWeight.w900
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              "Access all Test Series and Notes for free for 90 days.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+              onPressed: () {
+                Navigator.pop(context); // Dialog band karo
+              },
+              child: const Text("Claim Offer Now", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -38,31 +157,27 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildTestSeriesSection(context),
       ],
     );
-  } // <--- ⚠️ BUILD METHOD YAHAN KHATAM HOTA HAI ⚠️
+  }
 
-  // --- NAYE HELPER METHODS YAHAN SE SHURU HAIN ---
+  // --- HELPER METHODS ---
 
-  // Naya Daily Test Card Widget
   Widget _buildDailyTestCard(BuildContext context) {
-    // Aaj ki tareekh YYYY-MM-DD format mein (jaise: 2025-11-10)
+    // Aaj ki tareekh YYYY-MM-DD format mein
     final String todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     return FutureBuilder<DocumentSnapshot>(
-      // Firebase se sirf aaj ka test document fetch karo
       future: FirebaseFirestore.instance
           .collection('DailyTests')
           .doc(todayDocId)
           .get(),
       builder: (context, snapshot) {
-        // Loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // Agar test nahi mila (aapne manually add nahi kiya)
         if (!snapshot.hasData || !snapshot.data!.exists) {
           return Card(
-            margin: const EdgeInsets.all(0), // No extra margin
+            margin: const EdgeInsets.all(0),
             child: const Padding(
               padding: EdgeInsets.all(20.0),
               child: Center(
@@ -75,13 +190,11 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        // Test mil gaya, data nikalo
         final data = snapshot.data!.data() as Map<String, dynamic>;
         final title = data['title'] ?? "Today's Target";
         final subtitle = data['subtitle'] ?? "Daily Practice Test";
         final questionIds = List<String>.from(data['questionIds'] ?? []);
         
-        // Screenshot jaisa Card
         return Card(
           color: Theme.of(context).colorScheme.primaryContainer,
           margin: const EdgeInsets.all(0),
@@ -110,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 15),
                 Text(
-                  "${questionIds.length} Questions Practice", // 20 Questions Practice
+                  "${questionIds.length} Questions Practice",
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.8),
                     fontSize: 14,
@@ -128,8 +241,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
                     ),
                     onPressed: () {
-                      // Test Screen par question IDs ki list bhej do
-                      // Make sure your router handles this route and data
                       context.go('/test-screen', extra: {'ids': questionIds});
                     },
                     child: const Text(
@@ -146,7 +257,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Naya Test Series Grid Widget
   Widget _buildTestSeriesSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,7 +269,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
         StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('TestSeries').snapshots(),
+          // ⚠️ Note: Collection name 'testSeriesHome' use kiya hai jo aapne bataya tha
+          stream: FirebaseFirestore.instance.collection('testSeriesHome').snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -171,13 +282,13 @@ class _HomeScreenState extends State<HomeScreen> {
             final seriesList = snapshot.data!.docs;
 
             return GridView.builder(
-              shrinkWrap: true, // Zaroori hai ListView ke andar
-              physics: const NeverScrollableScrollPhysics(), // Zaroori hai ListView ke andar
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, // Ek row mein 2 items
+                crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio: 0.9, // Card ki height/width ratio
+                childAspectRatio: 0.9,
               ),
               itemCount: seriesList.length,
               itemBuilder: (context, index) {
@@ -186,13 +297,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 
                 final title = data['title'] ?? "N/A";
                 final subtitle = data['subtitle'] ?? "View Tests";
-                final category = data['category'] ?? "Exam"; // Jaise "RSSB"
+                final category = data['category'] ?? "Exam";
                 
-                // Color parsing (safe way)
-                Color cardColor = Colors.teal.shade50; // Default color
+                Color cardColor = Colors.teal.shade50;
                 if (data['colorCode'] != null) {
                   try {
-                    // Assuming colorCode is hex string like "0xFFE0F2F1"
                     cardColor = Color(int.parse(data['colorCode']));
                   } catch (e) {
                     // fallback
@@ -206,8 +315,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(15),
                     onTap: () {
-                      // Test List Page par bhej do series ki ID ke saath
-                      // Make sure your router handles this route
                       context.go('/test-list', extra: series.id);
                     },
                     child: Padding(
@@ -246,8 +353,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
-
-  // --- AAPKE PURANE HELPER METHODS ---
 
   Widget _buildWelcomeCard(BuildContext context) {
     return Container(
@@ -330,4 +435,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-} // <--- ⚠️ _HomeScreenState CLASS YAHAN KHATAM HOTI HAI ⚠️
+}
