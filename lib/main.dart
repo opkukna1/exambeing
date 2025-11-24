@@ -8,9 +8,10 @@ import 'package:exambeing/services/theme_provider.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:exambeing/services/ad_service_provider.dart';
 import 'package:exambeing/services/notification_service.dart';
-
-// ⬇️===== NAYA IMPORT (Permission Ke Liye) =====⬇️
 import 'package:permission_handler/permission_handler.dart';
+
+// ⬇️===== NAYA IMPORT (AdManager Ke Liye) =====⬇️
+import 'package:exambeing/services/ad_manager.dart';
 // ⬆️==========================================⬆️
 
 Future<void> main() async {
@@ -21,23 +22,23 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // AdMob SDK ko initialize karo (bina 'await' ke)
-  MobileAds.instance.initialize();
+  // AdMob SDK ko initialize karo
+  await MobileAds.instance.initialize();
+
+  // ⬇️===== YEH LINE ADD KI HAI (Ad Pre-load karne ke liye) =====⬇️
+  // App start hote hi Full Screen Ad load ho jayega
+  AdManager.loadInterstitialAd();
+  // ⬆️==========================================================⬆️
 
   // Notification service ko initialize (shuru) karo
   await NotificationService().initialize();
 
-  // ⬇️===== YEH HAIN ASLI FIX (Dono Permissions) =====⬇️
-  
-  // 1. Notification Dikhane Ki Permission (Android 13+)
+  // Permissions request karo
   await NotificationService().requestNotificationPermissions();
 
-  // 2. Sahi Time Par Bhejne Ki Permission (Android 12+)
   if (await Permission.scheduleExactAlarm.isDenied) {
     await Permission.scheduleExactAlarm.request();
   }
-  // ⬆️=================================================⬆️
-
 
   runApp(
     MultiProvider(
@@ -164,5 +165,3 @@ class ExambeingApp extends StatelessWidget {
     );
   }
 }
-
-
