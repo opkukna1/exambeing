@@ -1,6 +1,4 @@
-# ----------------------------------------------------------
-# 1. FLUTTER WRAPPER RULES (Standard)
-# ----------------------------------------------------------
+# Flutter Wrapper
 -keep class io.flutter.app.** { *; }
 -keep class io.flutter.plugin.** { *; }
 -keep class io.flutter.util.** { *; }
@@ -8,31 +6,26 @@
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
 
-# ----------------------------------------------------------
-# 2. SMART AUTH PLUGIN FIX (Most Important)
-# ----------------------------------------------------------
-# Yeh line batati hai ki SmartAuth plugin ke code ko delete na kare
--keep class fman.ge.smart_auth.** { *; }
--dontwarn fman.ge.smart_auth.**
-
-# ----------------------------------------------------------
-# 3. GOOGLE PLAY SERVICES AUTH (Credentials)
-# ----------------------------------------------------------
-# Yeh lines Google Auth ki files ko safe rakhti hain
+# Google Play Services Auth
 -keep class com.google.android.gms.auth.api.credentials.** { *; }
 -keep class com.google.android.gms.auth.api.phone.** { *; }
 -dontwarn com.google.android.gms.auth.api.credentials.**
 -dontwarn com.google.android.gms.auth.api.phone.**
 
-# ----------------------------------------------------------
-# 4. GOOGLE COMMON & TASKS (Dependencies)
-# ----------------------------------------------------------
+# Smart Auth Plugin
+-keep class fman.ge.smart_auth.** { *; }
+-dontwarn fman.ge.smart_auth.**
+
+# Google Common & Tasks
 -keep class com.google.android.gms.common.** { *; }
 -keep class com.google.android.gms.tasks.** { *; }
 -dontwarn com.google.android.gms.**
 
-# ----------------------------------------------------------
-# 5. ANDROID CREDENTIALS MANAGER (Newer Android versions)
-# ----------------------------------------------------------
+# Android Credentials
 -keep class androidx.credentials.** { *; }
 -dontwarn androidx.credentials.**
+
+# 👇 NEW RULES ADDED HERE 👇
+# Google Play Feature Delivery (Split Install Fix)
+-keep class com.google.android.play.core.** { *; }
+-dontwarn com.google.android.play.core.**
