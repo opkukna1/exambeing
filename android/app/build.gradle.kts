@@ -8,7 +8,7 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-// key.properties load karne ka code (Same as yours)
+// key.properties load karne ka code
 val keyPropertiesFile = rootProject.file("key.properties") 
 val keyProperties = Properties()
 if (keyPropertiesFile.exists()) {
@@ -17,7 +17,7 @@ if (keyPropertiesFile.exists()) {
 
 android {
     namespace = "com.opkukna.exambeing"
-    compileSdk = 36 // ✅ Apka purana version (No Change)
+    compileSdk = 36
     ndkVersion = "27.0.12077973" 
 
     signingConfigs {
@@ -42,33 +42,25 @@ android {
     defaultConfig {
         applicationId = "com.opkukna.exambeing"
         minSdk = 23
-        targetSdk = 36 // ✅ Apka purana version (No Change)
+        targetSdk = 36
         versionCode = 5
         versionName = "1.0.4"
     }
 
     buildTypes {
         getByName("release") {
-            // ⬇️===== SIRF YE CHANGES KIYE HAIN (Warning Hatane Ke Liye) =====⬇️
-            
-            // 1. Minify ON kiya (Warning hatane ke liye zaroori)
+            // Warning aur Size ke liye ye sab TRUE rahenge
             isMinifyEnabled = true 
-            
-            // 2. Shrink ON kiya (Size kam karne ke liye)
             isShrinkResources = true 
             
-            // 3. Proguard Rules add kiye (Crash se bachne ke liye)
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
             
-            // 4. Debug Symbols Full kiye (Play Console Warning Fix)
             ndk {
                 debugSymbolLevel = "FULL"
             }
-            
-            // ⬆️=============================================================⬆️
             
             signingConfig = signingConfigs.getByName("release")
         }
@@ -80,5 +72,10 @@ flutter {
 }
 
 dependencies {
+    // Notification ke liye
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
+    // ⬇️===== YEH LINE ADD KI HAI (R8 Error Fix ke liye) =====⬇️
+    implementation("com.google.android.gms:play-services-auth:21.0.0")
+    // ⬆️=====================================================⬆️
 }
