@@ -13,17 +13,33 @@ import 'package:exambeing/models/bookmarked_note_model.dart';
 import 'package:exambeing/models/note_content_model.dart';
 
 
-// --- (Saare Models: MyNote, Task, TimetableEntry, UserNoteEdit) ---
-// (Yeh code pehle jaisa hi hai)
+// --- (Models Section) ---
+
+// ✅ UPDATED: MyNote Model (Title added)
 class MyNote {
   final int? id;
+  final String title;   // Title add kiya
   final String content;
   final String createdAt;
-  MyNote({this.id, required this.content, required this.createdAt});
+
+  MyNote({
+    this.id, 
+    required this.title, 
+    required this.content, 
+    required this.createdAt
+  });
+
   Map<String, dynamic> toMap() {
-    return {'id': id, 'content': content, 'createdAt': createdAt};
+    return {
+      'id': id, 
+      'title': title, 
+      'content': content, 
+      'createdAt': createdAt
+    };
   }
 }
+
+// --- Baki Models Same Hain ---
 class Task {
   final int? id;
   final String title;
@@ -122,17 +138,15 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    // ⬇️===== VERSION 9 se 10 KIYA GAYA =====⬇️
-    return await openDatabase(path, version: 10, onCreate: _createDB, onUpgrade: _upgradeDB);
+    
+    // ⬇️===== VERSION UPDATED TO 11 (Title Field ke liye) =====⬇️
+    return await openDatabase(path, version: 11, onCreate: _createDB, onUpgrade: _upgradeDB);
   }
 
   Future _createDB(Database db, int version) async {
-    // Naya database hamesha poora schema banayega
     await _upgradeDB(db, 0, version);
   }
 
-  // ⬇️===== YEH HAI ASLI FIX (v10) - Sabhi tables ko 'IF NOT EXISTS' se banaya =====⬇️
-  // Yeh har 'onUpgrade' par chalega aur check karega ki koi table missing to nahi
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
     const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
     const textType = 'TEXT NOT NULL';
@@ -140,9 +154,16 @@ class DatabaseHelper {
     const integerType = 'INTEGER NOT NULL';
     const nullableTextType = 'TEXT';
 
+    // ✅ UPDATED TABLE: my_notes (Ab Title bhi hai)
+    // Purana table drop karke naya bana rahe hain taaki structure sahi ho jaye
+    if (oldVersion < 11) {
+      await db.execute('DROP TABLE IF EXISTS my_notes');
+    }
+    
     await db.execute('''
       CREATE TABLE IF NOT EXISTS my_notes ( 
         id $idType, 
+        title $textType,
         content $textType,
         createdAt $textType
       )
@@ -203,35 +224,49 @@ class DatabaseHelper {
   }
   // ⬆️======================================================================⬆️
 
-  // --- (Baaki saare functions: My Notes, Bookmarks, Tasks, Timetable, User Edits) ---
-  // (Yeh code pehle jaisa hi hai, maine ismein 'toIso8601String' waala typo bhi theek kar diya hai)
-
-  // --- "My Notes" Functions ---
+  // --- "My Notes" CRUD Functions (Updated for Title) ---
+  
+  // 1. Create
   Future<MyNote> create(MyNote note) async {
     final db = await instance.database;
     final id = await db.insert('my_notes', note.toMap());
-    return MyNote(id: id, content: note.content, createdAt: note.createdAt);
+    return MyNote(
+      id: id, 
+      title: note.title, 
+      content: note.content, 
+      createdAt: note.createdAt
+    );
   }
+
+  // 2. Read All (Sorted by Latest First)
   Future<List<MyNote>> readAllNotes() async {
     final db = await instance.database;
-    final orderBy = 'createdAt DESC';
+    // ✅ Fix: Naya note sabse upar aayega (DESC order)
+    final orderBy = 'id DESC'; 
     final result = await db.query('my_notes', orderBy: orderBy);
     return result.map((json) => MyNote(
       id: json['id'] as int,
+      title: json['title'] as String, // Title fetch
       content: json['content'] as String,
       createdAt: json['createdAt'] as String,
     )).toList();
   }
+
+  // 3. Update
   Future<int> update(MyNote note) async {
     final db = await instance.database;
     return db.update('my_notes', note.toMap(), where: 'id = ?', whereArgs: [note.id]);
   }
+
+  // 4. Delete
   Future<int> delete(int id) async {
     final db = await instance.database;
     return await db.delete('my_notes', where: 'id = ?', whereArgs: [id]);
   }
 
-  // --- Bookmarked Questions Functions ---
+  // --- (Baaki Functions wese ke wese hain) ---
+  // ... Bookmarks, Tasks, Timetable code remains unchanged ...
+
   Future<void> bookmarkQuestion(Question question) async {
     final db = await instance.database;
     final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM bookmarked_questions'));
@@ -289,7 +324,6 @@ class DatabaseHelper {
     }).toList();
   }
 
-  // --- Bookmarked Public Notes Functions (v8) ---
   Future<void> bookmarkNote(PublicNote note, NoteContent noteContent) async {
     final db = await instance.database;
     final row = {
@@ -299,7 +333,7 @@ class DatabaseHelper {
       'subjectId': note.subjectId,
       'subSubjectId': note.subSubjectId,
       'subSubjectName': note.subSubjectName,
-      'timestamp': note.timestamp.toDate().toIso8601String(), // ✅ Typo Fix
+      'timestamp': note.timestamp.toDate().toIso8601String(),
     };
     await db.insert('bookmarked_notes', row, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
@@ -313,8 +347,6 @@ class DatabaseHelper {
     return maps.map((json) => BookmarkedNote.fromDbMap(json)).toList();
   }
 
-
-  // --- Bookmarked Schedules Functions ---
   Future<void> bookmarkSchedule(Schedule schedule) async {
     final db = await instance.database;
     final row = {
@@ -343,7 +375,6 @@ class DatabaseHelper {
     }).toList();
   }
 
-  // --- Task (To-Do) Functions ---
   Future<Task> createTask(Task task) async {
     final db = await instance.database;
     final id = await db.insert('tasks', task.toMap());
@@ -364,7 +395,6 @@ class DatabaseHelper {
     return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
   
-  // --- Timetable (Scheduler) Functions ---
   Future<TimetableEntry> createTimetableEntry(TimetableEntry entry) async {
     final db = await instance.database;
     final id = await db.insert('timetable_entries', entry.toMap());
@@ -387,7 +417,6 @@ class DatabaseHelper {
     return await db.delete('timetable_entries', where: 'id = ?', whereArgs: [id]);
   }
 
-  // --- User Note Edits Functions (v6) ---
   Future<int> saveUserEdit(UserNoteEdit edit) async {
     final db = await instance.database;
     return await db.insert(
