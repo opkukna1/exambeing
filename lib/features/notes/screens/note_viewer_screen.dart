@@ -1,45 +1,113 @@
-// lib/features/notes/screens/note_viewer_screen.dart
-
 import 'package:flutter/material.dart';
-// import '../../../helpers/database_helper.dart'; // ✅ FIX: Removed unused import
+import 'package:exambeing/models/my_note_model.dart'; 
+import 'package:exambeing/helpers/database_helper.dart';
+import 'package:exambeing/features/notes/screens/add_edit_note_screen.dart';
 
-class NoteViewerScreen extends StatefulWidget {
-  final Map<String, dynamic> topicData;
-  final int? initialPage;
-  const NoteViewerScreen({super.key, required this.topicData, this.initialPage});
+class NoteDetailViewScreen extends StatefulWidget {
+  final int noteId;
+
+  const NoteDetailViewScreen({super.key, required this.noteId});
 
   @override
-  _NoteViewerScreenState createState() => _NoteViewerScreenState();
+  State<NoteDetailViewScreen> createState() => _NoteDetailViewScreenState();
 }
 
-class _NoteViewerScreenState extends State<NoteViewerScreen> {
+class _NoteDetailViewScreenState extends State<NoteDetailViewScreen> {
+  late Future<MyNote> _noteFuture;
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
+    _loadNote();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
+  void _loadNote() {
+    setState(() {
+      _noteFuture = DatabaseHelper.instance.readNote(widget.noteId);
+    });
+  }
+
+  Future<void> _deleteNote() async {
+    setState(() => _isLoading = true);
+    await DatabaseHelper.instance.delete(widget.noteId);
+    if (mounted) {
+      Navigator.pop(context); 
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.topicData['topicName']),
-        actions: const [],
-      ),
-      body: const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'PDF viewing functionality is currently unavailable.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Colors.grey),
+    return FutureBuilder<MyNote>(
+      future: _noteFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
+        final note = snapshot.data!;
+
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Colors.black),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.deepPurple),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AddEditNoteScreen(note: note),
+                    ),
+                  );
+                  _loadNote(); 
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    title: const Text("Delete Note?"),
+                    content: const Text("This cannot be undone."),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c), child: const Text("Cancel")),
+                      TextButton(onPressed: () { Navigator.pop(c); _deleteNote(); }, child: const Text("Delete", style: TextStyle(color: Colors.red))),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-      ),
+          body: _isLoading 
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    note.title,
+                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    note.createdAt,
+                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                  ),
+                  const Divider(height: 30, thickness: 1),
+                  Text(
+                    note.content,
+                    style: const TextStyle(fontSize: 18, height: 1.6, color: Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+        );
+      },
     );
   }
 }
