@@ -12,7 +12,7 @@ class AdManager {
 
   // Test Ad Unit ID
   static final String _adUnitId = Platform.isAndroid
-      ? 'ca-app-pub-1310160958851625/4286686798' 
+      ? 'ca-app-pub-1310160958851625/4164818744' 
       : 'ca-app-pub-39402560992544/4411460';
 
   // 1. Load Ad
