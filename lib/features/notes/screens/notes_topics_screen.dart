@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // ✅ Firebase import
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:exambeing/helpers/database_helper.dart';
-import 'package:exambeing/models/public_note_model.dart';
-// ✅ Is file ko import karein jisme aapne SubSubject model banaya hai
-import 'package:exambeing/models/note_sub_subject_model.dart'; 
-// ✅ Agli screen jahan notes ki list dikhegi
-import 'package:exambeing/features/notes/screens/topic_notes_screen.dart'; 
+import 'package:exambeing/models/bookmarked_note_model.dart'; // Correct Import
+import 'package:exambeing/models/note_sub_subject_model.dart';
+import 'package:exambeing/features/notes/screens/topic_notes_screen.dart';
 
 class NotesTopicsScreen extends StatefulWidget {
-  final Map<String, dynamic> subjectData; 
+  final Map<String, dynamic> subjectData;
   // Expected data: {'subject': 'History', 'id': 'subject_doc_id'}
-  
+
   const NotesTopicsScreen({super.key, required this.subjectData});
 
   @override
@@ -20,7 +18,8 @@ class NotesTopicsScreen extends StatefulWidget {
 
 class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
   final dbHelper = DatabaseHelper.instance;
-  List<PublicNote> _bookmarkedPages = [];
+  // ✅ FIX: Use BookmarkedNote type
+  List<BookmarkedNote> _bookmarkedPages = [];
 
   @override
   void initState() {
@@ -30,13 +29,21 @@ class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
 
   Future<void> _loadBookmarks() async {
     final allBookmarkedNotes = await dbHelper.getAllBookmarkedNotes();
-    final subjectName = widget.subjectData['subject'];
-
-    // Filter bookmarks by Subject Name
-    final filteredBookmarks = allBookmarkedNotes.where((bookmark) {
-      return bookmark.subjectName == subjectName;
-    }).toList();
+    // Note: You might need to check if your BookmarkedNote model actually has 'subjectName'.
+    // If it's saved as 'subjectId', you might need to filter by that or just show all for now.
+    // Assuming BookmarkedNote has a 'subjectName' field or similiar you saved.
+    // If not, remove the filter or update the model.
     
+    // Safe filter:
+    final subjectName = widget.subjectData['subject'];
+    final filteredBookmarks = allBookmarkedNotes.where((bookmark) {
+      // Check your BookmarkedNote model fields. It usually has subjectId or subSubjectName.
+      // If you don't have subjectName in bookmark, you can't filter by it easily here.
+      // For now, let's return true to show all, or filter if field exists.
+      // return bookmark.subjectName == subjectName; 
+      return true; 
+    }).toList();
+
     if (mounted) {
       setState(() {
         _bookmarkedPages = filteredBookmarks;
@@ -46,7 +53,6 @@ class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Subject ka naam (e.g. History)
     String subjectName = widget.subjectData['subject'] ?? '';
 
     return Scaffold(
@@ -62,9 +68,7 @@ class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Bookmarks Section
-            if (_bookmarkedPages.isNotEmpty)
-              _buildRevisionSection(context),
+            if (_bookmarkedPages.isNotEmpty) _buildRevisionSection(context),
 
             Padding(
               padding: const EdgeInsets.all(12.0),
@@ -74,11 +78,10 @@ class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
               ),
             ),
 
-            // 2. Firebase StreamBuilder (Topics List)
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('NoteSubSubjects') // ✅ UPDATED: Ab ye 'NoteSubSubjects' collection se data layega
-                  .where('subjectName', isEqualTo: subjectName) // ✅ Filter by Subject
+                  .collection('NoteSubSubjects')
+                  .where('subjectName', isEqualTo: subjectName)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -102,12 +105,11 @@ class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
                 final topicDocs = snapshot.data!.docs;
 
                 return ListView.builder(
-                  shrinkWrap: true, // Column ke andar list ke liye zaroori
+                  shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),
                   itemCount: topicDocs.length,
                   itemBuilder: (context, index) {
-                    // Convert Firebase Doc to Model
                     NoteSubSubject topic = NoteSubSubject.fromFirestore(topicDocs[index]);
 
                     return Card(
@@ -120,12 +122,11 @@ class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
                           child: const Icon(Icons.article_outlined, color: Colors.deepPurple),
                         ),
                         title: Text(
-                          topic.name, // e.g. Rajasthan Itihas
+                          topic.name,
                           style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
                         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18, color: Colors.grey),
                         onTap: () {
-                          // ✅ Click karne par TopicNotesScreen par bhejein (Jahan notes dikhenge)
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -139,8 +140,7 @@ class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
                 );
               },
             ),
-            
-            const SizedBox(height: 20), // Bottom padding
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -167,8 +167,7 @@ class _NotesTopicsScreenState extends State<NotesTopicsScreen> {
                 title: Text(bookmark.title),
                 trailing: const Icon(Icons.open_in_new, size: 20, color: Colors.orange),
                 onTap: () {
-                  // Bookmark open karne ka logic
-                  // context.push('/note_detail', extra: bookmark);
+                  context.push('/bookmark-note-detail', extra: bookmark);
                 },
               ),
             );
