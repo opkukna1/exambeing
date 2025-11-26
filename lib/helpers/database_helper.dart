@@ -2,44 +2,20 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+
+// ✅ Models Import karein (Isse duplicate error hatega)
+import 'package:exambeing/models/my_note_model.dart'; 
 import 'package:exambeing/models/mcq_bookmark_model.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/models/schedule_model.dart';
-import 'package:intl/intl.dart';
-
 import 'package:exambeing/models/bookmarked_note_model.dart';
 import 'package:exambeing/models/note_content_model.dart';
 
+// ⚠️ YAHAN SE "class MyNote" HATA DIYA GAYA HAI KYUNKI WO ALAG FILE MEIN HAI
 
-// --- (Models Section) ---
-
-// ✅ UPDATED: MyNote Model (Title added)
-class MyNote {
-  final int? id;
-  final String title;   // Title add kiya
-  final String content;
-  final String createdAt;
-
-  MyNote({
-    this.id, 
-    required this.title, 
-    required this.content, 
-    required this.createdAt
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id, 
-      'title': title, 
-      'content': content, 
-      'createdAt': createdAt
-    };
-  }
-}
-
-// --- Baki Models Same Hain ---
+// --- Baki Models (Agar alag file nahi hai to yahi rehne dein) ---
 class Task {
   final int? id;
   final String title;
@@ -120,10 +96,7 @@ class UserNoteEdit {
     );
   }
 }
-// --- (Models Khatam) ---
 
-
-// --- Database Helper Class ---
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
@@ -138,8 +111,6 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    
-    // ⬇️===== VERSION UPDATED TO 11 (Title Field ke liye) =====⬇️
     return await openDatabase(path, version: 11, onCreate: _createDB, onUpgrade: _upgradeDB);
   }
 
@@ -154,8 +125,6 @@ class DatabaseHelper {
     const integerType = 'INTEGER NOT NULL';
     const nullableTextType = 'TEXT';
 
-    // ✅ UPDATED TABLE: my_notes (Ab Title bhi hai)
-    // Purana table drop karke naya bana rahe hain taaki structure sahi ho jaye
     if (oldVersion < 11) {
       await db.execute('DROP TABLE IF EXISTS my_notes');
     }
@@ -178,21 +147,14 @@ class DatabaseHelper {
     
     await db.execute('''
       CREATE TABLE IF NOT EXISTS bookmarked_notes (
-        id $idType,
-        noteId $uniqueTextType,
-        title $textType,
-        content $textType,
-        subjectId $textType,
-        subSubjectId $textType,
-        subSubjectName $textType,
-        timestamp $textType
+        id $idType, noteId $uniqueTextType, title $textType, content $textType,
+        subjectId $textType, subSubjectId $textType, subSubjectName $textType, timestamp $textType
       )
     ''');
     
     await db.execute('''
       CREATE TABLE IF NOT EXISTS bookmarked_schedules (
-        id $idType, scheduleId $uniqueTextType, title $textType,
-        content $textType, subjectId $textType
+        id $idType, scheduleId $uniqueTextType, title $textType, content $textType, subjectId $textType
       )
     ''');
     
@@ -204,75 +166,65 @@ class DatabaseHelper {
     
     await db.execute('''
       CREATE TABLE IF NOT EXISTS timetable_entries (
-        id $idType,
-        subjectName $textType,
-        startTime $textType,
-        endTime $textType,
-        dayOfWeek $integerType,
-        notificationId $integerType UNIQUE
+        id $idType, subjectName $textType, startTime $textType, endTime $textType,
+        dayOfWeek $integerType, notificationId $integerType UNIQUE
       )
     ''');
     
     await db.execute('''
       CREATE TABLE IF NOT EXISTS user_note_edits (
-        id $idType,
-        firebaseNoteId $uniqueTextType,
-        userContent $nullableTextType,
-        userHighlightsJson $nullableTextType
+        id $idType, firebaseNoteId $uniqueTextType, userContent $nullableTextType, userHighlightsJson $nullableTextType
       )
     ''');
   }
-  // ⬆️======================================================================⬆️
 
-  // --- "My Notes" CRUD Functions (Updated for Title) ---
+  // --- "My Notes" CRUD Functions ---
   
-  // 1. Create
   Future<MyNote> create(MyNote note) async {
     final db = await instance.database;
-    final id = await db.insert('my_notes', note.toMap());
-    return MyNote(
-      id: id, 
-      title: note.title, 
-      content: note.content, 
-      createdAt: note.createdAt
-    );
+    final id = await db.insert('my_notes', note.toJson()); // ✅ Use toJson() here
+    return note.copy(id: id); // ✅ Use copy() here
   }
 
-  // 2. Read All (Sorted by Latest First)
   Future<List<MyNote>> readAllNotes() async {
     final db = await instance.database;
-    // ✅ Fix: Naya note sabse upar aayega (DESC order)
     final orderBy = 'id DESC'; 
     final result = await db.query('my_notes', orderBy: orderBy);
-    return result.map((json) => MyNote(
-      id: json['id'] as int,
-      title: json['title'] as String, // Title fetch
-      content: json['content'] as String,
-      createdAt: json['createdAt'] as String,
-    )).toList();
+    return result.map((json) => MyNote.fromJson(json)).toList(); // ✅ Use fromJson()
   }
 
-  // 3. Update
+  // ✅ Ye function MISSING tha, isliye error aa raha tha
+  Future<MyNote> readNote(int id) async {
+    final db = await instance.database;
+    final maps = await db.query(
+      'my_notes',
+      columns: ['id', 'title', 'content', 'createdAt'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (maps.isNotEmpty) {
+      return MyNote.fromJson(maps.first);
+    } else {
+      throw Exception('ID $id not found');
+    }
+  }
+
   Future<int> update(MyNote note) async {
     final db = await instance.database;
-    return db.update('my_notes', note.toMap(), where: 'id = ?', whereArgs: [note.id]);
+    return db.update('my_notes', note.toJson(), where: 'id = ?', whereArgs: [note.id]);
   }
 
-  // 4. Delete
   Future<int> delete(int id) async {
     final db = await instance.database;
     return await db.delete('my_notes', where: 'id = ?', whereArgs: [id]);
   }
 
-  // --- (Baaki Functions wese ke wese hain) ---
-  // ... Bookmarks, Tasks, Timetable code remains unchanged ...
-
+  // --- Other Functions (Keep them as they are) ---
   Future<void> bookmarkQuestion(Question question) async {
     final db = await instance.database;
     final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM bookmarked_questions'));
-    if (count != null && count >= 100) {
-      throw Exception('You can only save a maximum of 100 questions.');
-    }
+    if (count != null && count >= 100) throw Exception('Max 100 questions.');
     final Map<String, dynamic> row = {
       'questionText': question.questionText,
       'options': jsonEncode(question.options),
@@ -297,43 +249,35 @@ class DatabaseHelper {
     return maps.map((json) {
       final options = List<String>.from(jsonDecode(json['options'] as String));
       final correctIndex = json['correctAnswerIndex'] as int;
-      final correctOption = options[correctIndex];
       return McqBookmark(
         id: json['id'] as int,
         questionText: json['questionText'] as String,
         options: options,
-        correctOption: correctOption,
+        correctOption: options[correctIndex],
         explanation: json['explanation'] as String,
         topic: json['topicId'] as String,
-        subject: 'Placeholder Subject',
+        subject: 'Placeholder',
       );
     }).toList();
   }
   Future<List<Question>> getAllBookmarkedQuestions() async {
     final db = await instance.database;
     final maps = await db.query('bookmarked_questions');
-    return maps.map((json) {
-      return Question(
-        id: json['id'].toString(),
-        questionText: json['questionText'] as String,
-        options: List<String>.from(jsonDecode(json['options'] as String)),
-        correctAnswerIndex: json['correctAnswerIndex'] as int,
-        explanation: json['explanation'] as String,
-        topicId: json['topicId'] as String,
-      );
-    }).toList();
+    return maps.map((json) => Question(
+      id: json['id'].toString(),
+      questionText: json['questionText'],
+      options: List<String>.from(jsonDecode(json['options'])),
+      correctAnswerIndex: json['correctAnswerIndex'],
+      explanation: json['explanation'],
+      topicId: json['topicId'],
+    )).toList();
   }
-
   Future<void> bookmarkNote(PublicNote note, NoteContent noteContent) async {
     final db = await instance.database;
     final row = {
-      'noteId': note.id,
-      'title': note.title,
-      'content': noteContent.content,
-      'subjectId': note.subjectId,
-      'subSubjectId': note.subSubjectId,
-      'subSubjectName': note.subSubjectName,
-      'timestamp': note.timestamp.toDate().toIso8601String(),
+      'noteId': note.id, 'title': note.title, 'content': noteContent.content,
+      'subjectId': note.subjectId, 'subSubjectId': note.subSubjectId,
+      'subSubjectName': note.subSubjectName, 'timestamp': note.timestamp.toDate().toIso8601String(),
     };
     await db.insert('bookmarked_notes', row, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
@@ -346,14 +290,10 @@ class DatabaseHelper {
     final maps = await db.query('bookmarked_notes');
     return maps.map((json) => BookmarkedNote.fromDbMap(json)).toList();
   }
-
   Future<void> bookmarkSchedule(Schedule schedule) async {
     final db = await instance.database;
     final row = {
-      'scheduleId': schedule.id,
-      'title': schedule.title,
-      'content': schedule.content,
-      'subjectId': schedule.subjectId,
+      'scheduleId': schedule.id, 'title': schedule.title, 'content': schedule.content, 'subjectId': schedule.subjectId,
     };
     await db.insert('bookmarked_schedules', row, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
@@ -364,17 +304,11 @@ class DatabaseHelper {
   Future<List<Schedule>> getAllBookmarkedSchedules() async {
     final db = await instance.database;
     final maps = await db.query('bookmarked_schedules');
-    return maps.map((json) {
-      return Schedule(
-        id: json['scheduleId'] as String,
-        title: json['title'] as String,
-        content: json['content'] as String,
-        subjectId: json['subjectId'] as String,
-        timestamp: Timestamp.now(),
-      );
-    }).toList();
+    return maps.map((json) => Schedule(
+      id: json['scheduleId'], title: json['title'], content: json['content'],
+      subjectId: json['subjectId'], timestamp: Timestamp.now(),
+    )).toList();
   }
-
   Future<Task> createTask(Task task) async {
     final db = await instance.database;
     final id = await db.insert('tasks', task.toMap());
@@ -382,8 +316,7 @@ class DatabaseHelper {
   }
   Future<List<Task>> getTasksByDate(DateTime date) async {
     final db = await instance.database;
-    final String dateString = DateFormat('yyyy-MM-dd').format(date);
-    final result = await db.query('tasks', where: 'date = ?', whereArgs: [dateString], orderBy: 'id DESC');
+    final result = await db.query('tasks', where: 'date = ?', whereArgs: [DateFormat('yyyy-MM-dd').format(date)], orderBy: 'id DESC');
     return result.map((json) => Task.fromMap(json)).toList();
   }
   Future<int> updateTaskStatus(int id, bool isDone) async {
@@ -394,18 +327,10 @@ class DatabaseHelper {
     final db = await instance.database;
     return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
-  
   Future<TimetableEntry> createTimetableEntry(TimetableEntry entry) async {
     final db = await instance.database;
     final id = await db.insert('timetable_entries', entry.toMap());
-    return TimetableEntry(
-      id: id,
-      subjectName: entry.subjectName,
-      startTime: entry.startTime,
-      endTime: entry.endTime,
-      dayOfWeek: entry.dayOfWeek,
-      notificationId: entry.notificationId,
-    );
+    return TimetableEntry(id: id, subjectName: entry.subjectName, startTime: entry.startTime, endTime: entry.endTime, dayOfWeek: entry.dayOfWeek, notificationId: entry.notificationId);
   }
   Future<List<TimetableEntry>> getAllTimetableEntries() async {
     final db = await instance.database;
@@ -416,29 +341,16 @@ class DatabaseHelper {
     final db = await instance.database;
     return await db.delete('timetable_entries', where: 'id = ?', whereArgs: [id]);
   }
-
   Future<int> saveUserEdit(UserNoteEdit edit) async {
     final db = await instance.database;
-    return await db.insert(
-      'user_note_edits',
-      edit.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    return await db.insert('user_note_edits', edit.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
   Future<UserNoteEdit?> getUserEdit(String firebaseNoteId) async {
     final db = await instance.database;
-    final maps = await db.query(
-      'user_note_edits',
-      where: 'firebaseNoteId = ?',
-      whereArgs: [firebaseNoteId],
-      limit: 1,
-    );
-    if (maps.isNotEmpty) {
-      return UserNoteEdit.fromMap(maps.first);
-    }
+    final maps = await db.query('user_note_edits', where: 'firebaseNoteId = ?', whereArgs: [firebaseNoteId], limit: 1);
+    if (maps.isNotEmpty) return UserNoteEdit.fromMap(maps.first);
     return null;
   }
-
   Future close() async {
     final db = await instance.database;
     db.close();
