@@ -28,7 +28,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     try {
       // Fetch content from 'noteContent' collection using the note ID
       final doc = await FirebaseFirestore.instance
-          .collection('noteContent')
+          .collection('NoteContent')
           .doc(widget.note.id)
           .get();
 
