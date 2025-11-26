@@ -19,13 +19,14 @@ import 'package:exambeing/features/bookmarks/screens/bookmarks_home_screen.dart'
 import 'package:exambeing/features/practice/screens/solutions_screen.dart';
 import 'package:exambeing/features/notes/screens/my_notes_screen.dart';
 import 'package:exambeing/features/notes/screens/add_edit_note_screen.dart';
-import 'package:exambeing/features/notes/screens/public_notes_screen.dart';
+import 'package:exambeing/features/notes/screens/notes_subjects_screen.dart'; // Corrected to NotesSubjectsScreen for public notes
 import 'package:exambeing/features/schedule/screens/schedules_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_question_detail_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_screen.dart';
 import 'package:exambeing/features/profile/screens/profile_screen.dart';
 import 'package:exambeing/models/question_model.dart';
-import 'package:exambeing/models/public_note_model.dart';
+import 'package:exambeing/models/public_note_model.dart'; // ✅ For PublicNote
+import 'package:exambeing/models/my_note_model.dart'; // ✅ For MyNote
 import 'package:exambeing/helpers/database_helper.dart';
 import 'package:exambeing/features/profile/screens/settings_screen.dart';
 import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
@@ -39,10 +40,13 @@ import 'package:exambeing/features/tests/result_screen.dart';
 import 'package:exambeing/features/tests/solution_screen.dart';
 import 'package:exambeing/features/tests/test_list_screen.dart';
 import 'package:exambeing/features/tests/series_test_screen.dart';
-import 'package:exambeing/features/tests/subject_list_screen.dart'; // Isko bhi add kiya hai
+import 'package:exambeing/features/tests/subject_list_screen.dart'; 
 // ⬆️=================================⬆️
 
 import 'package:exambeing/models/bookmarked_note_model.dart';
+import 'package:exambeing/features/notes/screens/notes_topics_screen.dart';
+import 'package:exambeing/features/notes/screens/topic_notes_screen.dart';
+import 'package:exambeing/models/note_sub_subject_model.dart'; // For SubSubject passing
 
 /// 🚨 Safe Error Screen
 class _ErrorRouteScreen extends StatelessWidget {
@@ -105,7 +109,7 @@ final GoRouter router = GoRouter(
         
         // Other Tab Routes
         GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
-        GoRoute(path: '/public-notes', builder: (context, state) => const PublicNotesScreen()),
+        GoRoute(path: '/public-notes', builder: (context, state) => const NotesSubjectsScreen()), // Changed to NotesSubjectsScreen
         GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
         GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
         GoRoute(path: '/pomodoro', builder: (context, state) => const PomodoroScreen()),
@@ -135,16 +139,10 @@ final GoRouter router = GoRouter(
       path: '/test-list',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        // Ab ye Map expect karega (SeriesID + SubjectID)
         final data = state.extra as Map<String, dynamic>?;
-        
-        // Agar direct CET jaisa hai (purana tarika), to usko handle karo
         if (state.extra is String) {
-           // (Optional: Agar aap purana direct method bhi rakhna chahte ho)
-           // return TestListScreen(seriesId: state.extra as String, subjectId: 'default', subjectTitle: 'Tests');
            return _ErrorRouteScreen(path: state.matchedLocation);
         }
-
         if (data == null) return _ErrorRouteScreen(path: state.matchedLocation);
         
         return TestListScreen(
@@ -275,13 +273,30 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/add-edit-note',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => AddEditNoteScreen(note: state.extra as MyNote?),
+      builder: (context, state) => AddEditNoteScreen(note: state.extra as MyNote?), // ✅ FIX: Explicit casting
     ),
     GoRoute(
       path: '/note-detail',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         if (state.extra is PublicNote) return NoteDetailScreen(note: state.extra as PublicNote);
+        return _ErrorRouteScreen(path: state.matchedLocation);
+      },
+    ),
+    // ✅ Added missing routes for new Note flow
+    GoRoute(
+      path: '/notes_topics',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        if (state.extra is Map<String, dynamic>) return NotesTopicsScreen(subjectData: state.extra as Map<String, dynamic>);
+        return _ErrorRouteScreen(path: state.matchedLocation);
+      },
+    ),
+    GoRoute(
+      path: '/topic_notes',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        if (state.extra is NoteSubSubject) return TopicNotesScreen(subSubject: state.extra as NoteSubSubject);
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
