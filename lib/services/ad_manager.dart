@@ -6,22 +6,22 @@ class AdManager {
   static InterstitialAd? _interstitialAd;
   static bool _isAdLoaded = false;
   
-  // 🆕 Counter Logic
+  // Counter Variable
   static int _clickCount = 0; 
-  static const int _adFrequency = 3; // Har 3rd click par ad dikhega
 
-  // Test Ad Unit ID
+  // ✅ Aapki Real Ad Unit ID (Android ke liye)
   static final String _adUnitId = Platform.isAndroid
-      ? 'ca-app-pub-1310160958851625/4164818744' 
-      : 'ca-app-pub-39402560992544/4411460';
+      ? 'ca-app-pub-1310160958851625/4164818744'  // Real ID
+      : 'ca-app-pub-3940256099942544/4411468910'; // iOS Test ID (Optional)
 
-  // 1. Load Ad
+  // 1. Ad Load Karne Ka Function
   static void loadInterstitialAd() {
     InterstitialAd.load(
       adUnitId: _adUnitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
+          print("Ad Loaded Successfully");
           _interstitialAd = ad;
           _isAdLoaded = true;
         },
@@ -33,23 +33,39 @@ class AdManager {
     );
   }
 
-  // 2. Show Ad with Logic
+  // 2. Show Ad with "2 Show, 2 Skip" Logic
   static void showInterstitialAd(VoidCallback onAdClosed) {
     // Counter badhao
     _clickCount++;
 
-    // Check karo: Kya ye 3rd click hai? (1, 2 skip... 3rd par show)
-    // Aur kya Ad loaded hai?
-    if (_clickCount % _adFrequency == 0 && _isAdLoaded && _interstitialAd != null) {
+    // Cycle Logic (Total 4 steps ka cycle)
+    // 1st Click: Show (Remainder 1)
+    // 2nd Click: Show (Remainder 2)
+    // 3rd Click: Skip (Remainder 3)
+    // 4th Click: Skip (Remainder 0)
+    // 5th Click: Show (Wapas 1)
+    
+    int positionInCycle = _clickCount % 4;
+    
+    // Ad tabhi dikhao jab cycle 1 ya 2 par ho
+    bool shouldShow = (positionInCycle == 1 || positionInCycle == 2);
+
+    print("Ad Click Count: $_clickCount (Cycle Pos: $positionInCycle) -> Show: $shouldShow");
+
+    // Agar bari hai AUR ad load hai -> Tabhi Dikhao
+    if (shouldShow && _isAdLoaded && _interstitialAd != null) {
       
       _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
         onAdDismissedFullScreenContent: (ad) {
+          // Ad band hone par kya karein
           ad.dispose();
           _isAdLoaded = false;
           loadInterstitialAd(); // Agla ad load karo
           onAdClosed(); // User ko aage bhejo
         },
         onAdFailedToShowFullScreenContent: (ad, error) {
+          // Agar ad fail ho jaye dikhane mein
+          print("Ad Failed to Show: $error");
           ad.dispose();
           _isAdLoaded = false;
           loadInterstitialAd();
@@ -60,16 +76,15 @@ class AdManager {
       _interstitialAd!.show();
       
     } else {
-      // Agar bari nahi hai ya ad load nahi hua, to seedha aage bhejo
-      // User ko lagega app bahut fast hai
-      print("Ad Skipped (Counter: $_clickCount)");
+      // Agar bari nahi hai (Skip turn) ya ad ready nahi hai
+      print("Ad Skipped (Logic or Not Ready)");
       
-      // Agar Ad load nahi tha, to background me try karo load karne ka
+      // Agar Ad load nahi tha (lekin bari thi), to background me load karne ki koshish karo
       if (!_isAdLoaded) {
         loadInterstitialAd();
       }
       
-      onAdClosed();
+      onAdClosed(); // User ko turant aage bhejo
     }
   }
 }
