@@ -1,9 +1,9 @@
 plugins {
-    // 👇 YAHAN CHANGE KIYA HAI (8.3.2 -> 8.9.1)
+    // 👇 Android Plugin (System ne 8.9.1 manga tha)
     id("com.android.application") version "8.9.1" apply false
 
-    // 👇 Kotlin version ko bhi thoda naya kar dete hain (Safety ke liye)
-    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+    // 👇 KOTLIN FIX: Yahan 1.9.24 ko hatakar 2.1.0 kar diya hai
+    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
 
     id("dev.flutter.flutter-gradle-plugin") apply false
     id("com.google.gms.google-services") version "4.4.2" apply false
