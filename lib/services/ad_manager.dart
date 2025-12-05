@@ -9,10 +9,10 @@ class AdManager {
   // Counter Variable
   static int _clickCount = 0; 
 
-  // ✅ Aapki Real Ad Unit ID (Android ke liye)
- //static final String _adUnitId = Platform.isAndroid
-      ? 'ca-app-pub-1310160958851625/'  // Real ID
-      : 'ca-app-pub-3940256099942544/4411468910'; // iOS Test ID (Optional)
+  // ✅ TEST AD UNIT IDs (Development ke liye yehi use karein)
+  static final String _adUnitId = Platform.isAndroid
+      ? 'ca-app-pub-3940256099942544/1033173712'  // Google Test ID (Android)
+      : 'ca-app-pub-3940256099942544/4411468910'; // Google Test ID (iOS)
 
   // 1. Ad Load Karne Ka Function
   static void loadInterstitialAd() {
@@ -21,7 +21,7 @@ class AdManager {
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
-          print("Ad Loaded Successfully");
+          print("Test Ad Loaded Successfully");
           _interstitialAd = ad;
           _isAdLoaded = true;
         },
