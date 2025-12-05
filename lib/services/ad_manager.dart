@@ -10,8 +10,8 @@ class AdManager {
   static int _clickCount = 0; 
 
   // ✅ Aapki Real Ad Unit ID (Android ke liye)
-  static final String _adUnitId = Platform.isAndroid
-      ? 'ca-app-pub-1310160958851625/4164818744'  // Real ID
+ //static final String _adUnitId = Platform.isAndroid
+      ? 'ca-app-pub-1310160958851625/'  // Real ID
       : 'ca-app-pub-3940256099942544/4411468910'; // iOS Test ID (Optional)
 
   // 1. Ad Load Karne Ka Function
