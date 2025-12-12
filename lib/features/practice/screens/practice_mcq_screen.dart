@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:exambeing/models/question_model.dart';
-import 'package:exambeing/services/revision_db.dart'; // ✅ Import DB
+import 'package:exambeing/services/revision_db.dart';
+import 'package:exambeing/services/ad_manager.dart'; // ✅ Import AdManager
 
 class PracticeMcqScreen extends StatefulWidget {
   final Map<String, dynamic> quizData;
@@ -112,20 +113,26 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     if (finalScore < 0) finalScore = 0;
 
     if (mounted) {
-      context.replace( 
-        '/score-screen',
-        extra: {
-          'totalQuestions': questions.length,
-          'finalScore': finalScore,
-          'correctCount': correctCount,
-          'wrongCount': wrongCount,
-          'unattemptedCount': unattemptedCount,
-          'topicName': topicName,
-          'questions': questions,
-          'userAnswers': _selectedAnswers,
-          'timeTaken': timeTaken,
-        },
-      );
+      // ✅ AD SHOW LOGIC: Submit par ad dikhao
+      AdManager.showInterstitialAd(() {
+        // Jab ad band ho jaye, tab result screen par jao
+        if (mounted) {
+          context.replace( 
+            '/score-screen',
+            extra: {
+              'totalQuestions': questions.length,
+              'finalScore': finalScore,
+              'correctCount': correctCount,
+              'wrongCount': wrongCount,
+              'unattemptedCount': unattemptedCount,
+              'topicName': topicName,
+              'questions': questions,
+              'userAnswers': _selectedAnswers,
+              'timeTaken': timeTaken,
+            },
+          );
+        }
+      });
     }
   }
 
