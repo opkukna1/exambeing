@@ -34,7 +34,7 @@ dependencies:
   intl: ^0.20.2         
 
   # ⬇️===== NAYE PACKAGES (Notification Ke Liye) =====⬇️
-  flutter_local_notifications: ^17.2.1 # Local notifications ke liye
+  #flutter_local_notifications: ^17.2.1 # Local notifications ke liye
   timezone: ^0.9.4                     # Time zone setup ke liye (zaroori)
   # ⬆️=============================================⬆️
 
