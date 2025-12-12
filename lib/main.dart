@@ -6,34 +6,30 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:exambeing/services/theme_provider.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:exambeing/services/ad_service_provider.dart';
 import 'package:exambeing/services/notification_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-// ⬇️===== NAYA IMPORT (AdManager Ke Liye) =====⬇️
+// ✅ New AdManager Import
 import 'package:exambeing/services/ad_manager.dart';
-// ⬆️==========================================⬆️
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ Firebase Initialize karo
+  // 1. Firebase Initialize
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // AdMob SDK ko initialize karo
+  // 2. AdMob SDK Initialize
   await MobileAds.instance.initialize();
 
-  // ⬇️===== YEH LINE ADD KI HAI (Ad Pre-load karne ke liye) =====⬇️
-  // App start hote hi Full Screen Ad load ho jayega
+  // ✅ 3. Ad Pre-load (App start hote hi)
   AdManager.loadInterstitialAd();
-  // ⬆️==========================================================⬆️
 
-  // Notification service ko initialize (shuru) karo
+  // 4. Notification Service Initialize
   await NotificationService().initialize();
 
-  // Permissions request karo
+  // 5. Permissions Request
   await NotificationService().requestNotificationPermissions();
 
   if (await Permission.scheduleExactAlarm.isDenied) {
@@ -43,8 +39,8 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
+        // ✅ Theme Provider Only (AdServiceProvider hata diya gaya hai)
         ChangeNotifierProvider(create: (context) => ThemeProvider()),
-        ChangeNotifierProvider(create: (context) => AdServiceProvider()),
       ],
       child: const ExambeingApp(),
     ),
