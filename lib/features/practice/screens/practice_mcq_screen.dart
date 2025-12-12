@@ -24,6 +24,9 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   Timer? _timer;
   int _start = 0;
   String _timerText = "00:00";
+  
+  // ✅ 1. Start Time Track karne ke liye variable
+  late DateTime _quizStartTime;
 
   @override
   void initState() {
@@ -31,6 +34,9 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     questions = widget.quizData['questions'] as List<Question>;
     topicName = widget.quizData['topicName'] as String;
     mode = widget.quizData['mode'] as String;
+    
+    // ✅ 2. Quiz shuru hote hi Time note kar lo
+    _quizStartTime = DateTime.now();
 
     if (mode == 'test') {
       _start = questions.length * 60; // 1 min per question
@@ -60,6 +66,10 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     setState(() => _isSubmitted = true);
     _timer?.cancel();
     
+    // ✅ 3. Calculate Time Taken (Abhi ka time - Shuru ka time)
+    final DateTime endTime = DateTime.now();
+    final Duration timeTaken = endTime.difference(_quizStartTime);
+
     double finalScore = 0.0;
     int correctCount = 0;
     int wrongCount = 0;
@@ -83,8 +93,8 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     if (finalScore < 0) finalScore = 0;
 
     if (mounted) {
-      context.replace( // Use replace to prevent going back to quiz
-        '/score',
+      context.replace( 
+        '/score-screen', // Make sure route name matches your router config
         extra: {
           'totalQuestions': questions.length,
           'finalScore': finalScore,
@@ -94,13 +104,13 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
           'topicName': topicName,
           'questions': questions,
           'userAnswers': _selectedAnswers,
+          'timeTaken': timeTaken, // ✅ 4. Passing Time Taken to Score Screen
         },
       );
     }
   }
 
   void _handleAnswer(int questionIndex, String selectedOption) {
-    // Practice mode me answer change nahi kar sakte agar sahi/galat dikh gaya ho
     if (mode == 'practice' && _selectedAnswers.containsKey(questionIndex)) {
        return;
     }
@@ -166,7 +176,7 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
         _showExitDialog();
       },
       child: Scaffold(
-        backgroundColor: Colors.white, // Clean White Background
+        backgroundColor: Colors.white, 
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -267,7 +277,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
 
     if (isAnswered) {
       if (mode == 'practice') {
-        // Practice Mode Logic
         if (optionText == correctAnswer) {
           borderColor = Colors.green;
           bgColor = Colors.green.shade50;
@@ -278,10 +287,9 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
           trailingIcon = const Icon(Icons.cancel, color: Colors.red);
         }
       } else { 
-        // Test Mode Logic (Sirf selection dikhao, sahi/galat nahi)
         if (isSelected) {
-          borderColor = const Color(0xFF6750A4); // Purple border
-          bgColor = const Color(0xFFF3EDF7); // Light purple bg
+          borderColor = const Color(0xFF6750A4);
+          bgColor = const Color(0xFFF3EDF7);
           textColor = const Color(0xFF6750A4);
         }
       }
@@ -330,7 +338,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Previous Button
           ElevatedButton(
             onPressed: _currentPage == 0 ? null : _goToPreviousPage,
             style: ElevatedButton.styleFrom(
@@ -343,17 +350,14 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
             child: const Text('Previous'),
           ),
           
-          // Counter
           Text(
             '${_currentPage + 1}/${questions.length}',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
 
-          // Next / Submit Button
           ElevatedButton(
             onPressed: isLastQuestion ? _submitQuiz : _goToNextPage,
             style: ElevatedButton.styleFrom(
-              // ✅ Last question par GREEN, baaki time PURPLE
               backgroundColor: isLastQuestion ? Colors.green : const Color(0xFF6750A4),
               foregroundColor: Colors.white,
               elevation: 2,
