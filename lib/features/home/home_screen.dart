@@ -5,11 +5,14 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ✅ 1. FCM IMPORT ADD KIYA
+// ✅ 1. FCM IMPORT
 import 'package:firebase_messaging/firebase_messaging.dart';
 
-// ✅ AdManager Import
+// ✅ 2. AdManager Import
 import 'package:exambeing/services/ad_manager.dart';
+
+// ✅ 3. Test Generator Import (Custom Test ke liye)
+import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,41 +31,31 @@ class _HomeScreenState extends State<HomeScreen> {
     // ✅ Ad Pre-load
     AdManager.loadInterstitialAd();
 
-    // ✅ 2. TOKEN SAVE LOGIC CALL KIYA
+    // ✅ TOKEN SAVE LOGIC
     _saveDeviceToken();
   }
 
-  // ✅ 3. TOKEN SAVE KARNE KA FUNCTION (New)
+  // --- TOKEN SAVE FUNCTION ---
   Future<void> _saveDeviceToken() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      
-      // Agar user login nahi hai, to token save karke fayda nahi
       if (user == null) return;
 
       FirebaseMessaging messaging = FirebaseMessaging.instance;
-
-      // A. Permission Maango (Android 13+ ke liye jaruri hai)
       NotificationSettings settings = await messaging.requestPermission(
         alert: true,
         badge: true,
         sound: true,
       );
 
-      // B. Agar permission mil gayi
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        
-        // C. Token Nikalo
         String? token = await messaging.getToken();
-
-        // D. Firestore me Save karo
         if (token != null) {
           await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-            'fcmToken': token, // Yahi main field hai notification ke liye
+            'fcmToken': token,
             'platform': Theme.of(context).platform == TargetPlatform.android ? 'android' : 'ios',
             'lastTokenUpdate': DateTime.now().toIso8601String(),
-          }, SetOptions(merge: true)); // Merge true rakhein taaki purana data na ude
-          
+          }, SetOptions(merge: true));
           debugPrint("✅ FCM Token Saved: $token");
         }
       } else {
@@ -185,7 +178,37 @@ class _HomeScreenState extends State<HomeScreen> {
         
         // 1. Daily Test Card
         _buildDailyTestCard(context),
-        const SizedBox(height: 24),
+        
+        // ⬇️===== NEW CUSTOM TEST BUTTON =====⬇️
+        const SizedBox(height: 16),
+        Card(
+          color: Colors.indigo.shade50,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(16),
+            leading: CircleAvatar(
+              backgroundColor: Colors.indigo,
+              radius: 25,
+              child: const Icon(Icons.auto_awesome, color: Colors.white),
+            ),
+            title: const Text(
+              "Create Custom Test", 
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+            ),
+            subtitle: const Text("Select topics & challenge yourself!"),
+            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18, color: Colors.indigo),
+            onTap: () {
+              // Direct Navigation
+              Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (context) => const TestGeneratorScreen())
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        // ⬆️==================================⬆️
 
         // 2. Notes Card
         _buildActionCard(
