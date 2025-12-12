@@ -3,7 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:exambeing/services/revision_db.dart';
-import 'package:exambeing/models/question_model.dart'; // Import Question Model
+import 'package:exambeing/models/question_model.dart';
+import 'package:exambeing/services/ad_manager.dart';
+
+// ✅ Import Leaderboard Screen
+import 'package:exambeing/features/profile/screens/leaderboard_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -23,12 +27,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .snapshots();
   }
 
+  // ✅ Rank Calculation Logic
+  Future<int> _calculateMyRank(int myTotalQuestions) async {
+    if (myTotalQuestions == 0) return 0;
+    
+    final query = await FirebaseFirestore.instance
+        .collection('users')
+        .where('stats.totalQuestions', isGreaterThan: myTotalQuestions)
+        .count()
+        .get();
+        
+    return query.count! + 1; 
+  }
+
+  // ⬇️===== NAME CHANGE LOGIC START =====⬇️
+  final TextEditingController _nameController = TextEditingController();
+
+  void _showEditNameDialog(String currentName) {
+    _nameController.text = currentName; // Pre-fill current name
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Edit Profile Name"),
+        content: TextField(
+          controller: _nameController,
+          decoration: const InputDecoration(
+            labelText: "Enter New Name",
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.person),
+          ),
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (_nameController.text.trim().isNotEmpty) {
+                _updateName(_nameController.text.trim());
+                Navigator.pop(context);
+              }
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateName(String newName) async {
+    if (user == null) return;
+
+    try {
+      // 1. Auth Profile Update
+      await user!.updateDisplayName(newName);
+      
+      // 2. Firestore Database Update (Zaroori hai Leaderboard ke liye)
+      await FirebaseFirestore.instance.collection('users').doc(user!.uid).update({
+        'displayName': newName,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Name updated to $newName successfully! ✅")),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to update name: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+  // ⬆️===== NAME CHANGE LOGIC END =====⬆️
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Profile'),
-        elevation: 0, // Clean look
+        elevation: 0,
         centerTitle: true,
         actions: [
           IconButton(
@@ -48,6 +130,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           final userData = snapshot.data?.data();
           final stats = userData?['stats'] as Map<String, dynamic>? ?? {};
+          
+          // ✅ Fetch latest Name from Firestore (Backup: Auth name)
+          final String displayName = userData?['displayName'] ?? user?.displayName ?? 'User';
 
           int totalTests = stats['totalTests'] ?? 0;
           int totalQuestions = stats['totalQuestions'] ?? 0;
@@ -57,9 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           double accuracy = totalQuestions == 0 ? 0 : (correct / totalQuestions) * 100;
 
           Map<String, dynamic> subjectPerformance = stats['subjects'] ?? {};
-          String strongSubject = "Not enough data";
           String weakSubject = "Not enough data";
-          double highestAcc = -1;
           double lowestAcc = 101;
 
           subjectPerformance.forEach((subject, data) {
@@ -67,10 +150,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             int subCorrect = data['correct'] ?? 0;
             if (subTotal > 5) { 
               double acc = (subCorrect / subTotal) * 100;
-              if (acc > highestAcc) {
-                highestAcc = acc;
-                strongSubject = subject;
-              }
               if (acc < lowestAcc) {
                 lowestAcc = acc;
                 weakSubject = subject;
@@ -81,12 +160,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
-              if (user != null) _buildUserCard(),
+              // ✅ Pass Name to Card
+              if (user != null) _buildUserCard(displayName),
 
               const SizedBox(height: 24),
               Text("Performance Overview", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
 
+              // ✅ GRID SECTION
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -95,7 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
                 children: [
-                  _buildStatCard("Tests Taken", "$totalTests", Colors.blue),
+                  _buildRankGridCard(totalQuestions),
                   _buildStatCard("Accuracy", "${accuracy.toStringAsFixed(1)}%", Colors.purple),
                   _buildStatCard("Right Ans", "$correct", Colors.green),
                   _buildStatCard("Wrong Ans", "$wrong", Colors.red),
@@ -106,7 +187,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               Row(
                 children: [
-                  Expanded(child: _buildSubjectCard("Strong Subject", strongSubject, Colors.green.shade50, Colors.green.shade800, Icons.thumb_up_alt_outlined)),
+                  Expanded(
+                    child: _buildSubjectCard(
+                      "Total Tests", 
+                      "$totalTests", 
+                      Colors.blue.shade50, 
+                      Colors.blue.shade800, 
+                      Icons.assignment_turned_in_outlined
+                    )
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(
@@ -123,7 +212,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
 
               const SizedBox(height: 30),
-              // ✅ Updated "Decent" Revision Box
               _buildRevisionBox(context),
             ],
           );
@@ -132,7 +220,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildUserCard() {
+  // ✅ Updated User Card with Edit Button
+  Widget _buildUserCard(String displayName) {
     return Card(
       elevation: 0,
       color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.4),
@@ -147,7 +236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
               child: user?.photoURL == null
                   ? Text(
-                      user?.displayName?.substring(0, 1).toUpperCase() ?? 'U', 
+                      displayName.substring(0, 1).toUpperCase(), 
                       style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold)
                     )
                   : null,
@@ -157,7 +246,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(user?.displayName ?? 'Welcome User', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  // ✅ Row for Name and Edit Icon
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          displayName, 
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // ✏️ EDIT ICON
+                      InkWell(
+                        onTap: () => _showEditNameDialog(displayName),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.edit, size: 16, color: Theme.of(context).colorScheme.primary),
+                        ),
+                      ),
+                    ],
+                  ),
                   if (user?.email != null) Text(user!.email!, style: Theme.of(context).textTheme.bodyMedium),
                 ],
               ),
@@ -165,6 +278,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRankGridCard(int totalQuestions) {
+    return FutureBuilder<int>(
+      future: _calculateMyRank(totalQuestions),
+      builder: (context, snapshot) {
+        String rankText = "--";
+        if (snapshot.hasData && snapshot.data != 0) {
+          rankText = "#${snapshot.data}";
+        } else if (totalQuestions == 0) {
+          rankText = "N/A";
+        }
+
+        return InkWell(
+          onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (c) => const LeaderboardScreen()));
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50, 
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(rankText, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.amber.shade900)),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text("Rank", style: TextStyle(fontSize: 13, color: Colors.amber.shade800, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_ios, size: 10, color: Colors.amber.shade800)
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -223,7 +380,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ✅ Updated "Mistake Revision Zone" UI (Friendly & Decent)
   Widget _buildRevisionBox(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -362,7 +518,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ✅ Updated Logic to navigate to PracticeMcqScreen
   Future<void> _startRevisionTest(BuildContext context) async {
     List<Map<String, dynamic>> rawData = await RevisionDB.instance.getRevisionSet();
     
@@ -379,21 +534,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    // Convert raw JSON to Question Model
     List<Question> questions = rawData.map((e) {
       return Question.fromMap(e['parsedData'] as Map<String, dynamic>);
     }).toList();
     
-    // IDs for database updates
     List<String> dbIds = rawData.map((e) => e['id'] as String).toList();
 
-    // Navigate to PracticeMcqScreen
-    context.push('/practice-mcq', extra: {
-      'questions': questions,
-      'topicName': 'Smart Revision',
-      'mode': 'test',
-      'isRevision': true, // Important Flag
-      'dbIds': dbIds,     // Important IDs
+    AdManager.showInterstitialAd(() {
+      if (context.mounted) {
+        context.push('/practice-mcq', extra: {
+          'questions': questions,
+          'topicName': 'Smart Revision',
+          'mode': 'test',
+          'isRevision': true, 
+          'dbIds': dbIds,     
+        });
+      }
     });
   }
 }
