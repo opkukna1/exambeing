@@ -1,364 +1,335 @@
+import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ✅ 1. Import Revision DB
+import 'package:exambeing/models/question_model.dart';
+import 'package:exambeing/services/ad_manager.dart';
 import 'package:exambeing/services/revision_db.dart';
 
-class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+// ✅ CLASS NAME 'ScoreScreen' HONA CHAHIYE (ProfileScreen nahi)
+class ScoreScreen extends StatefulWidget {
+  final int totalQuestions;
+  final double finalScore;
+  final int correctCount;
+  final int wrongCount;
+  final int unattemptedCount;
+  final String topicName;
+  final List<Question> questions;
+  final Map<int, String> userAnswers;
+  final Duration timeTaken; 
+
+  const ScoreScreen({
+    super.key,
+    required this.totalQuestions,
+    required this.finalScore,
+    required this.correctCount,
+    required this.wrongCount,
+    required this.unattemptedCount,
+    required this.topicName,
+    required this.questions,
+    required this.userAnswers,
+    required this.timeTaken, 
+  });
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<ScoreScreen> createState() => _ScoreScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  final User? user = FirebaseAuth.instance.currentUser;
+class _ScoreScreenState extends State<ScoreScreen> {
+  final ScreenshotController _screenshotController = ScreenshotController();
+  bool _isProcessing = true;
 
-  // Stream to get user data
-  Stream<DocumentSnapshot<Map<String, dynamic>>> _getUserStatsStream() {
-    if (user == null) return const Stream.empty();
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(user!.uid)
-        .snapshots();
+  @override
+  void initState() {
+    super.initState();
+    _processResult(); 
+    AdManager.loadInterstitialAd();
+  }
+
+  Future<void> _processResult() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() => _isProcessing = false);
+      return;
+    }
+
+    try {
+      for (var question in widget.questions) {
+        String qId = question.id; 
+        
+        // Handle Answer Key type (String/Int mismatch fix)
+        String? selectedAns;
+        try {
+           selectedAns = widget.userAnswers[int.parse(qId)];
+        } catch(e) {
+           // Fallback agar key match na ho
+        }
+        
+        bool isWrong = selectedAns != null && selectedAns != question.correctOption;
+
+        if (isWrong) {
+          Map<String, dynamic> qData = {
+            'id': qId,
+            'question': question.questionText, // Correct field name from model
+            'options': question.options,
+            'correctOption': question.correctOption, // Index or String? Make sure logic matches
+            'subSubjectName': widget.topicName, 
+            'solution': question.explanation, 
+          };
+
+          await RevisionDB.instance.addWrongQuestion(qData, widget.topicName, widget.topicName);
+        }
+      }
+
+      final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userRef);
+        Map<String, dynamic> currentStats = {};
+        Map<String, dynamic> currentSubjects = {};
+
+        if (userDoc.exists) {
+          final data = userDoc.data()!;
+          currentStats = data['stats'] as Map<String, dynamic>? ?? {};
+          currentSubjects = currentStats['subjects'] as Map<String, dynamic>? ?? {};
+        }
+
+        int newTotalTests = (currentStats['totalTests'] ?? 0) + 1;
+        int newTotalQ = (currentStats['totalQuestions'] ?? 0) + widget.totalQuestions;
+        int newCorrect = (currentStats['correct'] ?? 0) + widget.correctCount;
+        int newWrong = (currentStats['wrong'] ?? 0) + widget.wrongCount;
+
+        String subjectKey = widget.topicName.replaceAll('.', '_'); 
+        if (!currentSubjects.containsKey(subjectKey)) {
+          currentSubjects[subjectKey] = {'total': 0, 'correct': 0};
+        }
+        currentSubjects[subjectKey]['total'] += widget.totalQuestions;
+        currentSubjects[subjectKey]['correct'] += widget.correctCount;
+
+        transaction.set(userRef, {
+          'stats': {
+            'totalTests': newTotalTests,
+            'totalQuestions': newTotalQ,
+            'correct': newCorrect,
+            'wrong': newWrong,
+            'subjects': currentSubjects,
+          },
+          'tests_taken': newTotalTests,
+          'total_questions_answered': newTotalQ,
+          'total_correct_answers': newCorrect,
+        }, SetOptions(merge: true));
+      });
+
+    } catch (e) {
+      debugPrint("Error processing result: $e");
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  void _navigateToSolutions() {
+    if (!mounted) return;
+    context.push('/solutions', extra: {
+      'questions': widget.questions,
+      'userAnswers': widget.userAnswers,
+    });
+  }
+
+  void _shareScoreCard(BuildContext context) async {
+    final Uint8List? image = await _screenshotController.capture();
+    if (image == null) return;
+    final directory = await getTemporaryDirectory();
+    final imagePath = await File('${directory.path}/score_card.png').writeAsBytes(image);
+    await Share.shareXFiles([XFile(imagePath.path)], text: "Check out my score in the ${widget.topicName} quiz!");
+  }
+
+  String _formatDuration(Duration d) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final String minutes = twoDigits(d.inMinutes.remainder(60));
+    final String seconds = twoDigits(d.inSeconds.remainder(60));
+    return "${twoDigits(d.inHours)}:$minutes:$seconds";
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Profile'),
-        elevation: 1,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_rounded),
-            onPressed: () {
-              context.push('/settings');
-            },
-          ),
-        ],
-      ),
-      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: _getUserStatsStream(),
-        builder: (context, snapshot) {
-          // 1. Loading State
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    final double percentage = widget.totalQuestions > 0 
+        ? (widget.correctCount / widget.totalQuestions) * 100 
+        : 0.0;
 
-          // 2. Data Parsing
-          final userData = snapshot.data?.data();
-          final stats = userData?['stats'] as Map<String, dynamic>? ?? {};
+    String feedbackMsg = "Keep Practicing!";
+    Color feedbackColor = Colors.red;
+    if (percentage >= 80) {
+      feedbackMsg = "Outstanding! 🏆";
+      feedbackColor = Colors.green;
+    } else if (percentage >= 60) {
+      feedbackMsg = "Great Job! 👍";
+      feedbackColor = Colors.blue;
+    } else if (percentage >= 40) {
+      feedbackMsg = "Good Effort!";
+      feedbackColor = Colors.orange;
+    }
 
-          // --- CALCULATIONS ---
-          int totalTests = stats['totalTests'] ?? 0;
-          int totalQuestions = stats['totalQuestions'] ?? 0;
-          int correct = stats['correct'] ?? 0;
-          int wrong = stats['wrong'] ?? 0;
-          
-          double accuracy = totalQuestions == 0 ? 0 : (correct / totalQuestions) * 100;
-
-          // Strong & Weak Logic
-          Map<String, dynamic> subjectPerformance = stats['subjects'] ?? {};
-          String strongSubject = "Not enough data";
-          String weakSubject = "Not enough data";
-          double highestAcc = -1;
-          double lowestAcc = 101;
-
-          subjectPerformance.forEach((subject, data) {
-            int subTotal = data['total'] ?? 0;
-            int subCorrect = data['correct'] ?? 0;
-            if (subTotal > 5) { // Kam se kam 5 sawal kiye ho tabhi judge karenge
-              double acc = (subCorrect / subTotal) * 100;
-              if (acc > highestAcc) {
-                highestAcc = acc;
-                strongSubject = subject;
-              }
-              if (acc < lowestAcc) {
-                lowestAcc = acc;
-                weakSubject = subject;
-              }
-            }
-          });
-
-          return ListView(
-            padding: const EdgeInsets.all(16.0),
-            children: [
-              // 1. User Info Card (Old Design)
-              if (user != null) _buildUserCard(),
-
-              const SizedBox(height: 24),
-              Text("Performance Overview", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 16),
-
-              // 2. STATS GRID (Tests, Accuracy, Right, Wrong)
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                childAspectRatio: 1.6,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                children: [
-                  _buildStatCard("Tests Taken", "$totalTests", Colors.blue),
-                  _buildStatCard("Accuracy", "${accuracy.toStringAsFixed(1)}%", Colors.purple),
-                  _buildStatCard("Right Ans", "$correct", Colors.green),
-                  _buildStatCard("Wrong Ans", "$wrong", Colors.red),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              // 3. STRONG & WEAK SUBJECTS
-              Row(
-                children: [
-                  Expanded(child: _buildSubjectCard("Strong Subject", strongSubject, Colors.green.shade50, Colors.green.shade800)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        if (subjectPerformance.isNotEmpty) {
-                          _showWeakTopicsDialog(subjectPerformance);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: _buildSubjectCard("Weak Subject", weakSubject, Colors.red.shade50, Colors.red.shade800, isClickable: true),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 30),
-
-              // 4. MISTAKE REVISION ZONE (New Feature)
-              _buildRevisionBox(context),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  // --- WIDGETS ---
-
-  Widget _buildUserCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
-              child: user?.photoURL == null
-                  ? Text(user?.displayName?.substring(0, 1).toUpperCase() ?? 'U', style: const TextStyle(fontSize: 24))
-                  : null,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(user?.displayName ?? 'No Name', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                  if (user?.email != null) Text(user!.email!, style: Theme.of(context).textTheme.bodyMedium),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String title, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
+    Widget scoreCard = Container(
+      padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(height: 4),
-          Text(title, style: TextStyle(fontSize: 13, color: Colors.grey[700])),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSubjectCard(String title, String subject, Color bgColor, Color textColor, {bool isClickable = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16),
-        border: isClickable ? Border.all(color: textColor.withOpacity(0.3)) : null,
-      ),
-      child: Column(
-        children: [
-          Text(title, style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          Text(
-            subject, 
-            style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 15), 
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (isClickable)
-             Padding(
-               padding: const EdgeInsets.only(top: 4.0),
-               child: Icon(Icons.touch_app, size: 14, color: textColor.withOpacity(0.6)),
-             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRevisionBox(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.orange.shade50, Colors.orange.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight
-        ),
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.orange.shade300),
         boxShadow: [
-          BoxShadow(color: Colors.orange.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))
         ]
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          Text('Result', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(widget.topicName, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey)),
+          const SizedBox(height: 24),
+
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800, size: 28),
-              const SizedBox(width: 10),
-              Text(
-                "Mistake Revision Zone", 
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange.shade900)
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: CircularProgressIndicator(
+                      value: percentage / 100,
+                      strokeWidth: 10,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: AlwaysStoppedAnimation<Color>(feedbackColor),
+                    ),
+                  ),
+                  Column(
+                    children: [
+                      Text("${percentage.toInt()}%", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                      const Text("Score", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    ],
+                  )
+                ],
               ),
+              const SizedBox(width: 30),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Final Score", style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    widget.finalScore.toStringAsFixed(1),
+                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: feedbackColor),
+                  ),
+                  Text(feedbackMsg, style: TextStyle(color: feedbackColor, fontWeight: FontWeight.w600)),
+                ],
+              )
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            "Re-attempt questions you got wrong. Questions are removed after 2 correct attempts.",
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.orange.shade900.withOpacity(0.7), fontSize: 13),
-          ),
+
+          const SizedBox(height: 30),
+          const Divider(),
           const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade800,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
-              onPressed: () => _startRevisionTest(context),
-              child: const Text("Start Revision Set (25 Q)", style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildDetailItem(Icons.check_circle, "Correct", "${widget.correctCount}", Colors.green),
+              _buildDetailItem(Icons.cancel, "Wrong", "${widget.wrongCount}", Colors.red),
+              _buildDetailItem(Icons.help, "Skipped", "${widget.unattemptedCount}", Colors.grey),
+              _buildDetailItem(Icons.timer, "Time", _formatDuration(widget.timeTaken), Colors.blue),
+            ],
           ),
+
+          const SizedBox(height: 20),
+          
+          Opacity(
+            opacity: 0.3,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.school, size: 16),
+                const SizedBox(width: 5),
+                Text("Exambeing", style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          )
         ],
       ),
     );
-  }
 
-  // --- LOGIC FUNCTIONS ---
-
-  void _showWeakTopicsDialog(Map<String, dynamic> performance) {
-    // Filter logic: Accuracy < 50%
-    List<MapEntry<String, dynamic>> weakTopics = performance.entries
-        .where((e) => (e.value['total'] > 0) && ((e.value['correct'] / e.value['total']) < 0.5))
-        .toList();
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(verticalTop: Radius.circular(20)),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Result Summary'),
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: () => _shareScoreCard(context),
+          ),
+        ],
+      ),
+      body: _isProcessing 
+        ? const Center(child: CircularProgressIndicator()) 
+        : SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
                 children: [
-                  const Icon(Icons.trending_down, color: Colors.red),
-                  const SizedBox(width: 10),
-                  const Text("Areas for Improvement", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Screenshot(
+                    controller: _screenshotController,
+                    child: scoreCard,
+                  ),
+                  const SizedBox(height: 30),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
+                          icon: const Icon(Icons.home),
+                          label: const Text('Home'),
+                          onPressed: () => context.go('/'),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.list_alt),
+                          label: const Text('Solutions'),
+                          onPressed: () {
+                            AdManager.showInterstitialAd(() {
+                              _navigateToSolutions();
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              const Divider(),
-              if (weakTopics.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: Text("No specific weak areas found yet! Keep it up! 🎉"),
-                )
-              else
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: weakTopics.length,
-                    itemBuilder: (context, index) {
-                      final topic = weakTopics[index];
-                      int total = topic.value['total'];
-                      int correct = topic.value['correct'];
-                      double acc = (correct / total) * 100;
-                      return ListTile(
-                        title: Text(topic.key, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
-                          child: Text("${acc.toStringAsFixed(0)}% Acc", style: TextStyle(color: Colors.red.shade800, fontSize: 12)),
-                        ),
-                        subtitle: Text("Correct: $correct / $total"),
-                      );
-                    },
-                  ),
-                ),
-            ],
+            ),
           ),
-        );
-      },
     );
   }
 
-  Future<void> _startRevisionTest(BuildContext context) async {
-    // 1. Local DB se questions nikalo
-    List<Map<String, dynamic>> rawData = await RevisionDB.instance.getRevisionSet();
-    
-    if (!context.mounted) return;
-
-    if (rawData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("No wrong questions to revise! Great job! 🎉"),
-          backgroundColor: Colors.green,
-        )
-      );
-      return;
-    }
-
-    // 2. Data ko parse karo
-    List<Map<String, dynamic>> questions = rawData.map((e) => e['parsedData'] as Map<String, dynamic>).toList();
-    List<String> dbIds = rawData.map((e) => e['id'] as String).toList();
-
-    // 3. Test Screen open karo (Revision Mode ON)
-    context.push('/test-screen', extra: {
-      'questions': questions, 
-      'isRevision': true, // ⚠️ NOTE: Test Screen me ye handle karna padega
-      'dbIds': dbIds 
-    });
+  Widget _buildDetailItem(IconData icon, String label, String value, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 28),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
+    );
   }
 }
