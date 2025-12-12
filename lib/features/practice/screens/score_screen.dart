@@ -12,7 +12,6 @@ import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/services/ad_manager.dart';
 import 'package:exambeing/services/revision_db.dart';
 
-// ✅ CLASS NAME 'ScoreScreen' HONA CHAHIYE (ProfileScreen nahi)
 class ScoreScreen extends StatefulWidget {
   final int totalQuestions;
   final double finalScore;
@@ -22,6 +21,8 @@ class ScoreScreen extends StatefulWidget {
   final String topicName;
   final List<Question> questions;
   final Map<int, String> userAnswers;
+  
+  // ✅ 1. Time Taken Parameter (Ab ye required hai)
   final Duration timeTaken; 
 
   const ScoreScreen({
@@ -55,30 +56,40 @@ class _ScoreScreenState extends State<ScoreScreen> {
   Future<void> _processResult() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isProcessing = false);
       return;
     }
 
     try {
-      for (var question in widget.questions) {
+      for (int i = 0; i < widget.questions.length; i++) {
+        final question = widget.questions[i];
         String qId = question.id; 
         
-        // Handle Answer Key type (String/Int mismatch fix)
+        // User ka answer nikalo (Safe handling)
         String? selectedAns;
-        try {
-           selectedAns = widget.userAnswers[int.parse(qId)];
-        } catch(e) {
-           // Fallback agar key match na ho
+        if (widget.userAnswers.containsKey(i)) {
+          selectedAns = widget.userAnswers[i]; // Map key index (int) hai
+        } else if (widget.userAnswers.containsKey(int.tryParse(qId))) {
+          selectedAns = widget.userAnswers[int.parse(qId)];
         }
         
-        bool isWrong = selectedAns != null && selectedAns != question.correctOption;
+        // ✅ 2. FIX: Correct Answer nikalne ka Logic (Index se String)
+        // CSV ke hisab se 'correctAnswerIndex' int hai
+        String correctAnsText = "";
+        if (question.correctAnswerIndex >= 0 && question.correctAnswerIndex < question.options.length) {
+            correctAnsText = question.options[question.correctAnswerIndex];
+        }
 
+        bool isWrong = selectedAns != null && selectedAns != correctAnsText;
+
+        // Agar galat hai to Revision DB me daalo
         if (isWrong) {
           Map<String, dynamic> qData = {
             'id': qId,
-            'question': question.questionText, // Correct field name from model
+            'question': question.questionText,
             'options': question.options,
-            'correctOption': question.correctOption, // Index or String? Make sure logic matches
+            'correctOption': correctAnsText, // String value save karein
+            'correctAnswerIndex': question.correctAnswerIndex, // Index bhi save kar lein safe side
             'subSubjectName': widget.topicName, 
             'solution': question.explanation, 
           };
@@ -87,6 +98,7 @@ class _ScoreScreenState extends State<ScoreScreen> {
         }
       }
 
+      // --- Firebase Stats Update ---
       final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
       
       await FirebaseFirestore.instance.runTransaction((transaction) async {
@@ -120,6 +132,7 @@ class _ScoreScreenState extends State<ScoreScreen> {
             'wrong': newWrong,
             'subjects': currentSubjects,
           },
+          // Legacy support
           'tests_taken': newTotalTests,
           'total_questions_answered': newTotalQ,
           'total_correct_answers': newCorrect,
@@ -149,6 +162,7 @@ class _ScoreScreenState extends State<ScoreScreen> {
     await Share.shareXFiles([XFile(imagePath.path)], text: "Check out my score in the ${widget.topicName} quiz!");
   }
 
+  // ✅ 3. Duration Formatter
   String _formatDuration(Duration d) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final String minutes = twoDigits(d.inMinutes.remainder(60));
@@ -192,6 +206,7 @@ class _ScoreScreenState extends State<ScoreScreen> {
           Text(widget.topicName, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey)),
           const SizedBox(height: 24),
 
+          // Percentage Circle
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -235,12 +250,14 @@ class _ScoreScreenState extends State<ScoreScreen> {
           const Divider(),
           const SizedBox(height: 20),
 
+          // Stats Grid
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildDetailItem(Icons.check_circle, "Correct", "${widget.correctCount}", Colors.green),
               _buildDetailItem(Icons.cancel, "Wrong", "${widget.wrongCount}", Colors.red),
               _buildDetailItem(Icons.help, "Skipped", "${widget.unattemptedCount}", Colors.grey),
+              // ✅ Time show ho raha hai yahan
               _buildDetailItem(Icons.timer, "Time", _formatDuration(widget.timeTaken), Colors.blue),
             ],
           ),
