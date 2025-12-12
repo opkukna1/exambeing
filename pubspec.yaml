@@ -46,6 +46,7 @@ dependencies:
   smart_auth: ^2.0.0
   #notes edit ke liye 
   flutter_quill: 11.5.0
+  firebase_messaging: ^14.7.15  (Ya jo latest version ho)
 
   # Local Database
   sqflite: ^2.3.3
