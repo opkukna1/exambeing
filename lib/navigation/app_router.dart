@@ -19,14 +19,14 @@ import 'package:exambeing/features/bookmarks/screens/bookmarks_home_screen.dart'
 import 'package:exambeing/features/practice/screens/solutions_screen.dart';
 import 'package:exambeing/features/notes/screens/my_notes_screen.dart';
 import 'package:exambeing/features/notes/screens/add_edit_note_screen.dart';
-import 'package:exambeing/features/notes/screens/notes_subjects_screen.dart'; // Corrected to NotesSubjectsScreen for public notes
+import 'package:exambeing/features/notes/screens/notes_subjects_screen.dart';
 import 'package:exambeing/features/schedule/screens/schedules_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_question_detail_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_screen.dart';
 import 'package:exambeing/features/profile/screens/profile_screen.dart';
 import 'package:exambeing/models/question_model.dart';
-import 'package:exambeing/models/public_note_model.dart'; // ✅ For PublicNote
-import 'package:exambeing/models/my_note_model.dart'; // ✅ For MyNote
+import 'package:exambeing/models/public_note_model.dart';
+import 'package:exambeing/models/my_note_model.dart';
 import 'package:exambeing/helpers/database_helper.dart';
 import 'package:exambeing/features/profile/screens/settings_screen.dart';
 import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
@@ -46,7 +46,7 @@ import 'package:exambeing/features/tests/subject_list_screen.dart';
 import 'package:exambeing/models/bookmarked_note_model.dart';
 import 'package:exambeing/features/notes/screens/notes_topics_screen.dart';
 import 'package:exambeing/features/notes/screens/topic_notes_screen.dart';
-import 'package:exambeing/models/note_sub_subject_model.dart'; // For SubSubject passing
+import 'package:exambeing/models/note_sub_subject_model.dart';
 
 /// 🚨 Safe Error Screen
 class _ErrorRouteScreen extends StatelessWidget {
@@ -109,7 +109,7 @@ final GoRouter router = GoRouter(
         
         // Other Tab Routes
         GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
-        GoRoute(path: '/public-notes', builder: (context, state) => const NotesSubjectsScreen()), // Changed to NotesSubjectsScreen
+        GoRoute(path: '/public-notes', builder: (context, state) => const NotesSubjectsScreen()), 
         GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
         GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
         GoRoute(path: '/pomodoro', builder: (context, state) => const PomodoroScreen()),
@@ -168,6 +168,8 @@ final GoRouter router = GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
+        // NOTE: Agar revision logic pass kar rahe hain to yahan check karna padega
+        // Currently supporting only IDs for daily test
         final questionIds = (extra?['ids'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [];
         if (questionIds.isEmpty) return _ErrorRouteScreen(path: state.matchedLocation);
         return DailyTestScreen(questionIds: questionIds);
@@ -183,24 +185,33 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
+    
+    // ✅ FIX: Path changed to match your navigation call ('/score-screen')
+    // ✅ FIX: Added 'timeTaken' parameter
     GoRoute(
-      path: '/score',
+      path: '/score-screen', 
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final data = state.extra as Map<String, dynamic>?;
         if (data == null) return _ErrorRouteScreen(path: state.matchedLocation);
+        
         return ScoreScreen(
           totalQuestions: data['totalQuestions'],
-          finalScore: data['finalScore'],
+          finalScore: (data['finalScore'] as num).toDouble(), // Safe Casting
           correctCount: data['correctCount'],
           wrongCount: data['wrongCount'],
           unattemptedCount: data['unattemptedCount'],
           topicName: data['topicName'],
-          questions: data['questions'],
-          userAnswers: data['userAnswers'],
+          questions: data['questions'] as List<Question>,
+          userAnswers: data['userAnswers'] as Map<int, String>,
+          
+          // ✅ FIX: Added timeTaken with default fallback
+          timeTaken: data['timeTaken'] as Duration? ?? Duration.zero,
         );
       },
     ),
+
+    // Old Result Screen (Can be kept if used elsewhere)
     GoRoute(
       path: '/result-screen',
       parentNavigatorKey: _rootNavigatorKey,
@@ -273,7 +284,7 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/add-edit-note',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => AddEditNoteScreen(note: state.extra as MyNote?), // ✅ FIX: Explicit casting
+      builder: (context, state) => AddEditNoteScreen(note: state.extra as MyNote?),
     ),
     GoRoute(
       path: '/note-detail',
@@ -283,7 +294,6 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-    // ✅ Added missing routes for new Note flow
     GoRoute(
       path: '/notes_topics',
       parentNavigatorKey: _rootNavigatorKey,
