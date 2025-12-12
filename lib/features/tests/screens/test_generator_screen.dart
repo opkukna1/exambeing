@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:exambeing/models/question_model.dart';
-import 'package:exambeing/services/ad_manager.dart'; // Ads zaroori hain
+import 'package:exambeing/services/ad_manager.dart';
 
 class TestGeneratorScreen extends StatefulWidget {
   const TestGeneratorScreen({super.key});
@@ -13,25 +13,25 @@ class TestGeneratorScreen extends StatefulWidget {
 }
 
 class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
-  // Selections
   String? selectedSubjectId;
   List<String> selectedTopicIds = [];
-  double numberOfQuestions = 20; // Default slider value
+  double numberOfQuestions = 20; 
   bool _isLoading = false;
 
-  // Data fetching helper
+  // 1. Subjects Fetch karna
   Stream<QuerySnapshot> _getSubjects() {
+    // Yahan hum 'subjects' collection se data la rahe hain
     return FirebaseFirestore.instance.collection('subjects').snapshots();
   }
 
+  // 2. Topics Fetch karna (Subject ID ke basis par)
   Stream<QuerySnapshot> _getTopics(String subjectId) {
     return FirebaseFirestore.instance
         .collection('topics')
-        .where('subjectId', '==', subjectId)
+        .where('subjectId', isEqualTo: subjectId) 
         .snapshots();
   }
 
-  // 🔥 MAGIC FUNCTION: Test Generate Karna
   Future<void> _generateTest() async {
     if (selectedTopicIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -45,15 +45,11 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     try {
       List<String> allQuestionIds = [];
 
-      // 1. Sare selected topics ke question IDs Lao
-      // Note: Firestore 'in' query limit is 10. Agar topic > 10 hai to loop lagana padega.
-      // Abhi hum maan ke chal rahe hain user 10 se kam topic select karega.
-      
-      // Optimization: Hum chunks mein query karenge agar topics jyada hain
+      // Har selected Topic ke liye questions dhundho
       for (String topicId in selectedTopicIds) {
          final query = await FirebaseFirestore.instance
-             .collection('questions') // Yahan wo 15k wala collection name ayega
-             .where('topicId', '==', topicId)
+             .collection('questions')
+             .where('topicId', isEqualTo: topicId) // Logic ID se chalega
              .get();
          
          for (var doc in query.docs) {
@@ -65,18 +61,17 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         throw "No questions found for these topics.";
       }
 
-      // 2. Shuffle (Fentna)
+      // Shuffle Logic (Taash ke patton ki tarah fenta)
       allQuestionIds.shuffle(Random());
 
-      // 3. Cut List (Jitne user ne mange utne hi lo)
+      // Limit Questions
       int targetCount = numberOfQuestions.toInt();
       if (allQuestionIds.length < targetCount) {
-        targetCount = allQuestionIds.length; // Agar total sawal hi kam hain
+        targetCount = allQuestionIds.length;
       }
       List<String> finalIds = allQuestionIds.sublist(0, targetCount);
 
-      // 4. Fetch Full Data for selected IDs
-      // (Future.wait se parallel download hoga - Fast)
+      // Fetch Full Data
       List<Question> questions = [];
       await Future.wait(finalIds.map((id) async {
         final doc = await FirebaseFirestore.instance.collection('questions').doc(id).get();
@@ -85,25 +80,27 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         }
       }));
 
-      // 5. Navigate to Practice Screen
       if (mounted) {
         setState(() => _isLoading = false);
         
-        // Show Ad before starting
         AdManager.showInterstitialAd(() {
-          context.push('/practice-mcq', extra: {
-            'questions': questions,
-            'topicName': 'Custom Challenge',
-            'mode': 'test', // Test mode taki timer chale
-          });
+          if (mounted) {
+            context.push('/practice-mcq', extra: {
+              'questions': questions,
+              'topicName': 'Custom Challenge',
+              'mode': 'test', 
+            });
+          }
         });
       }
 
     } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -116,7 +113,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. SUBJECT DROPDOWN
+            // --- SUBJECT DROPDOWN ---
             const Text("Step 1: Select Subject", style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             StreamBuilder<QuerySnapshot>(
@@ -124,10 +121,17 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const LinearProgressIndicator();
                 
+                // Yahan hum data map kar rahe hain
                 List<DropdownMenuItem<String>> items = snapshot.data!.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  
+                  // ✅ YAHAN CHANGE KIYA: 'subjectName' dikhana hai
+                  // Fallback: Agar subjectName nahi mila to 'name' ya ID dikha do
+                  String displayName = data['subjectName'] ?? data['name'] ?? 'Unknown Subject';
+
                   return DropdownMenuItem(
-                    value: doc.id,
-                    child: Text(doc['name'] ?? 'Unknown'), // Field name check karlena
+                    value: doc.id, // Value ID hi rahegi (Logic ke liye)
+                    child: Text(displayName), // Dikhega Name (User ke liye)
                   );
                 }).toList();
 
@@ -142,16 +146,16 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                   onChanged: (val) {
                     setState(() {
                       selectedSubjectId = val;
-                      selectedTopicIds.clear(); // Subject badla to topics clear karo
+                      selectedTopicIds.clear(); 
                     });
                   },
                 );
               },
             ),
-
+            
             const SizedBox(height: 24),
-
-            // 2. TOPICS MULTI-SELECT
+            
+            // --- TOPICS SELECTION ---
             if (selectedSubjectId != null) ...[
               const Text("Step 2: Select Topics (Multi-select)", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -173,17 +177,21 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                         itemCount: topics.length,
                         itemBuilder: (context, index) {
                           final doc = topics[index];
-                          final topicName = doc['name'] ?? 'Topic';
-                          final isSelected = selectedTopicIds.contains(doc.id);
+                          final data = doc.data() as Map<String, dynamic>;
+
+                          // ✅ YAHAN CHANGE KIYA: 'topicName' dikhana hai
+                          String displayTopic = data['topicName'] ?? data['name'] ?? 'Topic';
+                          
+                          final isSelected = selectedTopicIds.contains(doc.id); // ID check karo
 
                           return CheckboxListTile(
-                            title: Text(topicName),
+                            title: Text(displayTopic), // Dikhega Name
                             value: isSelected,
                             activeColor: Colors.deepPurple,
                             onChanged: (bool? value) {
                               setState(() {
                                 if (value == true) {
-                                  selectedTopicIds.add(doc.id);
+                                  selectedTopicIds.add(doc.id); // Save ID hoga
                                 } else {
                                   selectedTopicIds.remove(doc.id);
                                 }
@@ -197,31 +205,24 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                 ),
               ),
             ],
-
+            
             const SizedBox(height: 24),
-
-            // 3. SLIDER for Questions
+            
+            // --- SLIDER ---
             Text("Step 3: Number of Questions: ${numberOfQuestions.toInt()}", style: const TextStyle(fontWeight: FontWeight.bold)),
             Slider(
               value: numberOfQuestions,
-              min: 10,
-              max: 100,
-              divisions: 9,
+              min: 10, max: 100, divisions: 9,
               label: numberOfQuestions.round().toString(),
               activeColor: Colors.deepPurple,
-              onChanged: (double value) {
-                setState(() {
-                  numberOfQuestions = value;
-                });
-              },
+              onChanged: (double value) => setState(() => numberOfQuestions = value),
             ),
-
+            
             const SizedBox(height: 24),
-
-            // 4. GENERATE BUTTON
+            
+            // --- BUTTON ---
             SizedBox(
-              width: double.infinity,
-              height: 55,
+              width: double.infinity, height: 55,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
