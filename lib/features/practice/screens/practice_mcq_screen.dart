@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:exambeing/models/question_model.dart';
+import 'package:exambeing/services/revision_db.dart'; // ✅ Import DB
 
 class PracticeMcqScreen extends StatefulWidget {
   final Map<String, dynamic> quizData;
@@ -15,6 +16,10 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   late final List<Question> questions;
   late final String topicName;
   late final String mode;
+  
+  // ✅ Revision Variables
+  bool isRevision = false;
+  List<String> dbIds = [];
 
   final PageController _pageController = PageController();
   final Map<int, String> _selectedAnswers = {};
@@ -24,18 +29,22 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   Timer? _timer;
   int _start = 0;
   String _timerText = "00:00";
-  
-  // ✅ 1. Start Time Track karne ke liye variable
   late DateTime _quizStartTime;
 
   @override
   void initState() {
     super.initState();
+    // ✅ Data Initialize
     questions = widget.quizData['questions'] as List<Question>;
     topicName = widget.quizData['topicName'] as String;
     mode = widget.quizData['mode'] as String;
     
-    // ✅ 2. Quiz shuru hote hi Time note kar lo
+    // ✅ Revision Data Check
+    if (widget.quizData.containsKey('isRevision')) {
+      isRevision = widget.quizData['isRevision'] as bool;
+      dbIds = widget.quizData['dbIds'] as List<String>;
+    }
+
     _quizStartTime = DateTime.now();
 
     if (mode == 'test') {
@@ -61,12 +70,11 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     });
   }
   
-  void _submitQuiz() {
+  Future<void> _submitQuiz() async {
     if (_isSubmitted) return;
     setState(() => _isSubmitted = true);
     _timer?.cancel();
     
-    // ✅ 3. Calculate Time Taken (Abhi ka time - Shuru ka time)
     final DateTime endTime = DateTime.now();
     final Duration timeTaken = endTime.difference(_quizStartTime);
 
@@ -77,10 +85,21 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
 
     for (int i = 0; i < questions.length; i++) {
       if (_selectedAnswers.containsKey(i)) {
-        String correctAnswer = questions[i].options[questions[i].correctAnswerIndex];
+        // Safe Correct Answer extraction
+        String correctAnswer = "";
+        if (questions[i].correctAnswerIndex >= 0 && questions[i].correctAnswerIndex < questions[i].options.length) {
+            correctAnswer = questions[i].options[questions[i].correctAnswerIndex];
+        }
+
         if (_selectedAnswers[i] == correctAnswer) {
           finalScore += 1.0;
           correctCount++;
+
+          // 🔥 REVISION LOGIC: Agar sahi jawab diya, to attempt count badhao
+          if (isRevision && i < dbIds.length) {
+            await RevisionDB.instance.incrementAttempt(dbIds[i]);
+          }
+
         } else {
           finalScore -= 0.33;
           wrongCount++;
@@ -94,7 +113,7 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
 
     if (mounted) {
       context.replace( 
-        '/score-screen', // Make sure route name matches your router config
+        '/score-screen',
         extra: {
           'totalQuestions': questions.length,
           'finalScore': finalScore,
@@ -104,7 +123,7 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
           'topicName': topicName,
           'questions': questions,
           'userAnswers': _selectedAnswers,
-          'timeTaken': timeTaken, // ✅ 4. Passing Time Taken to Score Screen
+          'timeTaken': timeTaken,
         },
       );
     }
@@ -217,7 +236,12 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
 
   Widget _buildQuestionCard(Question question, int index) {
     final bool isAnswered = _selectedAnswers.containsKey(index);
-    final String correctAnswer = question.options[question.correctAnswerIndex];
+    
+    // Safe Correct Answer
+    String correctAnswer = "";
+    if (question.correctAnswerIndex >= 0 && question.correctAnswerIndex < question.options.length) {
+        correctAnswer = question.options[question.correctAnswerIndex];
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -243,7 +267,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
           
           const SizedBox(height: 20),
           
-          // Explanation only in Practice mode after answering
           if (mode == 'practice' && isAnswered && question.explanation.isNotEmpty)
             Container(
               width: double.infinity,
