@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-// ✅ 1. Import Revision DB
 import 'package:exambeing/services/revision_db.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -16,7 +14,6 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final User? user = FirebaseAuth.instance.currentUser;
 
-  // Stream to get user data
   Stream<DocumentSnapshot<Map<String, dynamic>>> _getUserStatsStream() {
     if (user == null) return const Stream.empty();
     return FirebaseFirestore.instance
@@ -43,16 +40,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: _getUserStatsStream(),
         builder: (context, snapshot) {
-          // 1. Loading State
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // 2. Data Parsing
           final userData = snapshot.data?.data();
           final stats = userData?['stats'] as Map<String, dynamic>? ?? {};
 
-          // --- CALCULATIONS ---
           int totalTests = stats['totalTests'] ?? 0;
           int totalQuestions = stats['totalQuestions'] ?? 0;
           int correct = stats['correct'] ?? 0;
@@ -60,7 +54,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           
           double accuracy = totalQuestions == 0 ? 0 : (correct / totalQuestions) * 100;
 
-          // Strong & Weak Logic
           Map<String, dynamic> subjectPerformance = stats['subjects'] ?? {};
           String strongSubject = "Not enough data";
           String weakSubject = "Not enough data";
@@ -70,7 +63,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           subjectPerformance.forEach((subject, data) {
             int subTotal = data['total'] ?? 0;
             int subCorrect = data['correct'] ?? 0;
-            if (subTotal > 5) { // Kam se kam 5 sawal kiye ho tabhi judge karenge
+            if (subTotal > 5) { 
               double acc = (subCorrect / subTotal) * 100;
               if (acc > highestAcc) {
                 highestAcc = acc;
@@ -86,14 +79,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
-              // 1. User Info Card (Old Design)
               if (user != null) _buildUserCard(),
 
               const SizedBox(height: 24),
               Text("Performance Overview", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 16),
 
-              // 2. STATS GRID (Tests, Accuracy, Right, Wrong)
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -111,7 +102,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 20),
 
-              // 3. STRONG & WEAK SUBJECTS
               Row(
                 children: [
                   Expanded(child: _buildSubjectCard("Strong Subject", strongSubject, Colors.green.shade50, Colors.green.shade800)),
@@ -131,8 +121,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
 
               const SizedBox(height: 30),
-
-              // 4. MISTAKE REVISION ZONE (New Feature)
               _buildRevisionBox(context),
             ],
           );
@@ -140,8 +128,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
-  // --- WIDGETS ---
 
   Widget _buildUserCard() {
     return Card(
@@ -276,17 +262,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // --- LOGIC FUNCTIONS ---
-
   void _showWeakTopicsDialog(Map<String, dynamic> performance) {
-    // Filter logic: Accuracy < 50%
     List<MapEntry<String, dynamic>> weakTopics = performance.entries
         .where((e) => (e.value['total'] > 0) && ((e.value['correct'] / e.value['total']) < 0.5))
         .toList();
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(verticalTop: Radius.circular(20)),
+      // ✅ FIX: verticalTop galat tha, borderRadius.vertical sahi hai
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20))
+      ),
       builder: (context) {
         return Container(
           padding: const EdgeInsets.all(20),
@@ -335,7 +321,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _startRevisionTest(BuildContext context) async {
-    // 1. Local DB se questions nikalo
     List<Map<String, dynamic>> rawData = await RevisionDB.instance.getRevisionSet();
     
     if (!context.mounted) return;
@@ -350,14 +335,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    // 2. Data ko parse karo
     List<Map<String, dynamic>> questions = rawData.map((e) => e['parsedData'] as Map<String, dynamic>).toList();
     List<String> dbIds = rawData.map((e) => e['id'] as String).toList();
 
-    // 3. Test Screen open karo (Revision Mode ON)
     context.push('/test-screen', extra: {
       'questions': questions, 
-      'isRevision': true, // ⚠️ NOTE: Test Screen me ye handle karna padega
+      'isRevision': true, 
       'dbIds': dbIds 
     });
   }
