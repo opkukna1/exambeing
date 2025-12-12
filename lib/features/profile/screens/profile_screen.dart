@@ -5,8 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:exambeing/services/revision_db.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/services/ad_manager.dart';
-
-// ✅ Import Leaderboard Screen
 import 'package:exambeing/features/profile/screens/leaderboard_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -18,6 +16,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final User? user = FirebaseAuth.instance.currentUser;
+  final TextEditingController _nameController = TextEditingController();
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> _getUserStatsStream() {
     if (user == null) return const Stream.empty();
@@ -27,25 +26,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .snapshots();
   }
 
-  // ✅ Rank Calculation Logic
-  Future<int> _calculateMyRank(int myTotalQuestions) async {
-    if (myTotalQuestions == 0) return 0;
+  // ✅ UPDATED RANK LOGIC (Based on Correct Answers)
+  Future<int> _calculateMyRank(int myCorrectCount) async {
+    if (myCorrectCount == 0) return 0;
     
+    // Check karo kitne logo ke 'correct' score mujhse jyada hain
     final query = await FirebaseFirestore.instance
         .collection('users')
-        .where('stats.totalQuestions', isGreaterThan: myTotalQuestions)
+        .where('stats.correct', isGreaterThan: myCorrectCount)
         .count()
         .get();
         
     return query.count! + 1; 
   }
 
-  // ⬇️===== NAME CHANGE LOGIC START =====⬇️
-  final TextEditingController _nameController = TextEditingController();
-
   void _showEditNameDialog(String currentName) {
-    _nameController.text = currentName; // Pre-fill current name
-
+    _nameController.text = currentName; 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -80,16 +76,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _updateName(String newName) async {
     if (user == null) return;
-
     try {
-      // 1. Auth Profile Update
       await user!.updateDisplayName(newName);
-      
-      // 2. Firestore Database Update (Zaroori hai Leaderboard ke liye)
       await FirebaseFirestore.instance.collection('users').doc(user!.uid).update({
         'displayName': newName,
       });
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Name updated to $newName successfully! ✅")),
@@ -103,7 +94,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
-  // ⬆️===== NAME CHANGE LOGIC END =====⬆️
 
   @override
   Widget build(BuildContext context) {
@@ -130,8 +120,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           final userData = snapshot.data?.data();
           final stats = userData?['stats'] as Map<String, dynamic>? ?? {};
-          
-          // ✅ Fetch latest Name from Firestore (Backup: Auth name)
           final String displayName = userData?['displayName'] ?? user?.displayName ?? 'User';
 
           int totalTests = stats['totalTests'] ?? 0;
@@ -160,14 +148,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
-              // ✅ Pass Name to Card
               if (user != null) _buildUserCard(displayName),
 
               const SizedBox(height: 24),
               Text("Performance Overview", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
 
-              // ✅ GRID SECTION
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -176,7 +162,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
                 children: [
-                  _buildRankGridCard(totalQuestions),
+                  // ✅ Pass 'correct' count for Rank Calculation
+                  _buildRankGridCard(correct), 
                   _buildStatCard("Accuracy", "${accuracy.toStringAsFixed(1)}%", Colors.purple),
                   _buildStatCard("Right Ans", "$correct", Colors.green),
                   _buildStatCard("Wrong Ans", "$wrong", Colors.red),
@@ -220,7 +207,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ✅ Updated User Card with Edit Button
   Widget _buildUserCard(String displayName) {
     return Card(
       elevation: 0,
@@ -246,7 +232,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ✅ Row for Name and Edit Icon
                   Row(
                     children: [
                       Flexible(
@@ -257,7 +242,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // ✏️ EDIT ICON
                       InkWell(
                         onTap: () => _showEditNameDialog(displayName),
                         child: Container(
@@ -281,14 +265,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildRankGridCard(int totalQuestions) {
+  Widget _buildRankGridCard(int myCorrectCount) {
     return FutureBuilder<int>(
-      future: _calculateMyRank(totalQuestions),
+      // ✅ Using Correct Count for Rank
+      future: _calculateMyRank(myCorrectCount),
       builder: (context, snapshot) {
         String rankText = "--";
         if (snapshot.hasData && snapshot.data != 0) {
           rankText = "#${snapshot.data}";
-        } else if (totalQuestions == 0) {
+        } else if (myCorrectCount == 0) {
           rankText = "N/A";
         }
 
@@ -325,6 +310,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ... (Baki saare widgets same hain: _buildStatCard, _buildSubjectCard, _buildRevisionBox, _startRevisionTest etc.)
   Widget _buildStatCard(String title, String value, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -520,9 +506,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _startRevisionTest(BuildContext context) async {
     List<Map<String, dynamic>> rawData = await RevisionDB.instance.getRevisionSet();
-    
     if (!context.mounted) return;
-
     if (rawData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -533,11 +517,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
       return;
     }
-
     List<Question> questions = rawData.map((e) {
       return Question.fromMap(e['parsedData'] as Map<String, dynamic>);
     }).toList();
-    
     List<String> dbIds = rawData.map((e) => e['id'] as String).toList();
 
     AdManager.showInterstitialAd(() {
