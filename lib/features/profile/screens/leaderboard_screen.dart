@@ -11,7 +11,7 @@ class LeaderboardScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("🏆 Top 100 Rankers"),
+        title: const Text("🏆 Top 100 Champions"),
         backgroundColor: Colors.amber,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -31,7 +31,8 @@ class LeaderboardScreen extends StatelessWidget {
                   "Leaderboard",
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
-                Text("Based on total questions solved", style: TextStyle(fontSize: 13)),
+                // ✅ UPDATED TEXT
+                Text("Based on total CORRECT answers", style: TextStyle(fontSize: 13)),
               ],
             ),
           ),
@@ -41,8 +42,9 @@ class LeaderboardScreen extends StatelessWidget {
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
-                  .orderBy('stats.totalQuestions', descending: true)
-                  .limit(100) // ✅ Limit updated to 100
+                  // ✅ CHANGE 1: Ab 'correct' ke adhar par sort hoga
+                  .orderBy('stats.correct', descending: true)
+                  .limit(100) 
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -50,7 +52,7 @@ class LeaderboardScreen extends StatelessWidget {
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text("No data available yet."));
+                  return const Center(child: Text("No champions yet. Be the first!"));
                 }
 
                 final users = snapshot.data!.docs;
@@ -61,11 +63,11 @@ class LeaderboardScreen extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final data = users[index].data() as Map<String, dynamic>;
                     
-                    // ✅ Display Name Fetching
                     final String name = data['displayName'] ?? 'Unknown User';
-                    
                     final stats = data['stats'] as Map<String, dynamic>? ?? {};
-                    final totalQ = stats['totalQuestions'] ?? 0;
+                    
+                    // ✅ CHANGE 2: Correct answers dikhana hai
+                    final int correctAns = stats['correct'] ?? 0;
                     
                     final isMe = users[index].id == myUid;
 
@@ -74,22 +76,24 @@ class LeaderboardScreen extends StatelessWidget {
                     Color cardColor = Colors.white;
                     double elevation = 0.5;
 
+                    // ✅ CHANGE 3: Rank Number Logic
                     if (index == 0) {
                       leadingWidget = const Icon(Icons.emoji_events, color: Colors.amber, size: 32);
-                      cardColor = const Color(0xFFFFF8E1); // Gold tint
+                      cardColor = const Color(0xFFFFF8E1); 
                     } else if (index == 1) {
                       leadingWidget = const Icon(Icons.emoji_events, color: Colors.grey, size: 32);
-                      cardColor = const Color(0xFFF5F5F5); // Silver tint
+                      cardColor = const Color(0xFFF5F5F5); 
                     } else if (index == 2) {
                       leadingWidget = const Icon(Icons.emoji_events, color: Colors.brown, size: 32);
-                      cardColor = const Color(0xFFEFEBE9); // Bronze tint
+                      cardColor = const Color(0xFFEFEBE9); 
                     } else {
+                      // Normal Rank Number
                       leadingWidget = CircleAvatar(
                         backgroundColor: Colors.grey.shade100,
                         radius: 16,
                         child: Text(
                           "${index + 1}", 
-                          style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.bold)
+                          style: const TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.bold)
                         ),
                       );
                     }
@@ -113,7 +117,7 @@ class LeaderboardScreen extends StatelessWidget {
                           child: Center(child: leadingWidget),
                         ),
                         title: Text(
-                          name, // ✅ Showing Display Name
+                          name, 
                           style: TextStyle(
                             fontWeight: isMe ? FontWeight.bold : FontWeight.w500,
                             color: Colors.black87,
@@ -129,7 +133,7 @@ class LeaderboardScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(20)
                           ),
                           child: Text(
-                            "$totalQ Qs", 
+                            "$correctAns Correct",  // ✅ Updated Label
                             style: TextStyle(
                               color: isMe ? Colors.blue.shade900 : Colors.green.shade800, 
                               fontWeight: FontWeight.bold, 
