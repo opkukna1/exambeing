@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // ✅ Added for Admin Check
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/services/revision_db.dart';
-import 'package:exambeing/services/ad_manager.dart'; // ✅ Import AdManager
+import 'package:exambeing/services/ad_manager.dart';
+import 'admin_edit_dialog.dart'; // ✅ Import Admin Dialog (File path check karlena)
 
 class PracticeMcqScreen extends StatefulWidget {
   final Map<String, dynamic> quizData;
@@ -21,6 +23,10 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   // ✅ Revision Variables
   bool isRevision = false;
   List<String> dbIds = [];
+
+  // ✅ ADMIN VARIABLES
+  bool _canEdit = false;
+  final String _adminEmail = "opsiddh42@gmail.com"; // 🔒 Hardcoded Admin Email
 
   final PageController _pageController = PageController();
   final Map<int, String> _selectedAnswers = {};
@@ -48,9 +54,22 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
 
     _quizStartTime = DateTime.now();
 
+    // ✅ CHECK ADMIN PERMISSION
+    _checkAdmin();
+
     if (mode == 'test') {
       _start = questions.length * 60; // 1 min per question
       startTimer();
+    }
+  }
+
+  // 🔒 Admin Check Logic
+  void _checkAdmin() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email == _adminEmail) {
+      setState(() {
+        _canEdit = true;
+      });
     }
   }
 
@@ -96,7 +115,7 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
           finalScore += 1.0;
           correctCount++;
 
-          // 🔥 REVISION LOGIC: Agar sahi jawab diya, to attempt count badhao
+          // 🔥 REVISION LOGIC
           if (isRevision && i < dbIds.length) {
             await RevisionDB.instance.incrementAttempt(dbIds[i]);
           }
@@ -113,9 +132,8 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     if (finalScore < 0) finalScore = 0;
 
     if (mounted) {
-      // ✅ AD SHOW LOGIC: Submit par ad dikhao
+      // ✅ AD SHOW LOGIC
       AdManager.showInterstitialAd(() {
-        // Jab ad band ho jaye, tab result screen par jao
         if (mounted) {
           context.replace( 
             '/score-screen',
@@ -140,7 +158,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     if (mode == 'practice' && _selectedAnswers.containsKey(questionIndex)) {
        return;
     }
-    
     setState(() {
       _selectedAnswers[questionIndex] = selectedOption;
     });
@@ -255,10 +272,40 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Q ${index + 1}: ${question.questionText}', 
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, height: 1.4),
+          
+          // ✅ UPDATED ROW FOR QUESTION & EDIT BUTTON
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  'Q ${index + 1}: ${question.questionText}', 
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, height: 1.4),
+                ),
+              ),
+              
+              // 🔒 ADMIN EDIT BUTTON (Sirf opsiddh42@gmail.com ko dikhega)
+              if (_canEdit)
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.red),
+                  tooltip: "Edit Question",
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => AdminEditDialog(
+                        question: question,
+                        onUpdateSuccess: () {
+                          // UI Update karne ke liye
+                          setState(() {});
+                        },
+                      ),
+                    );
+                  },
+                ),
+            ],
           ),
+
           const SizedBox(height: 24),
           
           ListView.separated(
