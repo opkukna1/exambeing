@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:exambeing/models/question_model.dart'; // Apka Question Model ka path sahi karein
+import 'package:exambeing/models/question_model.dart'; 
 
 class AdminEditDialog extends StatefulWidget {
   final Question question;
-  final VoidCallback onUpdateSuccess; // Screen refresh karne ke liye callback
+  // Callback: Jab update ho jaye to naya data wapas bhejne ke liye
+  final Function(String q, List<String> opts, int ans, String exp) onUpdateSuccess;
 
   const AdminEditDialog({
     super.key, 
@@ -17,7 +18,6 @@ class AdminEditDialog extends StatefulWidget {
 }
 
 class _AdminEditDialogState extends State<AdminEditDialog> {
-  // Controllers text edit karne ke liye
   late TextEditingController _qController;
   late TextEditingController _optAController;
   late TextEditingController _optBController;
@@ -31,54 +31,62 @@ class _AdminEditDialogState extends State<AdminEditDialog> {
   @override
   void initState() {
     super.initState();
-    // 1. Purana data controllers mein bharna
+    // ✅ Field Name Matched: questionText
     _qController = TextEditingController(text: widget.question.questionText);
     
-    // Explanation ya Solution check kar lena model mein kya naam hai
+    // ✅ Field Name Matched: explanation
     _expController = TextEditingController(text: widget.question.explanation); 
     
-    // Options ko safely handle karna
+    // ✅ Field Name Matched: options
     var opts = widget.question.options;
     _optAController = TextEditingController(text: opts.isNotEmpty ? opts[0] : "");
     _optBController = TextEditingController(text: opts.length > 1 ? opts[1] : "");
     _optCController = TextEditingController(text: opts.length > 2 ? opts[2] : "");
     _optDController = TextEditingController(text: opts.length > 3 ? opts[3] : "");
     
+    // ✅ Field Name Matched: correctAnswerIndex
     _correctIndex = widget.question.correctAnswerIndex;
   }
 
-  // 🔥 UPDATE FUNCTION
   Future<void> _updateQuestion() async {
     setState(() => _isUpdating = true);
 
     try {
-      // 2. Updated Data ka Map banana
-      Map<String, dynamic> updatedData = {
-        'question': _qController.text.trim(), // Field name DB jesa same hona chahiye
-        'options': [
+      final newQuestionText = _qController.text.trim();
+      final newExplanation = _expController.text.trim();
+      
+      // Options list ready karna
+      final newOptions = [
           _optAController.text.trim(),
           _optBController.text.trim(),
           _optCController.text.trim(),
           _optDController.text.trim(),
-        ],
-        'correctAnswerIndex': _correctIndex,
-        'explanation': _expController.text.trim(), 
+      ];
+
+      // 🔥 YAHAN HAIN AAPKE EXACT DATABASE NAMES
+      // In names ko mat badalna, ye wahi hain jo aapne bheje the
+      Map<String, dynamic> updatedData = {
+        'questionText': newQuestionText,      // ✅ DB me 'questionText' hai
+        'options': newOptions,                // ✅ DB me 'options' hai
+        'correctAnswerIndex': _correctIndex,  // ✅ DB me 'correctAnswerIndex' hai
+        'explanation': newExplanation,        // ✅ DB me 'explanation' hai
       };
 
-      // 3. Firebase par update karna
+      // 1. Firebase Update
       await FirebaseFirestore.instance
           .collection('questions')
           .doc(widget.question.id)
           .update(updatedData);
 
       if (!mounted) return;
-      Navigator.pop(context); // Dialog band karo
+      Navigator.pop(context); 
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("✅ Question Updated Successfully!"), backgroundColor: Colors.green)
       );
       
-      widget.onUpdateSuccess(); // Screen refresh trigger
+      // 2. Screen par wapas naya data bhejna (Taki turant dikhe)
+      widget.onUpdateSuccess(newQuestionText, newOptions, _correctIndex, newExplanation);
 
     } catch (e) {
       setState(() => _isUpdating = false);
@@ -94,12 +102,14 @@ class _AdminEditDialogState extends State<AdminEditDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildTextField("Question Text", _qController, maxLines: 3),
+            _buildTextField("Question Text", _qController, maxLines: 4),
             const SizedBox(height: 15),
-            _buildTextField("Option A", _optAController),
-            _buildTextField("Option B", _optBController),
-            _buildTextField("Option C", _optCController),
-            _buildTextField("Option D", _optDController),
+            
+            // Options
+            _buildTextField("Option A (Index 0)", _optAController),
+            _buildTextField("Option B (Index 1)", _optBController),
+            _buildTextField("Option C (Index 2)", _optCController),
+            _buildTextField("Option D (Index 3)", _optDController),
             const SizedBox(height: 10),
             
             // Correct Answer Dropdown
@@ -111,10 +121,10 @@ class _AdminEditDialogState extends State<AdminEditDialog> {
                   value: _correctIndex,
                   isExpanded: true,
                   items: const [
-                    DropdownMenuItem(value: 0, child: Text("Correct Answer: A")),
-                    DropdownMenuItem(value: 1, child: Text("Correct Answer: B")),
-                    DropdownMenuItem(value: 2, child: Text("Correct Answer: C")),
-                    DropdownMenuItem(value: 3, child: Text("Correct Answer: D")),
+                    DropdownMenuItem(value: 0, child: Text("Correct Answer: A (0)")),
+                    DropdownMenuItem(value: 1, child: Text("Correct Answer: B (1)")),
+                    DropdownMenuItem(value: 2, child: Text("Correct Answer: C (2)")),
+                    DropdownMenuItem(value: 3, child: Text("Correct Answer: D (3)")),
                   ],
                   onChanged: (val) => setState(() => _correctIndex = val!),
                 ),
@@ -147,6 +157,7 @@ class _AdminEditDialogState extends State<AdminEditDialog> {
         maxLines: maxLines,
         decoration: InputDecoration(
           labelText: label,
+          alignLabelWithHint: true,
           border: const OutlineInputBorder(),
           isDense: true,
           contentPadding: const EdgeInsets.all(12),
