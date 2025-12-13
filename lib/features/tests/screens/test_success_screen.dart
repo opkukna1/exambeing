@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Clipboard ke liye
+import 'package:flutter/services.dart'; // Clipboard
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,7 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:exambeing/models/question_model.dart';
 
-class TestSuccessScreen extends StatelessWidget {
+// ✅ STATEFUL WIDGET (Changed from Stateless to fix SnackBar issue)
+class TestSuccessScreen extends StatefulWidget {
   final List<Question> questions;
   final String topicName;
 
@@ -18,26 +19,45 @@ class TestSuccessScreen extends StatelessWidget {
     required this.topicName
   });
 
+  @override
+  State<TestSuccessScreen> createState() => _TestSuccessScreenState();
+}
+
+class _TestSuccessScreenState extends State<TestSuccessScreen> {
+
+  // ✅ MAGIC FIX: Screen chodte hi SnackBar gayab ho jayega
+  @override
+  void deactivate() {
+    ScaffoldMessenger.of(context).clearSnackBars(); // Sab messages clear karo
+    super.deactivate();
+  }
+
   // 🔒 1. CHECK PREMIUM & DOWNLOAD
   Future<void> _checkPremiumAndDownload(BuildContext context, {bool withAnswers = false}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Loading dikhao
+    // Loading...
     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
 
     try {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (!mounted) return;
       Navigator.pop(context); // Loading hatao
 
       final data = userDoc.data();
       final String paidStatus = data != null && data.containsKey('paid_for_gold') ? data['paid_for_gold'] : 'no';
 
       if (paidStatus == 'yes') {
-        // 🎉 Premium hai -> Download karwao
+        // 🎉 Premium User
         _generateAndShareDocx(context, withAnswers);
       } else {
-        // 🔒 Normal User -> Sirf Message dikhao
+        // 🔒 Normal User
+        
+        // Step A: Purana message hatao (taki stack na ho)
+        ScaffoldMessenger.of(context).clearSnackBars(); 
+
+        // Step B: Naya message dikhao
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text(
@@ -45,7 +65,7 @@ class TestSuccessScreen extends StatelessWidget {
               style: TextStyle(color: Colors.white, fontSize: 14),
             ),
             backgroundColor: Colors.black87,
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 4), // Duration thoda kam kiya
             action: SnackBarAction(
               label: 'COPY NUMBER',
               textColor: Colors.amber,
@@ -60,30 +80,32 @@ class TestSuccessScreen extends StatelessWidget {
         );
       }
     } catch (e) {
-      Navigator.pop(context); // Loading hatao
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (mounted) {
+        Navigator.pop(context); // Loading hatao
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
     }
   }
 
-  // 📄 2. GENERATE DOCX (Fixed)
+  // 📄 2. GENERATE DOCX
   Future<void> _generateAndShareDocx(BuildContext context, bool withAnswers) async {
     try {
       StringBuffer buffer = StringBuffer();
       buffer.writeln("<html><body>");
       buffer.writeln("<h1>ExamBeing Test Series</h1>");
-      buffer.writeln("<h2>Topic: $topicName</h2>");
-      buffer.writeln("<p>Total Questions: ${questions.length}</p><hr>");
+      buffer.writeln("<h2>Topic: ${widget.topicName}</h2>"); // widget.topicName use kiya
+      buffer.writeln("<p>Total Questions: ${widget.questions.length}</p><hr>");
 
       if (withAnswers) {
-        // ✅ ANSWER KEY (Fixed Error Here)
+        // ANSWER KEY
         buffer.writeln("<h3>ANSWER KEY</h3>");
         buffer.writeln("<table border='1' cellpadding='5'><tr><th>Q No.</th><th>Answer</th></tr>");
         
-        for (int i = 0; i < questions.length; i++) {
-          final q = questions[i];
+        for (int i = 0; i < widget.questions.length; i++) {
+          final q = widget.questions[i];
           
-          // Logic: Index ko A, B, C, D mein badlo aur Text nikalo
-          String optionLabel = String.fromCharCode(65 + q.correctAnswerIndex); // 0->A, 1->B
+          // Logic: Index ko A, B, C, D mein badlo
+          String optionLabel = String.fromCharCode(65 + q.correctAnswerIndex); 
           String answerText = "";
           
           if (q.options.length > q.correctAnswerIndex) {
@@ -95,8 +117,8 @@ class TestSuccessScreen extends StatelessWidget {
         buffer.writeln("</table>");
       } else {
         // QUESTION PAPER
-        for (int i = 0; i < questions.length; i++) {
-          final q = questions[i];
+        for (int i = 0; i < widget.questions.length; i++) {
+          final q = widget.questions[i];
           buffer.writeln("<p><b>Q${i + 1}. ${q.questionText}</b></p>");
           buffer.writeln("<ul>");
           if(q.options.isNotEmpty) buffer.writeln("<li>(A) ${q.options[0]}</li>");
@@ -142,7 +164,8 @@ class TestSuccessScreen extends StatelessWidget {
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                 onPressed: () {
-                  context.push('/practice-mcq', extra: {'questions': questions, 'topicName': topicName, 'mode': 'test'});
+                  // widget.questions use kiya
+                  context.push('/practice-mcq', extra: {'questions': widget.questions, 'topicName': widget.topicName, 'mode': 'test'});
                 },
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: const Text("ATTEMPT TEST NOW", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
