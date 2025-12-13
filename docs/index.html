@@ -3,107 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exambeing - Official Website</title>
-    <style>
-        /* Reset and Base Styles */
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* Modern Gradient Background */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-            color: #333;
-        }
-
-        /* Main Container Card */
-        .container {
-            background-color: #ffffff;
-            padding: 40px 30px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            text-align: center;
-            max-width: 500px;
-            width: 100%;
-        }
-
-        /* Typography */
-        h1 {
-            color: #4c3c92; /* Deep Purple branding color */
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            font-weight: 800;
-        }
-        .tagline {
-            color: #764ba2;
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 25px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-        p.description {
-            color: #555;
-            font-size: 1rem;
-            line-height: 1.6;
-            margin-bottom: 35px;
-        }
-
-        /* Professional Play Store Button */
-        .play-store-button {
-            display: inline-block;
-            background-color: #00875f; /* Google Play Green color */
-            color: white;
-            padding: 15px 30px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 1.1rem;
-            box-shadow: 0 4px 6px rgba(0, 135, 95, 0.3);
-            transition: transform 0.2s ease, background-color 0.2s ease;
-        }
-        
-        .play-store-button:hover {
-            background-color: #006d4d; /* Slightly darker on hover */
-            transform: translateY(-2px); /* Slight lift effect */
-        }
-
-        /* Footer Link */
-        .footer-link {
-            margin-top: 30px;
-            display: block;
-            font-size: 0.9rem;
-            color: #999;
-        }
-        .footer-link a {
-            color: #764ba2;
-            text-decoration: none;
-        }
-        .footer-link a:hover {
-            text-decoration: underline;
-        }
-    </style>
+    <title>Exambeing - Ace Your Exams</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <div class="container">
-        <h1>Exambeing</h1>
-        <p class="tagline">Unlock Your Potential</p>
-
-        <p class="description">
-            Welcome to the official website of Exambeing. The ultimate platform for RPSC, CET, and Rajasthan Exam preparation with Daily Tests, Subject-wise Practice, and more.
-        </p>
-
-        <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" target="_blank" class="play-store-button">
-            Download on Google Play
-        </a>
-
-        <div class="footer-link">
-            <small>Developer Info: <a href="app-ads.txt">View app-ads.txt</a></small>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">ExamBeing</h1>
+            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#about">Stats</a></li>
+                <li><a href="#download" class="btn-nav">Download App</a></li>
+            </ul>
         </div>
-    </div>
+    </nav>
 
+    <section id="home" class="hero">
+        <div class="container hero-content">
+            <div class="hero-text">
+                <h1>Prepare Smarter, <br> <span class="highlight">Score Higher!</span></h1>
+                <p>The ultimate exam preparation app with Live Tests, AI Tutor, and Detailed Analytics. Join thousands of students achieving their dreams.</p>
+                
+                <div class="cta-buttons">
+                    <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" target="_blank" class="btn-google">
+                        <i class="fab fa-google-play"></i> Download App
+                    </a>
+
+                    <a href="https://t.me/Exambeingofficial" target="_blank" class="btn-telegram">
+                        <i class="fab fa-telegram"></i> Join Telegram
+                    </a>
+                </div>
+
+            </div>
+            <div class="hero-img">
+                <img src="https://via.placeholder.com/350x700?text=Exambeing+App" alt="Exambeing App Interface">
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Awesome Features</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="icon-box"><i class="fas fa-robot"></i></div>
+                    <h3>AI Tutor Support</h3>
+                    <p>Stuck on a question? Ask our AI Tutor and get instant, detailed explanations in Hinglish.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon-box"><i class="fas fa-edit"></i></div>
+                    <h3>Custom Tests</h3>
+                    <p>Create your own tests by selecting subjects and topics. Practice exactly what you need.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon-box"><i class="fas fa-chart-line"></i></div>
+                    <h3>Detailed Analysis</h3>
+                    <p>Track your performance with deep analytics, accuracy reports, and time management stats.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon-box"><i class="fas fa-trophy"></i></div>
+                    <h3>Live Leaderboard</h3>
+                    <p>Compete with students across the state and see your All India Rank in real-time.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="about" class="stats">
+        <div class="container stats-grid">
+            <div class="stat-item">
+                <h3>10K+</h3>
+                <p>Downloads</p>
+            </div>
+            <div class="stat-item">
+                <h3>500+</h3>
+                <p>Test Series</p>
+            </div>
+            <div class="stat-item">
+                <h3>4.8/5</h3>
+                <p>User Rating</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="download" class="download-section">
+        <div class="container">
+            <h2>Ready to Crack Your Exam?</h2>
+            <p>Download Exambeing now and start your journey towards success.</p>
+            <a href="YOUR_PLAY_STORE_LINK_HERE" class="btn-white">Download Now</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container footer-content">
+            <div class="footer-left">
+                <h2>ExamBeing</h2>
+                <p>Empowering students with technology.</p>
+            </div>
+            <div class="footer-links">
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms & Conditions</a>
+                <a href="mailto:support@exambeing.com">Contact Us</a>
+            </div>
+        </div>
+        <div class="copyright">
+            <p>&copy; 2025 Exambeing. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
 </body>
 </html>
