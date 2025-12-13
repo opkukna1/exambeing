@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart'; 
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/features/tests/screens/test_success_screen.dart';
 
@@ -14,50 +17,117 @@ class TestGeneratorScreen extends StatefulWidget {
 }
 
 class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
+  // Store selected counts: {'topicId': 5, 'anotherTopicId': 10}
   final Map<String, int> _topicCounts = {};
   int get _totalQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
   
   bool _isLoading = false;
+  bool _isDataLoading = true; // For initial cache load
+  
+  // Ad Variables
   RewardedAd? _rewardedAd; 
+  bool _isAdLoaded = false;
+
+  // Local Cache Lists
+  List<Map<String, dynamic>> _cachedSubjects = [];
+  List<Map<String, dynamic>> _cachedTopics = [];
 
   @override
   void initState() {
     super.initState();
     _loadRewardedAd();
+    _loadDataWithCache(); // Load Subjects & Topics
   }
 
+  // 📺 1. LOAD REWARDED AD
   void _loadRewardedAd() {
     RewardedAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/5224354917', 
+      adUnitId: 'ca-app-pub-3940256099942544/5224354917', // Test ID
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
+          debugPrint("✅ Ad Loaded");
           _rewardedAd = ad;
+          _isAdLoaded = true;
         },
         onAdFailedToLoad: (LoadAdError error) {
+          debugPrint("❌ Ad Failed: $error");
           _rewardedAd = null;
+          _isAdLoaded = false;
         },
       ),
     );
   }
 
-  Stream<QuerySnapshot> _getSubjects() {
-    return FirebaseFirestore.instance.collection('subjects').snapshots();
+  // 💾 2. CACHING LOGIC (Saves Reads)
+  Future<void> _loadDataWithCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    final int? lastFetchTime = prefs.getInt('last_metadata_fetch');
+    final DateTime now = DateTime.now();
+    
+    bool shouldFetchFromFirebase = true;
+
+    // Check if cache is fresh (< 12 hours)
+    if (lastFetchTime != null) {
+      final lastDate = DateTime.fromMillisecondsSinceEpoch(lastFetchTime);
+      if (now.difference(lastDate).inHours < 12) {
+        shouldFetchFromFirebase = false;
+      }
+    }
+
+    if (shouldFetchFromFirebase) {
+      // 🌍 Fetch form Firebase
+      try {
+        // Subjects
+        final subSnapshot = await FirebaseFirestore.instance.collection('subjects').get();
+        List<Map<String, dynamic>> subs = subSnapshot.docs.map((doc) {
+          final d = doc.data(); d['id'] = doc.id; return d;
+        }).toList();
+
+        // Topics
+        final topSnapshot = await FirebaseFirestore.instance.collection('topics').get();
+        List<Map<String, dynamic>> tops = topSnapshot.docs.map((doc) {
+          final d = doc.data(); d['id'] = doc.id; return d;
+        }).toList();
+
+        // Save to Local
+        await prefs.setString('cached_subjects', jsonEncode(subs));
+        await prefs.setString('cached_topics', jsonEncode(tops));
+        await prefs.setInt('last_metadata_fetch', now.millisecondsSinceEpoch);
+
+        if (mounted) setState(() { _cachedSubjects = subs; _cachedTopics = tops; _isDataLoading = false; });
+      } catch (e) {
+        _loadFromLocal(prefs); // Fallback
+      }
+    } else {
+      // 🏠 Load from Local
+      _loadFromLocal(prefs);
+    }
   }
 
-  Stream<QuerySnapshot> _getTopics(String subjectId) {
-    return FirebaseFirestore.instance
-        .collection('topics')
-        .where('subjectId', isEqualTo: subjectId)
-        .snapshots();
+  void _loadFromLocal(SharedPreferences prefs) {
+    String? subStr = prefs.getString('cached_subjects');
+    String? topStr = prefs.getString('cached_topics');
+
+    if (subStr != null && topStr != null) {
+      if (mounted) {
+        setState(() {
+          _cachedSubjects = List<Map<String, dynamic>>.from(jsonDecode(subStr));
+          _cachedTopics = List<Map<String, dynamic>>.from(jsonDecode(topStr));
+          _isDataLoading = false;
+        });
+      }
+    } else {
+      // First run or cleared cache
+      prefs.remove('last_metadata_fetch');
+      _loadDataWithCache(); // Force fetch
+    }
   }
 
-  // 🔥 TRUE RANDOM + LOW READS STRATEGY
+  // 🔥 3. GENERATE TEST (SUPER FAST BATCH LOGIC)
   Future<void> _generateTest() async {
     if (_totalQuestions == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select at least one question!"))
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select at least 1 question.")));
       return;
     }
 
@@ -65,87 +135,76 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
 
     try {
       List<Question> finalQuestionsList = [];
-      final Random random = Random();
 
-      // Har Topic ke liye loop chalayenge
       for (var entry in _topicCounts.entries) {
         String topicId = entry.key;
         int countNeeded = entry.value;
 
         if (countNeeded <= 0) continue;
 
-        // 🧠 Strategy: Ek baar me 10 lene ki jagah, 
-        // hum 10 alag-alag random points se 1-1 sawal uthayenge.
-        // Isse sawal repeat hone ka chance khatam ho jayega aur Reads bhi utne hi rahenge.
+        // 🧠 Logic: Generate Random ID and fetch 'N' questions after it.
+        // Single DB call per topic. Very Fast.
+        String randomAutoId = FirebaseFirestore.instance.collection('questions').doc().id;
 
-        List<Future<void>> fetchTasks = [];
+        // Try fetching
+        var query = await FirebaseFirestore.instance
+            .collection('questions')
+            .where('topicId', isEqualTo: topicId)
+            .orderBy(FieldPath.documentId)
+            .startAt([randomAutoId])
+            .limit(countNeeded)
+            .get();
 
-        for (int i = 0; i < countNeeded; i++) {
-          fetchTasks.add(Future(() async {
-            // 1. Generate Random ID
-            String randomAutoId = FirebaseFirestore.instance.collection('questions').doc().id;
+        List<QueryDocumentSnapshot> docs = query.docs;
 
-            // 2. Try fetching 1 question AFTER random ID
-            var query = await FirebaseFirestore.instance
-                .collection('questions')
-                .where('topicId', isEqualTo: topicId)
-                .orderBy(FieldPath.documentId)
-                .startAt([randomAutoId])
-                .limit(1) // Sirf 1 sawal (1 Read)
-                .get();
-
-            if (query.docs.isNotEmpty) {
-              finalQuestionsList.add(Question.fromFirestore(query.docs.first));
-            } else {
-              // Agar Random ID sabse last me chali gayi aur kuch nahi mila,
-              // To shuruwat se 1 utha lo (Wrap around)
-              var startQuery = await FirebaseFirestore.instance
-                  .collection('questions')
-                  .where('topicId', isEqualTo: topicId)
-                  .orderBy(FieldPath.documentId)
-                  .limit(1)
-                  .get();
-              
-              if (startQuery.docs.isNotEmpty) {
-                finalQuestionsList.add(Question.fromFirestore(startQuery.docs.first));
-              }
-            }
-          }));
+        // Wrap-around logic: If random start was near end, fetch remaining from start
+        if (docs.length < countNeeded) {
+          int remaining = countNeeded - docs.length;
+          var startQuery = await FirebaseFirestore.instance
+              .collection('questions')
+              .where('topicId', isEqualTo: topicId)
+              .orderBy(FieldPath.documentId)
+              .limit(remaining)
+              .get();
+          docs.addAll(startQuery.docs);
         }
 
-        // Saare calls ek sath parallel me bhejo (Fast)
-        await Future.wait(fetchTasks);
+        for (var doc in docs) {
+          finalQuestionsList.add(Question.fromFirestore(doc));
+        }
       }
-
-      // Remove Duplicates (Agar kismat se same sawal 2 baar aa gaya ho)
-      final uniqueIds = <String>{};
-      finalQuestionsList.retainWhere((q) => uniqueIds.add(q.id));
 
       if (finalQuestionsList.isEmpty) {
-        throw "No questions found.";
+        throw "No questions found in selected topics.";
       }
 
-      // Final Shuffle
       finalQuestionsList.shuffle(Random());
-
+      
+      // Stop Loading
       setState(() => _isLoading = false);
 
-      if (_rewardedAd != null) {
+      // 4. SHOW AD OR NAVIGATE
+      if (_rewardedAd != null && _isAdLoaded) {
         _rewardedAd!.show(
           onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
             _navigateToSuccess(finalQuestionsList);
           }
         );
         _rewardedAd = null;
-        _loadRewardedAd(); 
+        _isAdLoaded = false;
+        _loadRewardedAd();
       } else {
+        debugPrint("⚠️ Ad not ready, skipping...");
         _navigateToSuccess(finalQuestionsList);
       }
 
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        if (e.toString().contains("requires an index")) {
+        String errorMsg = e.toString();
+        
+        // 🚨 INDEX ERROR HANDLING
+        if (errorMsg.contains("requires an index")) {
            _showIndexErrorDialog();
         } else {
            ScaffoldMessenger.of(context).showSnackBar(
@@ -160,11 +219,12 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("⚠️ Database Setup Required"),
+        title: const Text("⚠️ Index Required"),
         content: const Text(
-          "For this random feature to work, you need an Index.\n\n"
-          "1. Check Debug Console for the link.\n"
-          "2. Click Create Index in Firebase Console."
+          "For this feature to work, Firebase needs an Index.\n\n"
+          "1. Check your Debug Console logs.\n"
+          "2. Click the link (https://console.firebase...).\n"
+          "3. Create Index and wait 2 mins."
         ),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))],
       ),
@@ -184,23 +244,17 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
+  // Counter Helper
   void _updateCount(String topicId, int delta) {
     setState(() {
       int current = _topicCounts[topicId] ?? 0;
       int newVal = max(0, current + delta);
-      
       if (delta > 0 && _totalQuestions >= 100) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text("Max limit 100 questions reached!"), duration: Duration(milliseconds: 500))
-         );
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Max limit 100 questions reached!"), duration: Duration(milliseconds: 500)));
          return;
       }
-
-      if (newVal == 0) {
-        _topicCounts.remove(topicId);
-      } else {
-        _topicCounts[topicId] = newVal;
-      }
+      if (newVal == 0) _topicCounts.remove(topicId);
+      else _topicCounts[topicId] = newVal;
     });
   }
 
@@ -218,104 +272,62 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                children: [
                  Icon(Icons.info_outline, size: 16, color: Colors.deepPurple),
                  SizedBox(width: 8),
-                 Expanded(child: Text("Expand subjects and select question count for topics.", style: TextStyle(fontSize: 12))),
+                 Expanded(child: Text("Expand subjects -> Add questions -> Generate", style: TextStyle(fontSize: 12))),
                ],
              ),
            ),
            Expanded(
-             child: StreamBuilder<QuerySnapshot>(
-              stream: _getSubjects(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                
-                final subjects = snapshot.data!.docs;
-
-                return ListView.builder(
-                  itemCount: subjects.length,
+             child: _isDataLoading 
+               ? const Center(child: CircularProgressIndicator()) 
+               : ListView.builder(
+                  itemCount: _cachedSubjects.length,
                   padding: const EdgeInsets.only(bottom: 100),
                   itemBuilder: (context, index) {
-                    final subjectDoc = subjects[index];
-                    final data = subjectDoc.data() as Map<String, dynamic>;
+                    final sData = _cachedSubjects[index];
+                    // Name Fallback
+                    final sName = sData['subjectName'] ?? sData['name'] ?? 'Subject';
+                    final sId = sData['id'];
                     
-                    final subjectName = data['subjectName'] ?? data['name'] ?? 'Subject';
+                    // Filter Topics for this Subject
+                    final rTopics = _cachedTopics.where((t) => t['subjectId'] == sId).toList();
+
+                    if (rTopics.isEmpty) return const SizedBox.shrink();
 
                     return ExpansionTile(
-                      title: Text(subjectName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      title: Text(sName, style: const TextStyle(fontWeight: FontWeight.bold)),
                       leading: const Icon(Icons.library_books, color: Colors.deepPurple),
-                      children: [
-                        _buildTopicsList(subjectDoc.id),
-                      ],
+                      children: rTopics.map((tData) {
+                        final tName = tData['topicName'] ?? tData['name'] ?? 'Topic';
+                        final tId = tData['id'];
+                        final int count = _topicCounts[tId] ?? 0;
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          decoration: BoxDecoration(color: count > 0 ? Colors.green.shade50 : Colors.grey.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: count > 0 ? Colors.green : Colors.grey.shade300)),
+                          child: ListTile(
+                            dense: true,
+                            title: Text(tName, style: const TextStyle(fontWeight: FontWeight.w500)),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(icon: const Icon(Icons.remove_circle_outline, color: Colors.red), onPressed: () => _updateCount(tId, -1)),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
+                                  child: Text("$count", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                ),
+                                IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.green), onPressed: () => _updateCount(tId, 5)),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     );
                   },
-                );
-              },
-            ),
+                ),
            ),
         ],
       ),
-    );
-  }
-
-  Widget _buildTopicsList(String subjectId) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _getTopics(subjectId),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator());
-        
-        final topics = snapshot.data!.docs;
-        if (topics.isEmpty) return const ListTile(title: Text("No topics found"));
-
-        return Column(
-          children: topics.map((topicDoc) {
-            final tData = topicDoc.data() as Map<String, dynamic>;
-            final topicName = tData['topicName'] ?? tData['name'] ?? 'Topic';
-            final topicId = topicDoc.id;
-            final int currentCount = _topicCounts[topicId] ?? 0;
-
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: currentCount > 0 ? Colors.green.shade50 : Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: currentCount > 0 ? Colors.green : Colors.grey.shade300),
-              ),
-              child: ListTile(
-                dense: true,
-                title: Text(topicName, style: const TextStyle(fontWeight: FontWeight.w500)),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.remove_circle_outline),
-                      color: Colors.red,
-                      onPressed: () => _updateCount(topicId, -1),
-                    ),
-                    
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300)
-                      ),
-                      child: Text(
-                        "$currentCount", 
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
-                      ),
-                    ),
-
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      color: Colors.green,
-                      onPressed: () => _updateCount(topicId, 5),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        );
-      },
     );
   }
 
@@ -329,36 +341,9 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       child: SafeArea(
         child: Row(
           children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("Total Qs", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                Text(
-                  "$_totalQuestions / 100", 
-                  style: TextStyle(
-                    fontSize: 20, 
-                    fontWeight: FontWeight.bold, 
-                    color: _totalQuestions > 100 ? Colors.red : Colors.black
-                  )
-                ),
-              ],
-            ),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("Total Qs", style: TextStyle(fontSize: 12, color: Colors.grey)), Text("$_totalQuestions / 100", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))]),
             const SizedBox(width: 20),
-            Expanded(
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: _isLoading ? null : _generateTest,
-                child: _isLoading 
-                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                   : const Text("GENERATE TEST 🚀", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ),
+            Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), onPressed: _isLoading ? null : _generateTest, child: _isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text("GENERATE TEST 🚀", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))),
           ],
         ),
       ),
