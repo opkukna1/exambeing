@@ -14,10 +14,7 @@ class TestGeneratorScreen extends StatefulWidget {
 }
 
 class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
-  // Key = TopicID, Value = Number of Questions requested
   final Map<String, int> _topicCounts = {};
-  
-  // Total Question Counter
   int get _totalQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
   
   bool _isLoading = false;
@@ -29,30 +26,25 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     _loadRewardedAd();
   }
 
-  // 📺 LOAD REWARDED AD
   void _loadRewardedAd() {
     RewardedAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/5224354917', // Test ID
+      adUnitId: 'ca-app-pub-3940256099942544/5224354917', 
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
-          debugPrint('$ad loaded.');
           _rewardedAd = ad;
         },
         onAdFailedToLoad: (LoadAdError error) {
-          debugPrint('RewardedAd failed to load: $error');
           _rewardedAd = null;
         },
       ),
     );
   }
 
-  // 1. Subjects Fetch karna
   Stream<QuerySnapshot> _getSubjects() {
     return FirebaseFirestore.instance.collection('subjects').snapshots();
   }
 
-  // 2. Topics Fetch karna (Subject ID ke basis par)
   Stream<QuerySnapshot> _getTopics(String subjectId) {
     return FirebaseFirestore.instance
         .collection('topics')
@@ -60,7 +52,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         .snapshots();
   }
 
-  // 🔥 GENERATE TEST LOGIC
+  // 🔥 TRUE RANDOM + LOW READS STRATEGY
   Future<void> _generateTest() async {
     if (_totalQuestions == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -73,47 +65,71 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
 
     try {
       List<Question> finalQuestionsList = [];
+      final Random random = Random();
 
-      // Loop through selected topics
+      // Har Topic ke liye loop chalayenge
       for (var entry in _topicCounts.entries) {
         String topicId = entry.key;
-        int requestedCount = entry.value;
+        int countNeeded = entry.value;
 
-        if (requestedCount <= 0) continue;
+        if (countNeeded <= 0) continue;
 
-        // Fetch IDs for this topic
-        final query = await FirebaseFirestore.instance
-            .collection('questions')
-            .where('topicId', isEqualTo: topicId)
-            .get();
-        
-        List<String> topicQuestionIds = query.docs.map((doc) => doc.id).toList();
+        // 🧠 Strategy: Ek baar me 10 lene ki jagah, 
+        // hum 10 alag-alag random points se 1-1 sawal uthayenge.
+        // Isse sawal repeat hone ka chance khatam ho jayega aur Reads bhi utne hi rahenge.
 
-        if (topicQuestionIds.isEmpty) continue;
+        List<Future<void>> fetchTasks = [];
 
-        // Shuffle & Pick
-        topicQuestionIds.shuffle(Random());
-        int actualCount = min(requestedCount, topicQuestionIds.length);
-        List<String> selectedIds = topicQuestionIds.sublist(0, actualCount);
+        for (int i = 0; i < countNeeded; i++) {
+          fetchTasks.add(Future(() async {
+            // 1. Generate Random ID
+            String randomAutoId = FirebaseFirestore.instance.collection('questions').doc().id;
 
-        // Fetch Full Data
-        await Future.wait(selectedIds.map((id) async {
-          final doc = await FirebaseFirestore.instance.collection('questions').doc(id).get();
-          if (doc.exists) {
-            finalQuestionsList.add(Question.fromFirestore(doc));
-          }
-        }));
+            // 2. Try fetching 1 question AFTER random ID
+            var query = await FirebaseFirestore.instance
+                .collection('questions')
+                .where('topicId', isEqualTo: topicId)
+                .orderBy(FieldPath.documentId)
+                .startAt([randomAutoId])
+                .limit(1) // Sirf 1 sawal (1 Read)
+                .get();
+
+            if (query.docs.isNotEmpty) {
+              finalQuestionsList.add(Question.fromFirestore(query.docs.first));
+            } else {
+              // Agar Random ID sabse last me chali gayi aur kuch nahi mila,
+              // To shuruwat se 1 utha lo (Wrap around)
+              var startQuery = await FirebaseFirestore.instance
+                  .collection('questions')
+                  .where('topicId', isEqualTo: topicId)
+                  .orderBy(FieldPath.documentId)
+                  .limit(1)
+                  .get();
+              
+              if (startQuery.docs.isNotEmpty) {
+                finalQuestionsList.add(Question.fromFirestore(startQuery.docs.first));
+              }
+            }
+          }));
+        }
+
+        // Saare calls ek sath parallel me bhejo (Fast)
+        await Future.wait(fetchTasks);
       }
+
+      // Remove Duplicates (Agar kismat se same sawal 2 baar aa gaya ho)
+      final uniqueIds = <String>{};
+      finalQuestionsList.retainWhere((q) => uniqueIds.add(q.id));
 
       if (finalQuestionsList.isEmpty) {
-        throw "No questions found for selected topics.";
+        throw "No questions found.";
       }
 
+      // Final Shuffle
       finalQuestionsList.shuffle(Random());
 
       setState(() => _isLoading = false);
 
-      // SHOW AD & NAVIGATE
       if (_rewardedAd != null) {
         _rewardedAd!.show(
           onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
@@ -129,11 +145,30 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-        );
+        if (e.toString().contains("requires an index")) {
+           _showIndexErrorDialog();
+        } else {
+           ScaffoldMessenger.of(context).showSnackBar(
+             SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+           );
+        }
       }
     }
+  }
+
+  void _showIndexErrorDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("⚠️ Database Setup Required"),
+        content: const Text(
+          "For this random feature to work, you need an Index.\n\n"
+          "1. Check Debug Console for the link.\n"
+          "2. Click Create Index in Firebase Console."
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))],
+      ),
+    );
   }
 
   void _navigateToSuccess(List<Question> questions) {
@@ -149,7 +184,6 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
-  // Update Count Helper
   void _updateCount(String topicId, int delta) {
     setState(() {
       int current = _topicCounts[topicId] ?? 0;
@@ -203,7 +237,6 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                     final subjectDoc = subjects[index];
                     final data = subjectDoc.data() as Map<String, dynamic>;
                     
-                    // ✅ CHANGE 1: Prioritize 'subjectName'
                     final subjectName = data['subjectName'] ?? data['name'] ?? 'Subject';
 
                     return ExpansionTile(
@@ -235,10 +268,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         return Column(
           children: topics.map((topicDoc) {
             final tData = topicDoc.data() as Map<String, dynamic>;
-            
-            // ✅ CHANGE 2: Prioritize 'topicName'
             final topicName = tData['topicName'] ?? tData['name'] ?? 'Topic';
-            
             final topicId = topicDoc.id;
             final int currentCount = _topicCounts[topicId] ?? 0;
 
@@ -326,7 +356,6 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                 onPressed: _isLoading ? null : _generateTest,
                 child: _isLoading 
                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                   // ✅ CHANGE 3: Button Text Updated
                    : const Text("GENERATE TEST 🚀", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
