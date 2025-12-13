@@ -31,26 +31,32 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     super.deactivate();
   }
 
-  // 🔒 1. CHECK PREMIUM & DOWNLOAD (Modified to handle format type)
+  // 🔒 1. CHECK PREMIUM & DOWNLOAD
   Future<void> _checkPremiumAndDownload(BuildContext context, {bool withAnswers = false, bool isCsv = false}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
+    // Show loading dialog
+    showDialog(
+      context: context, 
+      barrierDismissible: false, 
+      builder: (c) => const Center(child: CircularProgressIndicator())
+    );
 
     try {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      
       if (!mounted) return;
-      Navigator.pop(context); 
+      Navigator.pop(context); // Close loading dialog
 
       final data = userDoc.data();
       final String paidStatus = data != null && data.containsKey('paid_for_gold') ? data['paid_for_gold'] : 'no';
 
       if (paidStatus == 'yes') {
         if (isCsv) {
-          _generateAndShareCsv(context); // Call CSV function
+          await _generateAndShareCsv(context); // Await here to ensure async completion
         } else {
-          _generateAndShareDocx(context, withAnswers); // Call DOCX function
+          await _generateAndShareDocx(context, withAnswers); // Await here
         }
       } else {
         ScaffoldMessenger.of(context).clearSnackBars(); 
@@ -77,18 +83,22 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); 
+        // Ensure dialog is closed if error occurs while loading is visible
+        // We can check if the route is the dialog, but simplest is to rely on the pop above or user interaction
+        // If pop wasn't called because of error before it:
+        // Navigator.of(context).pop(); // Optional safety if error happens before data fetch logic completes
+        
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
   }
 
-  // 📄 2. GENERATE CSV Function
+  // 📄 2. GENERATE CSV Function (Updated with Explanation)
   Future<void> _generateAndShareCsv(BuildContext context) async {
     try {
       List<List<dynamic>> rows = [];
 
-      // Add Header Row - Matching typical Firebase structure or easy import format
+      // Add Header Row - Updated 'Solution' to 'Explanation'
       rows.add([
         "Question",
         "Option A",
@@ -96,7 +106,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         "Option C",
         "Option D",
         "Correct Answer",
-        "Solution", // Assuming your model has solution/explanation
+        "Explanation", // ✅ Changed from Solution to Explanation
         "Topic Name"
       ]);
 
@@ -115,9 +125,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           q.options.length > 2 ? q.options[2] : "",
           q.options.length > 3 ? q.options[3] : "",
           correctAnswerText, 
-          // Assuming your Question model has a 'solution' field. If not, remove this or use empty string.
-          // q.solution ?? "", 
-          "", // Placeholder for solution if not available in model
+          q.explanation, // ✅ Using 'explanation' from the model
           widget.topicName
         ]);
       }
@@ -125,14 +133,20 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       String csvData = const ListToCsvConverter().convert(rows);
 
       final directory = await getTemporaryDirectory();
-      final String fileName = "Test_Data_${DateTime.now().millisecondsSinceEpoch}.csv";
+      // Added timestamp to filename to ensure uniqueness
+      final String fileName = "ExamBeing_Test_${DateTime.now().millisecondsSinceEpoch}.csv";
       final File file = File('${directory.path}/$fileName');
       await file.writeAsString(csvData);
 
+      // ✅ Using ShareResult to ensure we wait effectively (though UI stays same)
       await Share.shareXFiles([XFile(file.path)], text: 'Here is your generated Test CSV');
+      
+      // ⚠️ Note: We do NOT pop the context here. The user stays on this screen.
 
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error creating CSV: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error creating CSV: $e")));
+      }
     }
   }
 
@@ -183,7 +197,9 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       await Share.shareXFiles([XFile(file.path)], text: 'Here is your generated ${withAnswers ? "Answer Key" : "Question Paper"}');
 
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error creating file: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error creating file: $e")));
+      }
     }
   }
 
