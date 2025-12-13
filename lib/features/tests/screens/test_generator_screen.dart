@@ -15,11 +15,13 @@ class TestGeneratorScreen extends StatefulWidget {
 }
 
 class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
+  // Topic ID aur Questions count store karne ke liye
   final Map<String, int> _topicCounts = {};
   int get _totalQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
   
   bool _isLoading = false;
   
+  // Ad Variables
   RewardedAd? _rewardedAd; 
   bool _isAdLoaded = false;
 
@@ -29,9 +31,10 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     _loadRewardedAd();
   }
 
+  // 📺 LOAD AD
   void _loadRewardedAd() {
     RewardedAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/5224354917', 
+      adUnitId: 'ca-app-pub-3940256099942544/5224354917', // Test ID
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -46,7 +49,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
-  // 🔥 GENERATE TEST LOGIC
+  // 🔥 FAST BATCH GENERATION LOGIC 🚀
   Future<void> _generateTest() async {
     if (_totalQuestions == 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select at least 1 question.")));
@@ -61,7 +64,12 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       for (var entry in _topicCounts.entries) {
         String topicId = entry.key;
         int countNeeded = entry.value;
+
         if (countNeeded <= 0) continue;
+
+        // 🧠 BATCH LOGIC: 
+        // Hum random ID generate karke wahan se aage ke 'N' questions EK SAATH utha lenge.
+        // Isse sirf 1 Network Call lagegi per topic. (Bahut Fast)
 
         String randomAutoId = FirebaseFirestore.instance.collection('questions').doc().id;
 
@@ -70,11 +78,13 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
             .where('topicId', isEqualTo: topicId)
             .orderBy(FieldPath.documentId)
             .startAt([randomAutoId])
-            .limit(countNeeded)
+            .limit(countNeeded) // ✅ Batch Fetch (Ek sath uthao)
             .get();
 
         List<QueryDocumentSnapshot> docs = query.docs;
 
+        // Agar random start point list ke end me tha aur kam sawal mile
+        // (Example: Chahiye the 10, mile sirf 2. To baki 8 shuruwat se le lo)
         if (docs.length < countNeeded) {
           int remaining = countNeeded - docs.length;
           var startQuery = await FirebaseFirestore.instance
@@ -92,13 +102,15 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       }
 
       if (finalQuestionsList.isEmpty) {
-        throw "No questions found.";
+        throw "No questions found in selected topics.";
       }
 
+      // Memory me Shuffle kar do taki sequence random lage
       finalQuestionsList.shuffle(Random());
       
       setState(() => _isLoading = false);
 
+      // Ad Logic
       if (_rewardedAd != null && _isAdLoaded) {
         _rewardedAd!.show(
           onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
@@ -116,6 +128,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         String errorMsg = e.toString();
+        
         if (errorMsg.contains("requires an index")) {
            _showIndexErrorDialog();
         } else {
@@ -132,7 +145,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("⚠️ Index Required"),
-        content: const Text("Firebase Index missing. Check logs."),
+        content: const Text("Firebase needs an Index for random generation. Check debug console for the link."),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))],
       ),
     );
@@ -178,38 +191,24 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                children: [
                  Icon(Icons.info_outline, size: 16, color: Colors.deepPurple),
                  SizedBox(width: 8),
-                 Expanded(child: Text("Select Subject -> Select Topics", style: TextStyle(fontSize: 12))),
+                 Expanded(child: Text("Expand subjects -> Add questions", style: TextStyle(fontSize: 12))),
                ],
              ),
            ),
            
-           // ✅ DIRECT FIREBASE STREAM FOR SUBJECTS
+           // ✅ DIRECT FIREBASE STREAM (No Caching, No White Screen)
            Expanded(
              child: StreamBuilder<QuerySnapshot>(
                stream: FirebaseFirestore.instance.collection('subjects').snapshots(),
                builder: (context, snapshot) {
-                 // 1. Loading State
                  if (snapshot.connectionState == ConnectionState.waiting) {
                    return const Center(child: CircularProgressIndicator());
                  }
-                 
-                 // 2. Error State (YAHAN PATA CHALEGA AGAR ERROR HAI)
                  if (snapshot.hasError) {
-                   return Center(
-                     child: Padding(
-                       padding: const EdgeInsets.all(16.0),
-                       child: Text(
-                         "Error loading subjects:\n${snapshot.error}",
-                         style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                         textAlign: TextAlign.center,
-                       ),
-                     ),
-                   );
+                   return const Center(child: Text("Error loading subjects", style: TextStyle(color: Colors.red)));
                  }
-
-                 // 3. Empty State
                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                   return const Center(child: Text("No subjects found in Database."));
+                   return const Center(child: Text("No subjects found"));
                  }
 
                  final subjects = snapshot.data!.docs;
@@ -221,8 +220,8 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                      final sDoc = subjects[index];
                      final sData = sDoc.data() as Map<String, dynamic>;
                      
-                     // ✅ Name Handling (Safety)
-                     final sName = sData['subjectName'] ?? sData['name'] ?? 'Unnamed Subject';
+                     // Safe Name Handling
+                     final sName = sData['subjectName'] ?? sData['name'] ?? 'Subject';
                      
                      return ExpansionTile(
                        title: Text(sName, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -259,8 +258,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         return Column(
           children: topics.map((tDoc) {
             final tData = tDoc.data() as Map<String, dynamic>;
-            // ✅ Name Handling (Safety)
-            final tName = tData['topicName'] ?? tData['name'] ?? 'Unnamed Topic';
+            final tName = tData['topicName'] ?? tData['name'] ?? 'Topic';
             final tId = tDoc.id;
             final int count = _topicCounts[tId] ?? 0;
 
