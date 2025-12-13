@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/features/tests/screens/test_success_screen.dart';
 
@@ -21,19 +19,14 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
   int get _totalQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
   
   bool _isLoading = false;
-  bool _isDataLoading = true; 
   
   RewardedAd? _rewardedAd; 
   bool _isAdLoaded = false;
-
-  List<Map<String, dynamic>> _cachedSubjects = [];
-  List<Map<String, dynamic>> _cachedTopics = [];
 
   @override
   void initState() {
     super.initState();
     _loadRewardedAd();
-    _loadDataWithCache(); 
   }
 
   void _loadRewardedAd() {
@@ -53,90 +46,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
-  // 💾 SAFE CACHING LOGIC (Fixed JSON Error)
-  Future<void> _loadDataWithCache() async {
-    final prefs = await SharedPreferences.getInstance();
-    final int? lastFetchTime = prefs.getInt('last_metadata_fetch');
-    final DateTime now = DateTime.now();
-    
-    bool shouldFetchFromFirebase = true;
-
-    // 12 Hours Cache Rule
-    if (lastFetchTime != null) {
-      final lastDate = DateTime.fromMillisecondsSinceEpoch(lastFetchTime);
-      if (now.difference(lastDate).inHours < 12) {
-        shouldFetchFromFirebase = false;
-      }
-    }
-
-    if (shouldFetchFromFirebase) {
-      try {
-        // Fetch Subjects
-        final subSnapshot = await FirebaseFirestore.instance.collection('subjects').get();
-        List<Map<String, dynamic>> subs = subSnapshot.docs.map((doc) {
-          final data = doc.data();
-          // ✅ FIX: Sirf String data lo (Timestamp error avoid karne ke liye)
-          return {
-            'id': doc.id,
-            'subjectName': data['subjectName'] ?? data['name'] ?? 'Subject',
-          };
-        }).toList();
-
-        // Fetch Topics
-        final topSnapshot = await FirebaseFirestore.instance.collection('topics').get();
-        List<Map<String, dynamic>> tops = topSnapshot.docs.map((doc) {
-          final data = doc.data();
-          return {
-            'id': doc.id,
-            'subjectId': data['subjectId'] ?? '',
-            'topicName': data['topicName'] ?? data['name'] ?? 'Topic',
-          };
-        }).toList();
-
-        // Save to Local
-        await prefs.setString('cached_subjects', jsonEncode(subs));
-        await prefs.setString('cached_topics', jsonEncode(tops));
-        await prefs.setInt('last_metadata_fetch', now.millisecondsSinceEpoch);
-
-        if (mounted) {
-          setState(() { 
-            _cachedSubjects = subs; 
-            _cachedTopics = tops; 
-            _isDataLoading = false; 
-          });
-        }
-      } catch (e) {
-        debugPrint("Error fetching data: $e");
-        // Fallback to local if Firebase fails
-        _loadFromLocal(prefs); 
-      }
-    } else {
-      _loadFromLocal(prefs);
-    }
-  }
-
-  void _loadFromLocal(SharedPreferences prefs) {
-    String? subStr = prefs.getString('cached_subjects');
-    String? topStr = prefs.getString('cached_topics');
-
-    if (subStr != null && topStr != null) {
-      if (mounted) {
-        setState(() {
-          _cachedSubjects = List<Map<String, dynamic>>.from(jsonDecode(subStr));
-          _cachedTopics = List<Map<String, dynamic>>.from(jsonDecode(topStr));
-          _isDataLoading = false;
-        });
-      }
-    } else {
-      // Local bhi khali hai -> Force Fetch karo
-      prefs.remove('last_metadata_fetch');
-      // Infinite loop se bachne ke liye direct setState nahi, dubara try karo
-      // Lekin agar yeh bhi fail hua to UI empty dikhayega.
-      if (mounted) setState(() => _isDataLoading = false); 
-    }
-  }
-
-  // 🔥 FAST GENERATE LOGIC
+  // 🔥 GENERATE TEST LOGIC
   Future<void> _generateTest() async {
     if (_totalQuestions == 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select at least 1 question.")));
@@ -151,7 +61,6 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       for (var entry in _topicCounts.entries) {
         String topicId = entry.key;
         int countNeeded = entry.value;
-
         if (countNeeded <= 0) continue;
 
         String randomAutoId = FirebaseFirestore.instance.collection('questions').doc().id;
@@ -183,7 +92,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       }
 
       if (finalQuestionsList.isEmpty) {
-        throw "No questions found in selected topics.";
+        throw "No questions found.";
       }
 
       finalQuestionsList.shuffle(Random());
@@ -207,7 +116,6 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         String errorMsg = e.toString();
-        
         if (errorMsg.contains("requires an index")) {
            _showIndexErrorDialog();
         } else {
@@ -224,7 +132,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("⚠️ Index Required"),
-        content: const Text("Firebase needs an Index. Check debug console link."),
+        content: const Text("Firebase Index missing. Check logs."),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))],
       ),
     );
@@ -270,78 +178,125 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                children: [
                  Icon(Icons.info_outline, size: 16, color: Colors.deepPurple),
                  SizedBox(width: 8),
-                 Expanded(child: Text("Expand subjects -> Add questions", style: TextStyle(fontSize: 12))),
+                 Expanded(child: Text("Select Subject -> Select Topics", style: TextStyle(fontSize: 12))),
                ],
              ),
            ),
            
-           // ✅ LIST VIEW
+           // ✅ DIRECT FIREBASE STREAM FOR SUBJECTS
            Expanded(
-             child: _isDataLoading 
-               ? const Center(child: CircularProgressIndicator()) 
-               : _cachedSubjects.isEmpty 
-                 ? Center(
-                     child: Column(
-                       mainAxisAlignment: MainAxisAlignment.center,
+             child: StreamBuilder<QuerySnapshot>(
+               stream: FirebaseFirestore.instance.collection('subjects').snapshots(),
+               builder: (context, snapshot) {
+                 // 1. Loading State
+                 if (snapshot.connectionState == ConnectionState.waiting) {
+                   return const Center(child: CircularProgressIndicator());
+                 }
+                 
+                 // 2. Error State (YAHAN PATA CHALEGA AGAR ERROR HAI)
+                 if (snapshot.hasError) {
+                   return Center(
+                     child: Padding(
+                       padding: const EdgeInsets.all(16.0),
+                       child: Text(
+                         "Error loading subjects:\n${snapshot.error}",
+                         style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                         textAlign: TextAlign.center,
+                       ),
+                     ),
+                   );
+                 }
+
+                 // 3. Empty State
+                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                   return const Center(child: Text("No subjects found in Database."));
+                 }
+
+                 final subjects = snapshot.data!.docs;
+
+                 return ListView.builder(
+                   itemCount: subjects.length,
+                   padding: const EdgeInsets.only(bottom: 20),
+                   itemBuilder: (context, index) {
+                     final sDoc = subjects[index];
+                     final sData = sDoc.data() as Map<String, dynamic>;
+                     
+                     // ✅ Name Handling (Safety)
+                     final sName = sData['subjectName'] ?? sData['name'] ?? 'Unnamed Subject';
+                     
+                     return ExpansionTile(
+                       title: Text(sName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                       leading: const Icon(Icons.library_books, color: Colors.deepPurple),
                        children: [
-                         const Icon(Icons.error_outline, size: 40, color: Colors.grey),
-                         const SizedBox(height: 10),
-                         const Text("No subjects loaded."),
-                         TextButton(onPressed: () {
-                           // Retry Button
-                           setState(() => _isDataLoading = true);
-                           // Cache clear karke retry karo
-                           SharedPreferences.getInstance().then((prefs) {
-                             prefs.remove('last_metadata_fetch');
-                             _loadDataWithCache();
-                           });
-                         }, child: const Text("Retry"))
+                         // Nested Stream for Topics
+                         _buildTopicsList(sDoc.id),
                        ],
-                     )
-                   )
-                 : ListView.builder(
-                    itemCount: _cachedSubjects.length,
-                    padding: const EdgeInsets.only(bottom: 100),
-                    itemBuilder: (context, index) {
-                      final sData = _cachedSubjects[index];
-                      final sName = sData['subjectName'];
-                      final sId = sData['id'];
-                      
-                      final rTopics = _cachedTopics.where((t) => t['subjectId'] == sId).toList();
-
-                      if (rTopics.isEmpty) return const SizedBox.shrink();
-
-                      return ExpansionTile(
-                        title: Text(sName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        leading: const Icon(Icons.library_books, color: Colors.deepPurple),
-                        children: rTopics.map((tData) {
-                          final tName = tData['topicName'];
-                          final tId = tData['id'];
-                          final int count = _topicCounts[tId] ?? 0;
-
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            decoration: BoxDecoration(color: count > 0 ? Colors.green.shade50 : Colors.grey.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: count > 0 ? Colors.green : Colors.grey.shade300)),
-                            child: ListTile(
-                              dense: true,
-                              title: Text(tName, style: const TextStyle(fontWeight: FontWeight.w500)),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(icon: const Icon(Icons.remove_circle_outline, color: Colors.red), onPressed: () => _updateCount(tId, -1)),
-                                  Text("$count", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                  IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.green), onPressed: () => _updateCount(tId, 5)),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      );
-                    },
-                  ),
+                     );
+                   },
+                 );
+               },
+             ),
            ),
         ],
       ),
+    );
+  }
+
+  // Helper Widget for Topics Stream
+  Widget _buildTopicsList(String subjectId) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('topics')
+          .where('subjectId', isEqualTo: subjectId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return const Text("Error loading topics", style: TextStyle(color: Colors.red));
+        if (snapshot.connectionState == ConnectionState.waiting) return const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator());
+        
+        final topics = snapshot.data!.docs;
+        if (topics.isEmpty) return const ListTile(title: Text("No topics found"));
+
+        return Column(
+          children: topics.map((tDoc) {
+            final tData = tDoc.data() as Map<String, dynamic>;
+            // ✅ Name Handling (Safety)
+            final tName = tData['topicName'] ?? tData['name'] ?? 'Unnamed Topic';
+            final tId = tDoc.id;
+            final int count = _topicCounts[tId] ?? 0;
+
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: count > 0 ? Colors.green.shade50 : Colors.grey.shade50, 
+                borderRadius: BorderRadius.circular(10), 
+                border: Border.all(color: count > 0 ? Colors.green : Colors.grey.shade300)
+              ),
+              child: ListTile(
+                dense: true,
+                title: Text(tName, style: const TextStyle(fontWeight: FontWeight.w500)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline, color: Colors.red), 
+                      onPressed: () => _updateCount(tId, -1)
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
+                      child: Text("$count", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline, color: Colors.green), 
+                      onPressed: () => _updateCount(tId, 5)
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 
