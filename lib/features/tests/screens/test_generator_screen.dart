@@ -17,18 +17,15 @@ class TestGeneratorScreen extends StatefulWidget {
 }
 
 class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
-  // Store selected counts: {'topicId': 5, 'anotherTopicId': 10}
   final Map<String, int> _topicCounts = {};
   int get _totalQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
   
   bool _isLoading = false;
-  bool _isDataLoading = true; // For initial cache load
+  bool _isDataLoading = true; 
   
-  // Ad Variables
   RewardedAd? _rewardedAd; 
   bool _isAdLoaded = false;
 
-  // Local Cache Lists
   List<Map<String, dynamic>> _cachedSubjects = [];
   List<Map<String, dynamic>> _cachedTopics = [];
 
@@ -36,22 +33,19 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
   void initState() {
     super.initState();
     _loadRewardedAd();
-    _loadDataWithCache(); // Load Subjects & Topics
+    _loadDataWithCache(); 
   }
 
-  // 📺 1. LOAD REWARDED AD
   void _loadRewardedAd() {
     RewardedAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/5224354917', // Test ID
+      adUnitId: 'ca-app-pub-3940256099942544/5224354917', 
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
-          debugPrint("✅ Ad Loaded");
           _rewardedAd = ad;
           _isAdLoaded = true;
         },
         onAdFailedToLoad: (LoadAdError error) {
-          debugPrint("❌ Ad Failed: $error");
           _rewardedAd = null;
           _isAdLoaded = false;
         },
@@ -59,7 +53,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
-  // 💾 2. CACHING LOGIC (Saves Reads)
+  // 💾 SAFE CACHING LOGIC (Fixed JSON Error)
   Future<void> _loadDataWithCache() async {
     final prefs = await SharedPreferences.getInstance();
     final int? lastFetchTime = prefs.getInt('last_metadata_fetch');
@@ -67,7 +61,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     
     bool shouldFetchFromFirebase = true;
 
-    // Check if cache is fresh (< 12 hours)
+    // 12 Hours Cache Rule
     if (lastFetchTime != null) {
       final lastDate = DateTime.fromMillisecondsSinceEpoch(lastFetchTime);
       if (now.difference(lastDate).inHours < 12) {
@@ -76,18 +70,27 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     }
 
     if (shouldFetchFromFirebase) {
-      // 🌍 Fetch form Firebase
       try {
-        // Subjects
+        // Fetch Subjects
         final subSnapshot = await FirebaseFirestore.instance.collection('subjects').get();
         List<Map<String, dynamic>> subs = subSnapshot.docs.map((doc) {
-          final d = doc.data(); d['id'] = doc.id; return d;
+          final data = doc.data();
+          // ✅ FIX: Sirf String data lo (Timestamp error avoid karne ke liye)
+          return {
+            'id': doc.id,
+            'subjectName': data['subjectName'] ?? data['name'] ?? 'Subject',
+          };
         }).toList();
 
-        // Topics
+        // Fetch Topics
         final topSnapshot = await FirebaseFirestore.instance.collection('topics').get();
         List<Map<String, dynamic>> tops = topSnapshot.docs.map((doc) {
-          final d = doc.data(); d['id'] = doc.id; return d;
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'subjectId': data['subjectId'] ?? '',
+            'topicName': data['topicName'] ?? data['name'] ?? 'Topic',
+          };
         }).toList();
 
         // Save to Local
@@ -95,12 +98,19 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         await prefs.setString('cached_topics', jsonEncode(tops));
         await prefs.setInt('last_metadata_fetch', now.millisecondsSinceEpoch);
 
-        if (mounted) setState(() { _cachedSubjects = subs; _cachedTopics = tops; _isDataLoading = false; });
+        if (mounted) {
+          setState(() { 
+            _cachedSubjects = subs; 
+            _cachedTopics = tops; 
+            _isDataLoading = false; 
+          });
+        }
       } catch (e) {
-        _loadFromLocal(prefs); // Fallback
+        debugPrint("Error fetching data: $e");
+        // Fallback to local if Firebase fails
+        _loadFromLocal(prefs); 
       }
     } else {
-      // 🏠 Load from Local
       _loadFromLocal(prefs);
     }
   }
@@ -118,13 +128,15 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         });
       }
     } else {
-      // First run or cleared cache
+      // Local bhi khali hai -> Force Fetch karo
       prefs.remove('last_metadata_fetch');
-      _loadDataWithCache(); // Force fetch
+      // Infinite loop se bachne ke liye direct setState nahi, dubara try karo
+      // Lekin agar yeh bhi fail hua to UI empty dikhayega.
+      if (mounted) setState(() => _isDataLoading = false); 
     }
   }
 
-  // 🔥 3. GENERATE TEST (SUPER FAST BATCH LOGIC)
+  // 🔥 FAST GENERATE LOGIC
   Future<void> _generateTest() async {
     if (_totalQuestions == 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select at least 1 question.")));
@@ -142,11 +154,8 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
 
         if (countNeeded <= 0) continue;
 
-        // 🧠 Logic: Generate Random ID and fetch 'N' questions after it.
-        // Single DB call per topic. Very Fast.
         String randomAutoId = FirebaseFirestore.instance.collection('questions').doc().id;
 
-        // Try fetching
         var query = await FirebaseFirestore.instance
             .collection('questions')
             .where('topicId', isEqualTo: topicId)
@@ -157,7 +166,6 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
 
         List<QueryDocumentSnapshot> docs = query.docs;
 
-        // Wrap-around logic: If random start was near end, fetch remaining from start
         if (docs.length < countNeeded) {
           int remaining = countNeeded - docs.length;
           var startQuery = await FirebaseFirestore.instance
@@ -180,10 +188,8 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
 
       finalQuestionsList.shuffle(Random());
       
-      // Stop Loading
       setState(() => _isLoading = false);
 
-      // 4. SHOW AD OR NAVIGATE
       if (_rewardedAd != null && _isAdLoaded) {
         _rewardedAd!.show(
           onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
@@ -194,7 +200,6 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         _isAdLoaded = false;
         _loadRewardedAd();
       } else {
-        debugPrint("⚠️ Ad not ready, skipping...");
         _navigateToSuccess(finalQuestionsList);
       }
 
@@ -203,7 +208,6 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         setState(() => _isLoading = false);
         String errorMsg = e.toString();
         
-        // 🚨 INDEX ERROR HANDLING
         if (errorMsg.contains("requires an index")) {
            _showIndexErrorDialog();
         } else {
@@ -220,12 +224,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("⚠️ Index Required"),
-        content: const Text(
-          "For this feature to work, Firebase needs an Index.\n\n"
-          "1. Check your Debug Console logs.\n"
-          "2. Click the link (https://console.firebase...).\n"
-          "3. Create Index and wait 2 mins."
-        ),
+        content: const Text("Firebase needs an Index. Check debug console link."),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))],
       ),
     );
@@ -244,13 +243,12 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
-  // Counter Helper
   void _updateCount(String topicId, int delta) {
     setState(() {
       int current = _topicCounts[topicId] ?? 0;
       int newVal = max(0, current + delta);
       if (delta > 0 && _totalQuestions >= 100) {
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Max limit 100 questions reached!"), duration: Duration(milliseconds: 500)));
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Limit 100 reached!"), duration: Duration(milliseconds: 500)));
          return;
       }
       if (newVal == 0) _topicCounts.remove(topicId);
@@ -272,59 +270,75 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                children: [
                  Icon(Icons.info_outline, size: 16, color: Colors.deepPurple),
                  SizedBox(width: 8),
-                 Expanded(child: Text("Expand subjects -> Add questions -> Generate", style: TextStyle(fontSize: 12))),
+                 Expanded(child: Text("Expand subjects -> Add questions", style: TextStyle(fontSize: 12))),
                ],
              ),
            ),
+           
+           // ✅ LIST VIEW
            Expanded(
              child: _isDataLoading 
                ? const Center(child: CircularProgressIndicator()) 
-               : ListView.builder(
-                  itemCount: _cachedSubjects.length,
-                  padding: const EdgeInsets.only(bottom: 100),
-                  itemBuilder: (context, index) {
-                    final sData = _cachedSubjects[index];
-                    // Name Fallback
-                    final sName = sData['subjectName'] ?? sData['name'] ?? 'Subject';
-                    final sId = sData['id'];
-                    
-                    // Filter Topics for this Subject
-                    final rTopics = _cachedTopics.where((t) => t['subjectId'] == sId).toList();
+               : _cachedSubjects.isEmpty 
+                 ? Center(
+                     child: Column(
+                       mainAxisAlignment: MainAxisAlignment.center,
+                       children: [
+                         const Icon(Icons.error_outline, size: 40, color: Colors.grey),
+                         const SizedBox(height: 10),
+                         const Text("No subjects loaded."),
+                         TextButton(onPressed: () {
+                           // Retry Button
+                           setState(() => _isDataLoading = true);
+                           // Cache clear karke retry karo
+                           SharedPreferences.getInstance().then((prefs) {
+                             prefs.remove('last_metadata_fetch');
+                             _loadDataWithCache();
+                           });
+                         }, child: const Text("Retry"))
+                       ],
+                     )
+                   )
+                 : ListView.builder(
+                    itemCount: _cachedSubjects.length,
+                    padding: const EdgeInsets.only(bottom: 100),
+                    itemBuilder: (context, index) {
+                      final sData = _cachedSubjects[index];
+                      final sName = sData['subjectName'];
+                      final sId = sData['id'];
+                      
+                      final rTopics = _cachedTopics.where((t) => t['subjectId'] == sId).toList();
 
-                    if (rTopics.isEmpty) return const SizedBox.shrink();
+                      if (rTopics.isEmpty) return const SizedBox.shrink();
 
-                    return ExpansionTile(
-                      title: Text(sName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      leading: const Icon(Icons.library_books, color: Colors.deepPurple),
-                      children: rTopics.map((tData) {
-                        final tName = tData['topicName'] ?? tData['name'] ?? 'Topic';
-                        final tId = tData['id'];
-                        final int count = _topicCounts[tId] ?? 0;
+                      return ExpansionTile(
+                        title: Text(sName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        leading: const Icon(Icons.library_books, color: Colors.deepPurple),
+                        children: rTopics.map((tData) {
+                          final tName = tData['topicName'];
+                          final tId = tData['id'];
+                          final int count = _topicCounts[tId] ?? 0;
 
-                        return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                          decoration: BoxDecoration(color: count > 0 ? Colors.green.shade50 : Colors.grey.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: count > 0 ? Colors.green : Colors.grey.shade300)),
-                          child: ListTile(
-                            dense: true,
-                            title: Text(tName, style: const TextStyle(fontWeight: FontWeight.w500)),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(icon: const Icon(Icons.remove_circle_outline, color: Colors.red), onPressed: () => _updateCount(tId, -1)),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
-                                  child: Text("$count", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                ),
-                                IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.green), onPressed: () => _updateCount(tId, 5)),
-                              ],
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            decoration: BoxDecoration(color: count > 0 ? Colors.green.shade50 : Colors.grey.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: count > 0 ? Colors.green : Colors.grey.shade300)),
+                            child: ListTile(
+                              dense: true,
+                              title: Text(tName, style: const TextStyle(fontWeight: FontWeight.w500)),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(icon: const Icon(Icons.remove_circle_outline, color: Colors.red), onPressed: () => _updateCount(tId, -1)),
+                                  Text("$count", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.green), onPressed: () => _updateCount(tId, 5)),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
            ),
         ],
       ),
