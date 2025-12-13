@@ -15,7 +15,7 @@ class TestGeneratorScreen extends StatefulWidget {
 }
 
 class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
-  // Topic ID aur Questions count store karne ke liye
+  // Topic Count Selection
   final Map<String, int> _topicCounts = {};
   int get _totalQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
   
@@ -31,7 +31,6 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     _loadRewardedAd();
   }
 
-  // 📺 LOAD AD
   void _loadRewardedAd() {
     RewardedAd.load(
       adUnitId: 'ca-app-pub-3940256099942544/5224354917', // Test ID
@@ -49,7 +48,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
-  // 🔥 FAST BATCH GENERATION LOGIC 🚀
+  // 🔥 FAST BATCH GENERATION (Ye Naya Code hai - Fast Speed ke liye)
   Future<void> _generateTest() async {
     if (_totalQuestions == 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select at least 1 question.")));
@@ -67,24 +66,20 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
 
         if (countNeeded <= 0) continue;
 
-        // 🧠 BATCH LOGIC: 
-        // Hum random ID generate karke wahan se aage ke 'N' questions EK SAATH utha lenge.
-        // Isse sirf 1 Network Call lagegi per topic. (Bahut Fast)
-
+        // 🧠 Logic: Random ID se start karke Batch me uthao
         String randomAutoId = FirebaseFirestore.instance.collection('questions').doc().id;
 
         var query = await FirebaseFirestore.instance
             .collection('questions')
             .where('topicId', isEqualTo: topicId)
-            .orderBy(FieldPath.documentId)
+            .orderBy(FieldPath.documentId) // Index chahiye iske liye
             .startAt([randomAutoId])
-            .limit(countNeeded) // ✅ Batch Fetch (Ek sath uthao)
+            .limit(countNeeded)
             .get();
 
         List<QueryDocumentSnapshot> docs = query.docs;
 
-        // Agar random start point list ke end me tha aur kam sawal mile
-        // (Example: Chahiye the 10, mile sirf 2. To baki 8 shuruwat se le lo)
+        // Wrap around logic (agar end me kam sawal mile)
         if (docs.length < countNeeded) {
           int remaining = countNeeded - docs.length;
           var startQuery = await FirebaseFirestore.instance
@@ -102,15 +97,13 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       }
 
       if (finalQuestionsList.isEmpty) {
-        throw "No questions found in selected topics.";
+        throw "No questions found.";
       }
 
-      // Memory me Shuffle kar do taki sequence random lage
       finalQuestionsList.shuffle(Random());
       
       setState(() => _isLoading = false);
 
-      // Ad Logic
       if (_rewardedAd != null && _isAdLoaded) {
         _rewardedAd!.show(
           onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
@@ -127,9 +120,9 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        String errorMsg = e.toString();
+        debugPrint("Error generating test: $e");
         
-        if (errorMsg.contains("requires an index")) {
+        if (e.toString().contains("requires an index")) {
            _showIndexErrorDialog();
         } else {
            ScaffoldMessenger.of(context).showSnackBar(
@@ -145,7 +138,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("⚠️ Index Required"),
-        content: const Text("Firebase needs an Index for random generation. Check debug console for the link."),
+        content: const Text("Firebase needs an Index. Check debug console."),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))],
       ),
     );
@@ -177,6 +170,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     });
   }
 
+  // UI Build
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -184,6 +178,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       bottomNavigationBar: _buildBottomBar(),
       body: Column(
         children: [
+           // Header
            Container(
              padding: const EdgeInsets.all(12),
              color: Colors.deepPurple.shade50,
@@ -191,24 +186,30 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                children: [
                  Icon(Icons.info_outline, size: 16, color: Colors.deepPurple),
                  SizedBox(width: 8),
-                 Expanded(child: Text("Expand subjects -> Add questions", style: TextStyle(fontSize: 12))),
+                 Expanded(child: Text("Select Subject -> Select Topics", style: TextStyle(fontSize: 12))),
                ],
              ),
            ),
            
-           // ✅ DIRECT FIREBASE STREAM (No Caching, No White Screen)
+           // ✅ OLD STABLE UI LOGIC (Isme koi 'Batch' code nahi hai, ye simple stream hai)
            Expanded(
              child: StreamBuilder<QuerySnapshot>(
                stream: FirebaseFirestore.instance.collection('subjects').snapshots(),
                builder: (context, snapshot) {
+                 // 1. Loading
                  if (snapshot.connectionState == ConnectionState.waiting) {
                    return const Center(child: CircularProgressIndicator());
                  }
+                 
+                 // 2. Error Check (Debug ke liye print bhi karega)
                  if (snapshot.hasError) {
-                   return const Center(child: Text("Error loading subjects", style: TextStyle(color: Colors.red)));
+                   debugPrint("Subject Load Error: ${snapshot.error}");
+                   return const Center(child: Text("Error loading data. Check logs.", style: TextStyle(color: Colors.red)));
                  }
+
+                 // 3. Empty Data
                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                   return const Center(child: Text("No subjects found"));
+                   return const Center(child: Text("No subjects found in database."));
                  }
 
                  final subjects = snapshot.data!.docs;
@@ -220,14 +221,14 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                      final sDoc = subjects[index];
                      final sData = sDoc.data() as Map<String, dynamic>;
                      
-                     // Safe Name Handling
+                     // Name Handling
                      final sName = sData['subjectName'] ?? sData['name'] ?? 'Subject';
                      
                      return ExpansionTile(
                        title: Text(sName, style: const TextStyle(fontWeight: FontWeight.bold)),
                        leading: const Icon(Icons.library_books, color: Colors.deepPurple),
                        children: [
-                         // Nested Stream for Topics
+                         // Topics List (Inner Stream)
                          _buildTopicsList(sDoc.id),
                        ],
                      );
@@ -241,7 +242,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
-  // Helper Widget for Topics Stream
+  // Helper Widget for Topics
   Widget _buildTopicsList(String subjectId) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -249,8 +250,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
           .where('subjectId', isEqualTo: subjectId)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.hasError) return const Text("Error loading topics", style: TextStyle(color: Colors.red));
-        if (snapshot.connectionState == ConnectionState.waiting) return const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator());
         
         final topics = snapshot.data!.docs;
         if (topics.isEmpty) return const ListTile(title: Text("No topics found"));
