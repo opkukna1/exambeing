@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // ✅ Added for Admin Check
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/services/revision_db.dart';
 import 'package:exambeing/services/ad_manager.dart';
-import 'admin_edit_dialog.dart'; // ✅ Import Admin Dialog (File path check karlena)
+import 'admin_edit_dialog.dart'; // ✅ Correct Import
 
 class PracticeMcqScreen extends StatefulWidget {
   final Map<String, dynamic> quizData;
@@ -20,13 +20,12 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   late final String topicName;
   late final String mode;
   
-  // ✅ Revision Variables
   bool isRevision = false;
   List<String> dbIds = [];
 
   // ✅ ADMIN VARIABLES
   bool _canEdit = false;
-  final String _adminEmail = "opsiddh42@gmail.com"; // 🔒 Hardcoded Admin Email
+  final String _adminEmail = "opsiddh42@gmail.com"; 
 
   final PageController _pageController = PageController();
   final Map<int, String> _selectedAnswers = {};
@@ -41,29 +40,24 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   @override
   void initState() {
     super.initState();
-    // ✅ Data Initialize
     questions = widget.quizData['questions'] as List<Question>;
     topicName = widget.quizData['topicName'] as String;
     mode = widget.quizData['mode'] as String;
     
-    // ✅ Revision Data Check
     if (widget.quizData.containsKey('isRevision')) {
       isRevision = widget.quizData['isRevision'] as bool;
       dbIds = widget.quizData['dbIds'] as List<String>;
     }
 
     _quizStartTime = DateTime.now();
-
-    // ✅ CHECK ADMIN PERMISSION
     _checkAdmin();
 
     if (mode == 'test') {
-      _start = questions.length * 60; // 1 min per question
+      _start = questions.length * 60; 
       startTimer();
     }
   }
 
-  // 🔒 Admin Check Logic
   void _checkAdmin() {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null && user.email == _adminEmail) {
@@ -105,7 +99,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
 
     for (int i = 0; i < questions.length; i++) {
       if (_selectedAnswers.containsKey(i)) {
-        // Safe Correct Answer extraction
         String correctAnswer = "";
         if (questions[i].correctAnswerIndex >= 0 && questions[i].correctAnswerIndex < questions[i].options.length) {
             correctAnswer = questions[i].options[questions[i].correctAnswerIndex];
@@ -115,7 +108,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
           finalScore += 1.0;
           correctCount++;
 
-          // 🔥 REVISION LOGIC
           if (isRevision && i < dbIds.length) {
             await RevisionDB.instance.incrementAttempt(dbIds[i]);
           }
@@ -132,7 +124,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     if (finalScore < 0) finalScore = 0;
 
     if (mounted) {
-      // ✅ AD SHOW LOGIC
       AdManager.showInterstitialAd(() {
         if (mounted) {
           context.replace( 
@@ -261,7 +252,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
   Widget _buildQuestionCard(Question question, int index) {
     final bool isAnswered = _selectedAnswers.containsKey(index);
     
-    // Safe Correct Answer
     String correctAnswer = "";
     if (question.correctAnswerIndex >= 0 && question.correctAnswerIndex < question.options.length) {
         correctAnswer = question.options[question.correctAnswerIndex];
@@ -273,7 +263,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           
-          // ✅ UPDATED ROW FOR QUESTION & EDIT BUTTON
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -284,7 +273,6 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
                 ),
               ),
               
-              // 🔒 ADMIN EDIT BUTTON (Sirf opsiddh42@gmail.com ko dikhega)
               if (_canEdit)
                 IconButton(
                   icon: const Icon(Icons.edit, color: Colors.red),
@@ -295,9 +283,21 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
                       barrierDismissible: false,
                       builder: (context) => AdminEditDialog(
                         question: question,
-                        onUpdateSuccess: () {
-                          // UI Update karne ke liye
-                          setState(() {});
+                        
+                        onUpdateSuccess: (newQ, newOpts, newAns, newExp) {
+                          setState(() {
+                            // 🔥 FIXED: subjectId hata diya hai yahan se
+                            questions[index] = Question(
+                              id: question.id,
+                              questionText: newQ, 
+                              options: newOpts,   
+                              correctAnswerIndex: newAns, 
+                              explanation: newExp, 
+                              
+                              topicId: question.topicId,
+                              // subjectId: question.subjectId, // ❌ REMOVED THIS
+                            );
+                          });
                         },
                       ),
                     );
