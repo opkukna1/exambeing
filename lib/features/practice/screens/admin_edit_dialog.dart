@@ -1,167 +1,463 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:exambeing/models/question_model.dart'; 
+import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:exambeing/models/question_model.dart';
+import 'package:exambeing/services/revision_db.dart';
+import 'package:exambeing/services/ad_manager.dart';
+import 'admin_edit_dialog.dart'; // ✅ File path check kar lena
 
-class AdminEditDialog extends StatefulWidget {
-  final Question question;
-  // Callback: Jab update ho jaye to naya data wapas bhejne ke liye
-  final Function(String q, List<String> opts, int ans, String exp) onUpdateSuccess;
-
-  const AdminEditDialog({
-    super.key, 
-    required this.question, 
-    required this.onUpdateSuccess
-  });
+class PracticeMcqScreen extends StatefulWidget {
+  final Map<String, dynamic> quizData;
+  const PracticeMcqScreen({super.key, required this.quizData});
 
   @override
-  State<AdminEditDialog> createState() => _AdminEditDialogState();
+  State<PracticeMcqScreen> createState() => _PracticeMcqScreenState();
 }
 
-class _AdminEditDialogState extends State<AdminEditDialog> {
-  late TextEditingController _qController;
-  late TextEditingController _optAController;
-  late TextEditingController _optBController;
-  late TextEditingController _optCController;
-  late TextEditingController _optDController;
-  late TextEditingController _expController;
+class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
+  late final List<Question> questions;
+  late final String topicName;
+  late final String mode;
   
-  int _correctIndex = 0;
-  bool _isUpdating = false;
+  // ✅ Revision Variables
+  bool isRevision = false;
+  List<String> dbIds = [];
+
+  // ✅ ADMIN VARIABLES
+  bool _canEdit = false;
+  final String _adminEmail = "opsiddh42@gmail.com"; // 🔒 Hardcoded Admin Email
+
+  final PageController _pageController = PageController();
+  final Map<int, String> _selectedAnswers = {};
+  int _currentPage = 0;
+  bool _isSubmitted = false;
+  
+  Timer? _timer;
+  int _start = 0;
+  String _timerText = "00:00";
+  late DateTime _quizStartTime;
 
   @override
   void initState() {
     super.initState();
-    // ✅ Field Name Matched: questionText
-    _qController = TextEditingController(text: widget.question.questionText);
+    // ✅ Data Initialize
+    questions = widget.quizData['questions'] as List<Question>;
+    topicName = widget.quizData['topicName'] as String;
+    mode = widget.quizData['mode'] as String;
     
-    // ✅ Field Name Matched: explanation
-    _expController = TextEditingController(text: widget.question.explanation); 
-    
-    // ✅ Field Name Matched: options
-    var opts = widget.question.options;
-    _optAController = TextEditingController(text: opts.isNotEmpty ? opts[0] : "");
-    _optBController = TextEditingController(text: opts.length > 1 ? opts[1] : "");
-    _optCController = TextEditingController(text: opts.length > 2 ? opts[2] : "");
-    _optDController = TextEditingController(text: opts.length > 3 ? opts[3] : "");
-    
-    // ✅ Field Name Matched: correctAnswerIndex
-    _correctIndex = widget.question.correctAnswerIndex;
+    // ✅ Revision Data Check
+    if (widget.quizData.containsKey('isRevision')) {
+      isRevision = widget.quizData['isRevision'] as bool;
+      dbIds = widget.quizData['dbIds'] as List<String>;
+    }
+
+    _quizStartTime = DateTime.now();
+
+    // ✅ CHECK ADMIN PERMISSION
+    _checkAdmin();
+
+    if (mode == 'test') {
+      _start = questions.length * 60; // 1 min per question
+      startTimer();
+    }
   }
 
-  Future<void> _updateQuestion() async {
-    setState(() => _isUpdating = true);
+  // 🔒 Admin Check Logic
+  void _checkAdmin() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email == _adminEmail) {
+      setState(() {
+        _canEdit = true;
+      });
+    }
+  }
 
-    try {
-      final newQuestionText = _qController.text.trim();
-      final newExplanation = _expController.text.trim();
-      
-      // Options list ready karna
-      final newOptions = [
-          _optAController.text.trim(),
-          _optBController.text.trim(),
-          _optCController.text.trim(),
-          _optDController.text.trim(),
-      ];
-
-      // 🔥 YAHAN HAIN AAPKE EXACT DATABASE NAMES
-      // In names ko mat badalna, ye wahi hain jo aapne bheje the
-      Map<String, dynamic> updatedData = {
-        'questionText': newQuestionText,      // ✅ DB me 'questionText' hai
-        'options': newOptions,                // ✅ DB me 'options' hai
-        'correctAnswerIndex': _correctIndex,  // ✅ DB me 'correctAnswerIndex' hai
-        'explanation': newExplanation,        // ✅ DB me 'explanation' hai
-      };
-
-      // 1. Firebase Update
-      await FirebaseFirestore.instance
-          .collection('questions')
-          .doc(widget.question.id)
-          .update(updatedData);
-
+  void startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
-      Navigator.pop(context); 
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Question Updated Successfully!"), backgroundColor: Colors.green)
-      );
-      
-      // 2. Screen par wapas naya data bhejna (Taki turant dikhe)
-      widget.onUpdateSuccess(newQuestionText, newOptions, _correctIndex, newExplanation);
+      if (_start <= 0) {
+        timer.cancel();
+        if (!_isSubmitted) _submitQuiz();
+      } else {
+        setState(() {
+          _start--;
+          int minutes = _start ~/ 60;
+          int seconds = _start % 60;
+          _timerText = "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
+        });
+      }
+    });
+  }
+  
+  Future<void> _submitQuiz() async {
+    if (_isSubmitted) return;
+    setState(() => _isSubmitted = true);
+    _timer?.cancel();
+    
+    final DateTime endTime = DateTime.now();
+    final Duration timeTaken = endTime.difference(_quizStartTime);
 
-    } catch (e) {
-      setState(() => _isUpdating = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+    double finalScore = 0.0;
+    int correctCount = 0;
+    int wrongCount = 0;
+    int unattemptedCount = 0;
+
+    for (int i = 0; i < questions.length; i++) {
+      if (_selectedAnswers.containsKey(i)) {
+        // Safe Correct Answer extraction
+        String correctAnswer = "";
+        if (questions[i].correctAnswerIndex >= 0 && questions[i].correctAnswerIndex < questions[i].options.length) {
+            correctAnswer = questions[i].options[questions[i].correctAnswerIndex];
+        }
+
+        if (_selectedAnswers[i] == correctAnswer) {
+          finalScore += 1.0;
+          correctCount++;
+
+          // 🔥 REVISION LOGIC
+          if (isRevision && i < dbIds.length) {
+            await RevisionDB.instance.incrementAttempt(dbIds[i]);
+          }
+
+        } else {
+          finalScore -= 0.33;
+          wrongCount++;
+        }
+      } else {
+        unattemptedCount++;
+      }
+    }
+
+    if (finalScore < 0) finalScore = 0;
+
+    if (mounted) {
+      // ✅ AD SHOW LOGIC
+      AdManager.showInterstitialAd(() {
+        if (mounted) {
+          context.replace( 
+            '/score-screen',
+            extra: {
+              'totalQuestions': questions.length,
+              'finalScore': finalScore,
+              'correctCount': correctCount,
+              'wrongCount': wrongCount,
+              'unattemptedCount': unattemptedCount,
+              'topicName': topicName,
+              'questions': questions,
+              'userAnswers': _selectedAnswers,
+              'timeTaken': timeTaken,
+            },
+          );
+        }
+      });
+    }
+  }
+
+  void _handleAnswer(int questionIndex, String selectedOption) {
+    if (mode == 'practice' && _selectedAnswers.containsKey(questionIndex)) {
+       return;
+    }
+    setState(() {
+      _selectedAnswers[questionIndex] = selectedOption;
+    });
+  }
+  
+  void _goToNextPage() {
+    if (_currentPage < questions.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeIn,
+      );
+    }
+  }
+
+  void _goToPreviousPage() {
+    _pageController.previousPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeIn,
+    );
+  }
+  
+  Future<void> _showExitDialog() async {
+    final shouldPop = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit Quiz?'),
+        content: const Text('Are you sure you want to exit? Your current attempt will be submitted.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Continue Test')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context, true); 
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Submit & Exit'),
+          ),
+        ],
+      ),
+    );
+    
+    if (shouldPop ?? false) {
+      _submitQuiz();
     }
   }
 
   @override
+  void dispose() {
+    _pageController.dispose();
+    _timer?.cancel();
+    super.dispose();
+  }
+  
+  @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text("Edit Question ✏️", style: TextStyle(color: Colors.deepPurple)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildTextField("Question Text", _qController, maxLines: 4),
-            const SizedBox(height: 15),
-            
-            // Options
-            _buildTextField("Option A (Index 0)", _optAController),
-            _buildTextField("Option B (Index 1)", _optBController),
-            _buildTextField("Option C (Index 2)", _optCController),
-            _buildTextField("Option D (Index 3)", _optDController),
-            const SizedBox(height: 10),
-            
-            // Correct Answer Dropdown
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(5)),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<int>(
-                  value: _correctIndex,
-                  isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text("Correct Answer: A (0)")),
-                    DropdownMenuItem(value: 1, child: Text("Correct Answer: B (1)")),
-                    DropdownMenuItem(value: 2, child: Text("Correct Answer: C (2)")),
-                    DropdownMenuItem(value: 3, child: Text("Correct Answer: D (3)")),
-                  ],
-                  onChanged: (val) => setState(() => _correctIndex = val!),
-                ),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) {
+        if (didPop) return;
+        _showExitDialog();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white, 
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          iconTheme: const IconThemeData(color: Colors.black),
+          title: Column(
+            children: [
+              Text(
+                topicName,
+                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
               ),
-            ),
-            
-            const SizedBox(height: 15),
-            _buildTextField("Explanation", _expController, maxLines: 4),
-          ],
+              if (mode == 'test')
+                Text(
+                  'Time Left: $_timerText',
+                  style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+            ],
+          ),
         ),
+        body: PageView.builder(
+          physics: const BouncingScrollPhysics(),
+          controller: _pageController,
+          itemCount: questions.length,
+          onPageChanged: (index) {
+            setState(() {
+              _currentPage = index;
+            });
+          },
+          itemBuilder: (context, index) {
+            final question = questions[index];
+            return _buildQuestionCard(question, index);
+          },
+        ),
+        bottomNavigationBar: _buildBottomNavBar(),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-        ElevatedButton(
-          onPressed: _isUpdating ? null : _updateQuestion,
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
-          child: _isUpdating 
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-            : const Text("UPDATE NOW"),
-        ),
-      ],
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {int maxLines = 1}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        decoration: InputDecoration(
-          labelText: label,
-          alignLabelWithHint: true,
-          border: const OutlineInputBorder(),
-          isDense: true,
-          contentPadding: const EdgeInsets.all(12),
+  Widget _buildQuestionCard(Question question, int index) {
+    final bool isAnswered = _selectedAnswers.containsKey(index);
+    
+    // Safe Correct Answer
+    String correctAnswer = "";
+    if (question.correctAnswerIndex >= 0 && question.correctAnswerIndex < question.options.length) {
+        correctAnswer = question.options[question.correctAnswerIndex];
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          
+          // ✅ UPDATED ROW WITH FIXED CALLBACK
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  'Q ${index + 1}: ${question.questionText}', 
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, height: 1.4),
+                ),
+              ),
+              
+              // 🔒 ADMIN EDIT BUTTON
+              if (_canEdit)
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.red),
+                  tooltip: "Edit Question",
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => AdminEditDialog(
+                        question: question,
+                        
+                        // 🛠️ HERE IS THE FIX: Accepts 4 arguments
+                        onUpdateSuccess: (newQ, newOpts, newAns, newExp) {
+                          setState(() {
+                            // Update local list instantly
+                            questions[index] = Question(
+                              id: question.id,
+                              questionText: newQ, // New Text
+                              options: newOpts,   // New Options
+                              correctAnswerIndex: newAns, // New Answer
+                              explanation: newExp, // New Explanation
+                              
+                              // Keep existing metadata
+                              topicId: question.topicId,
+                              subjectId: question.subjectId,
+                            );
+                          });
+                        },
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+          
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: question.options.length,
+            separatorBuilder: (ctx, i) => const SizedBox(height: 12),
+            itemBuilder: (ctx, optIndex) {
+              final optionText = question.options[optIndex];
+              return _buildOptionItem(index, optionText, isAnswered, correctAnswer);
+            },
+          ),
+          
+          const SizedBox(height: 20),
+          
+          if (mode == 'practice' && isAnswered && question.explanation.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade100),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("💡 Explanation", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                  const SizedBox(height: 8),
+                  Text(question.explanation),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOptionItem(int index, String optionText, bool isAnswered, String correctAnswer) {
+    Color borderColor = Colors.grey.shade300;
+    Color bgColor = Colors.white;
+    Color textColor = Colors.black87;
+    Widget? trailingIcon;
+
+    final bool isSelected = _selectedAnswers[index] == optionText;
+
+    if (isAnswered) {
+      if (mode == 'practice') {
+        if (optionText == correctAnswer) {
+          borderColor = Colors.green;
+          bgColor = Colors.green.shade50;
+          trailingIcon = const Icon(Icons.check_circle, color: Colors.green);
+        } else if (isSelected) {
+          borderColor = Colors.red;
+          bgColor = Colors.red.shade50;
+          trailingIcon = const Icon(Icons.cancel, color: Colors.red);
+        }
+      } else { 
+        if (isSelected) {
+          borderColor = const Color(0xFF6750A4);
+          bgColor = const Color(0xFFF3EDF7);
+          textColor = const Color(0xFF6750A4);
+        }
+      }
+    }
+
+    return InkWell(
+      onTap: () => _handleAnswer(index, optionText),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          border: Border.all(color: borderColor, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
         ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                optionText, 
+                style: TextStyle(fontSize: 16, color: textColor, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal),
+              ),
+            ),
+            if (trailingIcon != null) trailingIcon,
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildBottomNavBar() {
+    bool isLastQuestion = _currentPage == questions.length - 1;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          ElevatedButton(
+            onPressed: _currentPage == 0 ? null : _goToPreviousPage,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey.shade200,
+              foregroundColor: Colors.black,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            ),
+            child: const Text('Previous'),
+          ),
+          
+          Text(
+            '${_currentPage + 1}/${questions.length}',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+
+          ElevatedButton(
+            onPressed: isLastQuestion ? _submitQuiz : _goToNextPage,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isLastQuestion ? Colors.green : const Color(0xFF6750A4),
+              foregroundColor: Colors.white,
+              elevation: 2,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            ),
+            child: Text(isLastQuestion ? 'Submit' : 'Next'),
+          ),
+        ],
       ),
     );
   }
