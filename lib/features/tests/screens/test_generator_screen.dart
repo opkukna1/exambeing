@@ -13,14 +13,16 @@ class TestGeneratorScreen extends StatefulWidget {
 }
 
 class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
-  String? selectedSubjectId;
-  List<String> selectedTopicIds = [];
-  double numberOfQuestions = 20; 
+  // Key = TopicID, Value = Number of Questions requested
+  final Map<String, int> _topicCounts = {};
+  
+  // Total Question Counter (UI dikhane ke liye)
+  int get _totalQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
+
   bool _isLoading = false;
 
   // 1. Subjects Fetch karna
   Stream<QuerySnapshot> _getSubjects() {
-    // Yahan hum 'subjects' collection se data la rahe hain
     return FirebaseFirestore.instance.collection('subjects').snapshots();
   }
 
@@ -28,14 +30,23 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
   Stream<QuerySnapshot> _getTopics(String subjectId) {
     return FirebaseFirestore.instance
         .collection('topics')
-        .where('subjectId', isEqualTo: subjectId) 
+        .where('subjectId', isEqualTo: subjectId)
         .snapshots();
   }
 
+  // 🔥 MAGIC FUNCTION: Specific Count ke sath Test Generate karna
   Future<void> _generateTest() async {
-    if (selectedTopicIds.isEmpty) {
+    // 1. Validation
+    if (_totalQuestions == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select at least one topic!")),
+        const SnackBar(content: Text("Please add at least one question from any topic!")),
+      );
+      return;
+    }
+
+    if (_totalQuestions > 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Maximum limit is 100 questions per test.")),
       );
       return;
     }
@@ -43,42 +54,53 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     setState(() => _isLoading = true);
 
     try {
-      List<String> allQuestionIds = [];
+      List<Question> finalQuestionsList = [];
 
-      // Har selected Topic ke liye questions dhundho
-      for (String topicId in selectedTopicIds) {
-         final query = await FirebaseFirestore.instance
-             .collection('questions')
-             .where('topicId', isEqualTo: topicId) // Logic ID se chalega
-             .get();
-         
-         for (var doc in query.docs) {
-           allQuestionIds.add(doc.id);
-         }
-      }
+      // 2. Loop through selected topics
+      // Map ke har entry (TopicID -> Count) ko process karo
+      for (var entry in _topicCounts.entries) {
+        String topicId = entry.key;
+        int requestedCount = entry.value;
 
-      if (allQuestionIds.isEmpty) {
-        throw "No questions found for these topics.";
-      }
+        if (requestedCount <= 0) continue;
 
-      // Shuffle Logic (Taash ke patton ki tarah fenta)
-      allQuestionIds.shuffle(Random());
+        // A. Is topic ke SARE question IDs lao
+        final query = await FirebaseFirestore.instance
+            .collection('questions')
+            .where('topicId', isEqualTo: topicId)
+            .get();
+        
+        List<String> topicQuestionIds = query.docs.map((doc) => doc.id).toList();
 
-      // Limit Questions
-      int targetCount = numberOfQuestions.toInt();
-      if (allQuestionIds.length < targetCount) {
-        targetCount = allQuestionIds.length;
-      }
-      List<String> finalIds = allQuestionIds.sublist(0, targetCount);
+        if (topicQuestionIds.isEmpty) continue;
 
-      // Fetch Full Data
-      List<Question> questions = [];
-      await Future.wait(finalIds.map((id) async {
-        final doc = await FirebaseFirestore.instance.collection('questions').doc(id).get();
-        if (doc.exists) {
-          questions.add(Question.fromFirestore(doc));
+        // B. Shuffle (Fentna)
+        topicQuestionIds.shuffle(Random());
+
+        // C. Cut List (Jitne user ne mange utne hi lo)
+        int actualCount = requestedCount;
+        if (topicQuestionIds.length < actualCount) {
+          actualCount = topicQuestionIds.length; // Agar database me sawal kam hain
         }
-      }));
+        
+        List<String> selectedIds = topicQuestionIds.sublist(0, actualCount);
+
+        // D. Fetch Full Data for these IDs
+        // (Future.wait se parallel download hoga)
+        await Future.wait(selectedIds.map((id) async {
+          final doc = await FirebaseFirestore.instance.collection('questions').doc(id).get();
+          if (doc.exists) {
+            finalQuestionsList.add(Question.fromFirestore(doc));
+          }
+        }));
+      }
+
+      if (finalQuestionsList.isEmpty) {
+        throw "Could not generate test. No questions found.";
+      }
+
+      // 3. Final Shuffle (Taaki topics mix ho jayein, line se na aayein)
+      finalQuestionsList.shuffle(Random());
 
       if (mounted) {
         setState(() => _isLoading = false);
@@ -86,8 +108,8 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         AdManager.showInterstitialAd(() {
           if (mounted) {
             context.push('/practice-mcq', extra: {
-              'questions': questions,
-              'topicName': 'Custom Challenge',
+              'questions': finalQuestionsList,
+              'topicName': 'Custom Challenge ($_totalQuestions Q)',
               'mode': 'test', 
             });
           }
@@ -104,135 +126,189 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     }
   }
 
+  // Helper to update count safely
+  void _updateCount(String topicId, int delta) {
+    setState(() {
+      int current = _topicCounts[topicId] ?? 0;
+      int newVal = current + delta;
+      
+      // Limit check (0 se kam nahi, Total 100 se jyada nahi)
+      if (newVal < 0) newVal = 0;
+      
+      // Agar total 100 ho chuka hai aur hum aur badha rahe hain to roko
+      if (delta > 0 && _totalQuestions >= 100) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text("Total limit reached (100 Qs)"), duration: Duration(milliseconds: 500)),
+        );
+        return;
+      }
+
+      if (newVal == 0) {
+        _topicCounts.remove(topicId); // Map se hata do taaki memory bache
+      } else {
+        _topicCounts[topicId] = newVal;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Create Your Test 🎨")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- SUBJECT DROPDOWN ---
-            const Text("Step 1: Select Subject", style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            StreamBuilder<QuerySnapshot>(
+      appBar: AppBar(title: const Text("Custom Test Maker 🛠️")),
+      bottomNavigationBar: _buildBottomBar(), // Generate Button niche fix kar diya
+      body: Column(
+        children: [
+           Container(
+             padding: const EdgeInsets.all(12),
+             color: Colors.deepPurple.shade50,
+             child: const Row(
+               children: [
+                 Icon(Icons.info_outline, size: 16, color: Colors.deepPurple),
+                 SizedBox(width: 8),
+                 Expanded(child: Text("Expand subjects and add questions from specific topics.", style: TextStyle(fontSize: 12))),
+               ],
+             ),
+           ),
+           Expanded(
+             child: StreamBuilder<QuerySnapshot>(
               stream: _getSubjects(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const LinearProgressIndicator();
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 
-                // Yahan hum data map kar rahe hain
-                List<DropdownMenuItem<String>> items = snapshot.data!.docs.map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  
-                  // ✅ YAHAN CHANGE KIYA: 'subjectName' dikhana hai
-                  // Fallback: Agar subjectName nahi mila to 'name' ya ID dikha do
-                  String displayName = data['subjectName'] ?? data['name'] ?? 'Unknown Subject';
+                final subjects = snapshot.data!.docs;
 
-                  return DropdownMenuItem(
-                    value: doc.id, // Value ID hi rahegi (Logic ke liye)
-                    child: Text(displayName), // Dikhega Name (User ke liye)
-                  );
-                }).toList();
+                return ListView.builder(
+                  itemCount: subjects.length,
+                  padding: const EdgeInsets.only(bottom: 100), // Bottom bar ke liye jagah
+                  itemBuilder: (context, index) {
+                    final subjectDoc = subjects[index];
+                    final data = subjectDoc.data() as Map<String, dynamic>;
+                    final subjectName = data['subjectName'] ?? data['name'] ?? 'Subject';
 
-                return DropdownButtonFormField<String>(
-                  value: selectedSubjectId,
-                  items: items,
-                  hint: const Text("Choose Subject"),
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                  onChanged: (val) {
-                    setState(() {
-                      selectedSubjectId = val;
-                      selectedTopicIds.clear(); 
-                    });
+                    // ✅ EXPANSION TILE (Multiple Subject Selection Logic)
+                    return ExpansionTile(
+                      title: Text(subjectName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      leading: const Icon(Icons.library_books, color: Colors.deepPurple),
+                      children: [
+                        // Inner Stream for Topics
+                        _buildTopicsList(subjectDoc.id),
+                      ],
+                    );
                   },
                 );
               },
             ),
+           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopicsList(String subjectId) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _getTopics(subjectId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator());
+        
+        final topics = snapshot.data!.docs;
+        if (topics.isEmpty) return const ListTile(title: Text("No topics found"));
+
+        return Column(
+          children: topics.map((topicDoc) {
+            final tData = topicDoc.data() as Map<String, dynamic>;
+            final topicName = tData['topicName'] ?? tData['name'] ?? 'Topic';
+            final topicId = topicDoc.id;
             
-            const SizedBox(height: 24),
-            
-            // --- TOPICS SELECTION ---
-            if (selectedSubjectId != null) ...[
-              const Text("Step 2: Select Topics (Multi-select)", style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: _getTopics(selectedSubjectId!),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                      
-                      final topics = snapshot.data!.docs;
-                      if (topics.isEmpty) return const Center(child: Text("No topics found"));
+            final int currentCount = _topicCounts[topicId] ?? 0;
 
-                      return ListView.builder(
-                        itemCount: topics.length,
-                        itemBuilder: (context, index) {
-                          final doc = topics[index];
-                          final data = doc.data() as Map<String, dynamic>;
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: currentCount > 0 ? Colors.green.shade50 : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: currentCount > 0 ? Colors.green : Colors.grey.shade300),
+              ),
+              child: ListTile(
+                dense: true,
+                title: Text(topicName, style: const TextStyle(fontWeight: FontWeight.w500)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // MINUS BUTTON
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      color: Colors.red,
+                      onPressed: () => _updateCount(topicId, -1),
+                    ),
+                    
+                    // COUNT DISPLAY
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300)
+                      ),
+                      child: Text(
+                        "$currentCount", 
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                      ),
+                    ),
 
-                          // ✅ YAHAN CHANGE KIYA: 'topicName' dikhana hai
-                          String displayTopic = data['topicName'] ?? data['name'] ?? 'Topic';
-                          
-                          final isSelected = selectedTopicIds.contains(doc.id); // ID check karo
-
-                          return CheckboxListTile(
-                            title: Text(displayTopic), // Dikhega Name
-                            value: isSelected,
-                            activeColor: Colors.deepPurple,
-                            onChanged: (bool? value) {
-                              setState(() {
-                                if (value == true) {
-                                  selectedTopicIds.add(doc.id); // Save ID hoga
-                                } else {
-                                  selectedTopicIds.remove(doc.id);
-                                }
-                              });
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
+                    // PLUS BUTTON
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      color: Colors.green,
+                      onPressed: () => _updateCount(topicId, 5), // +5 karega direct
+                    ),
+                  ],
                 ),
               ),
-            ],
-            
-            const SizedBox(height: 24),
-            
-            // --- SLIDER ---
-            Text("Step 3: Number of Questions: ${numberOfQuestions.toInt()}", style: const TextStyle(fontWeight: FontWeight.bold)),
-            Slider(
-              value: numberOfQuestions,
-              min: 10, max: 100, divisions: 9,
-              label: numberOfQuestions.round().toString(),
-              activeColor: Colors.deepPurple,
-              onChanged: (double value) => setState(() => numberOfQuestions = value),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -5))],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Total Qs", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(
+                  "$_totalQuestions / 100", 
+                  style: TextStyle(
+                    fontSize: 20, 
+                    fontWeight: FontWeight.bold, 
+                    color: _totalQuestions > 100 ? Colors.red : Colors.black
+                  )
+                ),
+              ],
             ),
-            
-            const SizedBox(height: 24),
-            
-            // --- BUTTON ---
-            SizedBox(
-              width: double.infinity, height: 55,
+            const SizedBox(width: 20),
+            Expanded(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: _isLoading ? null : _generateTest,
                 child: _isLoading 
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("GENERATE TEST 🚀", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                   : const Text("GENERATE TEST 🚀", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
