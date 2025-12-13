@@ -28,7 +28,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
 
   void _loadRewardedAd() {
     RewardedAd.load(
-      adUnitId: 'ca-app-pub-3940256099942544/5224354917', 
+      adUnitId: 'ca-app-pub-1310160958851625/4433600767', 
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
