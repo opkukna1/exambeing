@@ -6,9 +6,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:csv/csv.dart'; // Import csv package
 import 'package:exambeing/models/question_model.dart';
 
-// ✅ STATEFUL WIDGET (Changed from Stateless to fix SnackBar issue)
 class TestSuccessScreen extends StatefulWidget {
   final List<Question> questions;
   final String topicName;
@@ -25,39 +25,35 @@ class TestSuccessScreen extends StatefulWidget {
 
 class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
-  // ✅ MAGIC FIX: Screen chodte hi SnackBar gayab ho jayega
   @override
   void deactivate() {
-    ScaffoldMessenger.of(context).clearSnackBars(); // Sab messages clear karo
+    ScaffoldMessenger.of(context).clearSnackBars(); 
     super.deactivate();
   }
 
-  // 🔒 1. CHECK PREMIUM & DOWNLOAD
-  Future<void> _checkPremiumAndDownload(BuildContext context, {bool withAnswers = false}) async {
+  // 🔒 1. CHECK PREMIUM & DOWNLOAD (Modified to handle format type)
+  Future<void> _checkPremiumAndDownload(BuildContext context, {bool withAnswers = false, bool isCsv = false}) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Loading...
     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
 
     try {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (!mounted) return;
-      Navigator.pop(context); // Loading hatao
+      Navigator.pop(context); 
 
       final data = userDoc.data();
       final String paidStatus = data != null && data.containsKey('paid_for_gold') ? data['paid_for_gold'] : 'no';
 
       if (paidStatus == 'yes') {
-        // 🎉 Premium User
-        _generateAndShareDocx(context, withAnswers);
+        if (isCsv) {
+          _generateAndShareCsv(context); // Call CSV function
+        } else {
+          _generateAndShareDocx(context, withAnswers); // Call DOCX function
+        }
       } else {
-        // 🔒 Normal User
-        
-        // Step A: Purana message hatao (taki stack na ho)
         ScaffoldMessenger.of(context).clearSnackBars(); 
-
-        // Step B: Naya message dikhao
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text(
@@ -65,7 +61,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               style: TextStyle(color: Colors.white, fontSize: 14),
             ),
             backgroundColor: Colors.black87,
-            duration: const Duration(seconds: 4), // Duration thoda kam kiya
+            duration: const Duration(seconds: 4), 
             action: SnackBarAction(
               label: 'COPY NUMBER',
               textColor: Colors.amber,
@@ -81,30 +77,80 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); // Loading hatao
+        Navigator.pop(context); 
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
   }
 
-  // 📄 2. GENERATE DOCX
+  // 📄 2. GENERATE CSV Function
+  Future<void> _generateAndShareCsv(BuildContext context) async {
+    try {
+      List<List<dynamic>> rows = [];
+
+      // Add Header Row - Matching typical Firebase structure or easy import format
+      rows.add([
+        "Question",
+        "Option A",
+        "Option B",
+        "Option C",
+        "Option D",
+        "Correct Answer",
+        "Solution", // Assuming your model has solution/explanation
+        "Topic Name"
+      ]);
+
+      // Add Data Rows
+      for (var q in widget.questions) {
+        // Logic to get correct answer text based on index
+        String correctAnswerText = "";
+        if (q.options.length > q.correctAnswerIndex && q.correctAnswerIndex >= 0) {
+           correctAnswerText = q.options[q.correctAnswerIndex];
+        }
+
+        rows.add([
+          q.questionText,
+          q.options.isNotEmpty ? q.options[0] : "",
+          q.options.length > 1 ? q.options[1] : "",
+          q.options.length > 2 ? q.options[2] : "",
+          q.options.length > 3 ? q.options[3] : "",
+          correctAnswerText, 
+          // Assuming your Question model has a 'solution' field. If not, remove this or use empty string.
+          // q.solution ?? "", 
+          "", // Placeholder for solution if not available in model
+          widget.topicName
+        ]);
+      }
+
+      String csvData = const ListToCsvConverter().convert(rows);
+
+      final directory = await getTemporaryDirectory();
+      final String fileName = "Test_Data_${DateTime.now().millisecondsSinceEpoch}.csv";
+      final File file = File('${directory.path}/$fileName');
+      await file.writeAsString(csvData);
+
+      await Share.shareXFiles([XFile(file.path)], text: 'Here is your generated Test CSV');
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error creating CSV: $e")));
+    }
+  }
+
+  // 📄 3. GENERATE DOCX (Existing function)
   Future<void> _generateAndShareDocx(BuildContext context, bool withAnswers) async {
     try {
       StringBuffer buffer = StringBuffer();
       buffer.writeln("<html><body>");
       buffer.writeln("<h1>ExamBeing Test Series</h1>");
-      buffer.writeln("<h2>Topic: ${widget.topicName}</h2>"); // widget.topicName use kiya
+      buffer.writeln("<h2>Topic: ${widget.topicName}</h2>"); 
       buffer.writeln("<p>Total Questions: ${widget.questions.length}</p><hr>");
 
       if (withAnswers) {
-        // ANSWER KEY
         buffer.writeln("<h3>ANSWER KEY</h3>");
         buffer.writeln("<table border='1' cellpadding='5'><tr><th>Q No.</th><th>Answer</th></tr>");
         
         for (int i = 0; i < widget.questions.length; i++) {
           final q = widget.questions[i];
-          
-          // Logic: Index ko A, B, C, D mein badlo
           String optionLabel = String.fromCharCode(65 + q.correctAnswerIndex); 
           String answerText = "";
           
@@ -116,7 +162,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         }
         buffer.writeln("</table>");
       } else {
-        // QUESTION PAPER
         for (int i = 0; i < widget.questions.length; i++) {
           final q = widget.questions[i];
           buffer.writeln("<p><b>Q${i + 1}. ${q.questionText}</b></p>");
@@ -164,7 +209,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                 onPressed: () {
-                  // widget.questions use kiya
                   context.push('/practice-mcq', extra: {'questions': widget.questions, 'topicName': widget.topicName, 'mode': 'test'});
                 },
                 icon: const Icon(Icons.play_arrow_rounded),
@@ -174,9 +218,11 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
             
             const SizedBox(height: 20),
             const Divider(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
+            const Text("Premium Downloads 👑", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+            const SizedBox(height: 10),
 
-            // BUTTONS: Premium DOCX
+            // BUTTONS: Premium DOCX Row
             Row(
               children: [
                 Expanded(
@@ -198,8 +244,22 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                 ),
               ],
             ),
+            
             const SizedBox(height: 10),
-            const Text("DOCX download is a Premium Feature 👑", style: TextStyle(fontSize: 10, color: Colors.grey)),
+
+            // BUTTON: CSV Download Row
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  side: const BorderSide(color: Colors.teal), // Different color for CSV
+                ),
+                onPressed: () => _checkPremiumAndDownload(context, isCsv: true), // Trigger CSV download
+                icon: const Icon(Icons.table_view, color: Colors.teal),
+                label: const Text("Export Data (CSV)", style: TextStyle(color: Colors.teal)),
+              ),
+            ),
           ],
         ),
       ),
