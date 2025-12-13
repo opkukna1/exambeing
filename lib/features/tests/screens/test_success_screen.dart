@@ -37,7 +37,7 @@ class TestSuccessScreen extends StatelessWidget {
         // 🎉 Premium hai -> Download karwao
         _generateAndShareDocx(context, withAnswers);
       } else {
-        // 🔒 Normal User -> Sirf Message dikhao (Dialog nahi)
+        // 🔒 Normal User -> Sirf Message dikhao
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text(
@@ -45,12 +45,11 @@ class TestSuccessScreen extends StatelessWidget {
               style: TextStyle(color: Colors.white, fontSize: 14),
             ),
             backgroundColor: Colors.black87,
-            duration: const Duration(seconds: 5), // 5 second tak dikhega
+            duration: const Duration(seconds: 5),
             action: SnackBarAction(
               label: 'COPY NUMBER',
               textColor: Colors.amber,
               onPressed: () {
-                // Number copy karne ka feature (Optional but helpful)
                 Clipboard.setData(const ClipboardData(text: "8005576670"));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Number copied to clipboard!"))
@@ -66,7 +65,7 @@ class TestSuccessScreen extends StatelessWidget {
     }
   }
 
-  // 📄 2. GENERATE DOCX (HTML Trick)
+  // 📄 2. GENERATE DOCX (Fixed)
   Future<void> _generateAndShareDocx(BuildContext context, bool withAnswers) async {
     try {
       StringBuffer buffer = StringBuffer();
@@ -76,15 +75,26 @@ class TestSuccessScreen extends StatelessWidget {
       buffer.writeln("<p>Total Questions: ${questions.length}</p><hr>");
 
       if (withAnswers) {
-        // Answer Key
+        // ✅ ANSWER KEY (Fixed Error Here)
         buffer.writeln("<h3>ANSWER KEY</h3>");
         buffer.writeln("<table border='1' cellpadding='5'><tr><th>Q No.</th><th>Answer</th></tr>");
+        
         for (int i = 0; i < questions.length; i++) {
-          buffer.writeln("<tr><td>${i + 1}</td><td><b>${questions[i].correctAnswer}</b></td></tr>");
+          final q = questions[i];
+          
+          // Logic: Index ko A, B, C, D mein badlo aur Text nikalo
+          String optionLabel = String.fromCharCode(65 + q.correctAnswerIndex); // 0->A, 1->B
+          String answerText = "";
+          
+          if (q.options.length > q.correctAnswerIndex) {
+            answerText = q.options[q.correctAnswerIndex];
+          }
+
+          buffer.writeln("<tr><td>${i + 1}</td><td><b>($optionLabel) $answerText</b></td></tr>");
         }
         buffer.writeln("</table>");
       } else {
-        // Question Paper
+        // QUESTION PAPER
         for (int i = 0; i < questions.length; i++) {
           final q = questions[i];
           buffer.writeln("<p><b>Q${i + 1}. ${q.questionText}</b></p>");
@@ -143,13 +153,12 @@ class TestSuccessScreen extends StatelessWidget {
             const Divider(),
             const SizedBox(height: 20),
 
-            // ⬇️ DOCX BUTTONS (Premium Only)
+            // BUTTONS: Premium DOCX
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
-                    // 🔒 Check Premium Logic
                     onPressed: () => _checkPremiumAndDownload(context, withAnswers: false),
                     icon: const Icon(Icons.description, color: Colors.blue),
                     label: const Text("Paper (DOCX)"),
@@ -159,7 +168,6 @@ class TestSuccessScreen extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
-                    // 🔒 Check Premium Logic
                     onPressed: () => _checkPremiumAndDownload(context, withAnswers: true),
                     icon: const Icon(Icons.key, color: Colors.green),
                     label: const Text("Key (DOCX)"),
