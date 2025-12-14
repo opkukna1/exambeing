@@ -178,8 +178,8 @@ class _NotesSelectionScreenState extends State<NotesSelectionScreen> {
                     child: ElevatedButton(
                       onPressed: (selectedSubTopic != null)
                           ? () {
-                              // View Screen par jayein (IDs aur Display Name bhej rahe hain)
-                              context.push('/notes-view', extra: {
+                              // ✅ UPDATED PATH: Ab ye nayi wali screen par jayega
+                              context.push('/notes-online-view', extra: {
                                 // IDs for Fetching Content
                                 'subjId': selectedSubject!['id'],
                                 'subSubjId': selectedSubSubject!['id'],
