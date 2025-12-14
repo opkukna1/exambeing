@@ -21,6 +21,7 @@ dependencies:
   collection: ^1.18.0
   shared_preferences: ^2.2.3
   url_launcher: ^6.3.0 
+  badges: ^3.1.2
 
   # UI & Media Packages
   percent_indicator: ^4.2.3
