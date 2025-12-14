@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminNotificationForm extends StatefulWidget {
-  final String? docId; // Edit ke liye ID
-  final Map<String, dynamic>? existingData; // Edit ke liye purana data
+  final String? docId; // Edit karne ke liye ID (agar hai to)
+  final Map<String, dynamic>? existingData; // Edit karne ke liye purana data
 
   const AdminNotificationForm({super.key, this.docId, this.existingData});
 
@@ -22,7 +22,7 @@ class _AdminNotificationFormState extends State<AdminNotificationForm> {
   @override
   void initState() {
     super.initState();
-    // Edit mode check
+    // Agar Edit kar rahe hain to purana data fill karein
     if (widget.existingData != null) {
       _titleController.text = widget.existingData!['title'] ?? '';
       _bodyController.text = widget.existingData!['body'] ?? '';
@@ -41,20 +41,26 @@ class _AdminNotificationFormState extends State<AdminNotificationForm> {
       'body': _bodyController.text.trim(),
       'buttonText': _btnNameController.text.trim(),
       'link': _linkController.text.trim(),
-      'timestamp': FieldValue.serverTimestamp(),
+      'timestamp': FieldValue.serverTimestamp(), // Sorting ke liye time
     };
 
     try {
       if (widget.docId == null) {
-        // Create New
+        // Create New Notification
         await FirebaseFirestore.instance.collection('notifications').add(data);
       } else {
-        // Update
+        // Update Existing Notification
         await FirebaseFirestore.instance.collection('notifications').doc(widget.docId).update(data);
       }
-      if (mounted) Navigator.pop(context);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Notification Sent Successfully!")));
+        Navigator.pop(context);
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -85,12 +91,12 @@ class _AdminNotificationFormState extends State<AdminNotificationForm> {
               const SizedBox(height: 15),
               TextFormField(
                 controller: _btnNameController,
-                decoration: const InputDecoration(labelText: "Button Name (e.g., Join Telegram)", border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: "Button Name (Optional)", border: OutlineInputBorder()),
               ),
               const SizedBox(height: 15),
               TextFormField(
                 controller: _linkController,
-                decoration: const InputDecoration(labelText: "Link URL (e.g., https://t.me/...)", border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: "Link URL (Optional)", border: OutlineInputBorder()),
               ),
               const SizedBox(height: 25),
               SizedBox(
