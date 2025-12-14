@@ -28,7 +28,8 @@ dependencies:
   google_fonts: ^5.1.0
   screenshot: ^3.0.0
   share_plus: ^7.2.2
-
+  #HTML package 
+  flutter_widget_from_html: ^0.15.0
   # To-Do List/Calendar
   table_calendar: ^3.1.2
   intl: ^0.20.2         
