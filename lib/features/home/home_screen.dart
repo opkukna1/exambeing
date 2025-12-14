@@ -14,6 +14,9 @@ import 'package:exambeing/services/ad_manager.dart';
 // ✅ 3. Test Generator Import
 import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
 
+// ✅ 4. BADGES IMPORT (Added for Notification Red Dot)
+import 'package:badges/badges.dart' as badges;
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -111,6 +114,23 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ✅ HELPER: Check unread notifications count
+  Future<int> _getUnreadCount(List<QueryDocumentSnapshot> docs) async {
+    final prefs = await SharedPreferences.getInstance();
+    final int lastCheck = prefs.getInt('last_notification_check') ?? 0;
+    
+    int unread = 0;
+    for (var doc in docs) {
+      final Timestamp? ts = doc['timestamp'];
+      if (ts != null) {
+        if (ts.millisecondsSinceEpoch > lastCheck) {
+          unread++;
+        }
+      }
+    }
+    return unread;
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -152,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // 🔥 CUSTOM TEST CARD (Blue/Purple Gradient)
   Widget _buildModernCustomTestCard() {
     return Container(
-      height: 170, // Height increased slightly for better text fit
+      height: 170, 
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
@@ -188,7 +208,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    // ✅ Text Updated
                     Text("Create\nCustom Test", style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, height: 1.2)),
                     SizedBox(height: 5),
                     Text("By Topic", style: TextStyle(color: Colors.white70, fontSize: 12)),
@@ -202,13 +221,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 📝 NOTES CARD (Now Attractive Orange Gradient)
+  // 📝 NOTES CARD (Attractive Orange Gradient)
   Widget _buildModernNotesCard() {
     return Container(
       height: 170,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        // ✅ Changed to Orange Gradient to make it attractive
         gradient: const LinearGradient(
           colors: [Color(0xFFFF512F), Color(0xFFF09819)], // Orange-Gold
           begin: Alignment.topLeft,
@@ -239,7 +257,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    // ✅ Text Color White
                     Text("Quick\nNotes", style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, height: 1.2)),
                     SizedBox(height: 5),
                     Text("Read PDF", style: TextStyle(color: Colors.white70, fontSize: 12)),
@@ -253,11 +270,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 📅 DAILY TEST CARD (With "Start Today's Test" Button)
+  // 📅 DAILY TEST CARD
   Widget _buildDailyTestCard(BuildContext context) {
     final DateTime now = DateTime.now();
     final String todayDocId = DateFormat('yyyy-MM-dd').format(now);
-    // ✅ Full Date Format (Date Month Year)
     final String fullDate = DateFormat('dd MMMM yyyy').format(now);
 
     return FutureBuilder<DocumentSnapshot>(
@@ -311,7 +327,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       const Icon(Icons.calendar_today, color: Colors.white, size: 12),
                       const SizedBox(width: 6),
-                      // ✅ Show Full Date Here
                       Text(fullDate, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                     ],
                   ),
@@ -326,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 
                 const SizedBox(height: 20),
 
-                // ✅ "Start Today's Test" Button (Inside Box)
+                // ✅ "Start Today's Test" Button
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -431,7 +446,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 👋 Welcome Card
+  // 👋 Welcome Card (Updated with Notification Badge)
   Widget _buildWelcomeCard(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -444,11 +459,52 @@ class _HomeScreenState extends State<HomeScreen> {
             const Text('Let\'s Crack It!', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 24)),
           ],
         ),
-        CircleAvatar(
-          radius: 25,
-          backgroundColor: Colors.grey[200],
-          child: IconButton(icon: const Icon(Icons.notifications_none, color: Colors.black), onPressed: (){}),
-        )
+        
+        // 🔔 BADGE ICON IMPLEMENTATION
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('notifications').snapshots(),
+          builder: (context, snapshot) {
+            // Unread count calculate karein
+            if (!snapshot.hasData) {
+              return CircleAvatar(
+                radius: 25,
+                backgroundColor: Colors.grey[200],
+                child: const Icon(Icons.notifications_none, color: Colors.black),
+              );
+            }
+
+            return FutureBuilder<int>(
+              future: _getUnreadCount(snapshot.data!.docs),
+              initialData: 0,
+              builder: (context, countSnapshot) {
+                final int unreadCount = countSnapshot.data ?? 0;
+
+                return CircleAvatar(
+                  radius: 25,
+                  backgroundColor: Colors.grey[200],
+                  child: badges.Badge(
+                    showBadge: unreadCount > 0,
+                    position: badges.BadgePosition.topEnd(top: -5, end: -2),
+                    badgeContent: Text(
+                      '$unreadCount', 
+                      style: const TextStyle(color: Colors.white, fontSize: 10)
+                    ),
+                    badgeStyle: const badges.BadgeStyle(badgeColor: Colors.red),
+                    child: IconButton(
+                      icon: const Icon(Icons.notifications_none, color: Colors.black),
+                      onPressed: () async {
+                        // Navigate to Notification Screen
+                        await context.push('/notifications');
+                        // Refresh UI to remove badge on return
+                        setState(() {}); 
+                      },
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ],
     );
   }
