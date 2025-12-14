@@ -29,6 +29,9 @@ import 'package:exambeing/features/admin/screens/admin_smart_upload.dart';
 import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
 import 'package:exambeing/features/tests/screens/test_success_screen.dart';
 
+// ✅ NEW: NOTIFICATION SCREEN IMPORT (Added here)
+import 'package:exambeing/features/home/screens/notification_screen.dart';
+
 import 'package:exambeing/features/bookmarks/screens/bookmarked_question_detail_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_screen.dart';
 import 'package:exambeing/features/profile/screens/profile_screen.dart';
@@ -42,7 +45,7 @@ import 'package:exambeing/features/tools/screens/timetable_screen.dart';
 import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
 
 // ⬇️===== TEST & SERIES IMPORTS =====⬇️
-import 'package:exambeing/features/tests/daily_test_screen.dart'; // Import for TestQuestion
+import 'package:exambeing/features/tests/daily_test_screen.dart'; 
 import 'package:exambeing/features/tests/result_screen.dart';
 import 'package:exambeing/features/tests/solution_screen.dart';
 import 'package:exambeing/features/tests/test_list_screen.dart';
@@ -125,7 +128,14 @@ final GoRouter router = GoRouter(
     // 🛑 FULL SCREEN ROUTES (Yahan Tabs NAHI dikhenge)
     // =================================================================
 
-    // ✅ FIXED: Public Notes (Full Screen)
+    // ✅ NEW: NOTIFICATION SCREEN ROUTE 🔔 (Added)
+    GoRoute(
+      path: '/notifications',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const NotificationScreen(),
+    ),
+
+    // ✅ Public Notes (Full Screen)
     GoRoute(
       path: '/public-notes', 
       parentNavigatorKey: _rootNavigatorKey, 
@@ -149,14 +159,14 @@ final GoRouter router = GoRouter(
       },
     ),
 
-    // ✅ NEW: TEST GENERATOR (Full Screen) 🚀
+    // ✅ TEST GENERATOR
     GoRoute(
       path: '/test-generator',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const TestGeneratorScreen(),
     ),
 
-    // ✅ NEW: TEST SUCCESS (Full Screen) 🎉
+    // ✅ TEST SUCCESS
     GoRoute(
       path: '/test-success',
       parentNavigatorKey: _rootNavigatorKey,
@@ -218,21 +228,19 @@ final GoRouter router = GoRouter(
       },
     ),
 
-    // ✅ FIXED: Result Screen Route (Updated for Modern UI)
+    // ✅ Result Screen Route
     GoRoute(
       path: '/result-screen',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final data = state.extra as Map<String, dynamic>? ?? {};
 
-        // Modern ResultScreen ko ab alag parameters chahiye
         return ResultScreen(
-          score: (data['score'] ?? 0).toDouble(), // Double me convert kiya
+          score: (data['score'] ?? 0).toDouble(),
           correct: data['correct'] ?? data['correctAnswers'] ?? 0, 
           wrong: data['wrong'] ?? data['wrongAnswers'] ?? 0,
           unattempted: data['unattempted'] ?? data['notAttempted'] ?? 0,
           topicName: data['topicName'] ?? "Test Result",
-          // Questions aur Answers pass kar rahe hain solutions ke liye
           questions: (data['questions'] as List<dynamic>?)?.map((e) => e as TestQuestion).toList() ?? [],
           userAnswers: (data['userAnswers'] as Map<dynamic, dynamic>?)?.cast<String, int>() ?? {},
         );
