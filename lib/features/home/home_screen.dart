@@ -27,11 +27,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _activateLuckyTrial();
-    AdManager.loadInterstitialAd(); // Ad Pre-load
-    _saveDeviceToken(); // Token Save
+    AdManager.loadInterstitialAd();
+    _saveDeviceToken();
   }
 
-  // --- TOKEN SAVE FUNCTION (Logic Safe) ---
+  // --- TOKEN SAVE FUNCTION ---
   Future<void> _saveDeviceToken() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -55,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- 🎉 LUCKY TRIAL LOGIC (Logic Safe) ---
+  // --- 🎉 LUCKY TRIAL LOGIC ---
   Future<void> _activateLuckyTrial() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -119,12 +119,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildWelcomeCard(context),
         const SizedBox(height: 25),
         
-        // 📅 1. Daily Test (Updated Design)
+        // 📅 1. Daily Test (Updated Design with Button)
         _buildDailyTestCard(context),
         
         const SizedBox(height: 20),
         
-        // ✨ 2. Custom Test & Notes Row
+        // ✨ 2. Custom Test & Notes Row (Both Attractive)
         Row(
           children: [
             Expanded(child: _buildModernCustomTestCard()),
@@ -149,10 +149,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 🔥 NEW: Modern Custom Test Card (Full Screen Nav)
+  // 🔥 CUSTOM TEST CARD (Blue/Purple Gradient)
   Widget _buildModernCustomTestCard() {
     return Container(
-      height: 160,
+      height: 170, // Height increased slightly for better text fit
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
@@ -169,7 +169,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-            // ✅ FULL SCREEN NAVIGATION
             Navigator.push(
               context, 
               MaterialPageRoute(builder: (context) => const TestGeneratorScreen())
@@ -189,9 +188,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text("Custom\nTest", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, height: 1.2)),
+                    // ✅ Text Updated
+                    Text("Create\nCustom Test", style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, height: 1.2)),
                     SizedBox(height: 5),
-                    Text("Create Now", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    Text("By Topic", style: TextStyle(color: Colors.white70, fontSize: 12)),
                   ],
                 ),
               ],
@@ -202,16 +202,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 📝 NEW: Modern Notes Card (Full Screen Nav)
+  // 📝 NOTES CARD (Now Attractive Orange Gradient)
   Widget _buildModernNotesCard() {
     return Container(
-      height: 160,
+      height: 170,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: Colors.white,
-        border: Border.all(color: Colors.orange.shade100, width: 1.5),
+        // ✅ Changed to Orange Gradient to make it attractive
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFF512F), Color(0xFFF09819)], // Orange-Gold
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         boxShadow: [
-          BoxShadow(color: Colors.orange.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
+          BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5)),
         ],
       ),
       child: Material(
@@ -219,7 +223,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-            // ✅ FULL SCREEN NAVIGATION
             context.push('/public-notes'); 
           },
           child: Padding(
@@ -230,15 +233,16 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
-                  child: const Icon(Icons.menu_book_rounded, color: Colors.orange, size: 24),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+                  child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 24),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text("Quick\nNotes", style: TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.bold, height: 1.2)),
+                    // ✅ Text Color White
+                    Text("Quick\nNotes", style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, height: 1.2)),
                     SizedBox(height: 5),
-                    Text("Read Topics", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text("Read PDF", style: TextStyle(color: Colors.white70, fontSize: 12)),
                   ],
                 ),
               ],
@@ -249,11 +253,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 📅 UPDATED: Daily Test Card
+  // 📅 DAILY TEST CARD (With "Start Today's Test" Button)
   Widget _buildDailyTestCard(BuildContext context) {
     final DateTime now = DateTime.now();
     final String todayDocId = DateFormat('yyyy-MM-dd').format(now);
-    final String dateTitle = DateFormat('dd MMM').format(now);
+    // ✅ Full Date Format (Date Month Year)
+    final String fullDate = DateFormat('dd MMMM yyyy').format(now);
 
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('DailyTests').doc(todayDocId).get(),
@@ -281,6 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final questionIds = List<String>.from(data['questionIds'] ?? []);
         
         return Container(
+          width: double.infinity,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             gradient: const LinearGradient(
@@ -291,50 +297,55 @@ class _HomeScreenState extends State<HomeScreen> {
               BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
             ],
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(24),
-              onTap: () {
-                AdManager.showInterstitialAd(() {
-                  context.push('/test-screen', extra: {'ids': questionIds});
-                });
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.circle, color: Colors.redAccent, size: 8),
-                                const SizedBox(width: 6),
-                                Text("LIVE • $dateTitle", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(subtitle, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 5),
-                          Text("${questionIds.length} Questions", style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      height: 50, width: 50,
-                      decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                      child: const Icon(Icons.play_arrow_rounded, color: Color(0xFF11998e), size: 32),
-                    )
-                  ],
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.calendar_today, color: Colors.white, size: 12),
+                      const SizedBox(width: 6),
+                      // ✅ Show Full Date Here
+                      Text(fullDate, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
-              ),
+                
+                const SizedBox(height: 15),
+                
+                // Title
+                Text(subtitle, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 5),
+                Text("${questionIds.length} Important Questions", style: const TextStyle(color: Colors.white70, fontSize: 15)),
+                
+                const SizedBox(height: 20),
+
+                // ✅ "Start Today's Test" Button (Inside Box)
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF11998e),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                    ),
+                    onPressed: () {
+                      AdManager.showInterstitialAd(() {
+                        context.push('/test-screen', extra: {'ids': questionIds});
+                      });
+                    },
+                    child: const Text("Start Today's Test", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                )
+              ],
             ),
           ),
         );
@@ -342,7 +353,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 📚 UPDATED: Test Series Grid
+  // 📚 Test Series Grid
   Widget _buildTestSeriesSection(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('testSeriesHome').snapshots(),
