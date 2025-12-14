@@ -12,6 +12,7 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
   // --- MASTER DATA ---
   List<dynamic> fullHierarchy = [];
   bool isLoading = true;
+  bool isFetchingContent = false; // 🔥 New Loading State for Content
 
   // --- SELECTIONS ---
   Map<String, dynamic>? selectedSubject;
@@ -25,7 +26,7 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
   bool isAddingTopic = false;
   bool isAddingSubTopic = false;
 
-  // --- TEXT CONTROLLERS (For New Items) ---
+  // --- TEXT CONTROLLERS ---
   final _newSubjId = TextEditingController();
   final _newSubjName = TextEditingController();
   
@@ -50,7 +51,7 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
     _fetchHierarchy();
   }
 
-  // 1. Load Data from Firebase
+  // 1. Load Hierarchy
   Future<void> _fetchHierarchy() async {
     try {
       var doc = await FirebaseFirestore.instance.collection('app_metadata').doc('notes_index').get();
@@ -61,12 +62,56 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
         });
       } else {
         setState(() {
-          fullHierarchy = []; // Empty DB handling
+          fullHierarchy = [];
           isLoading = false;
         });
       }
     } catch (e) {
       setState(() => isLoading = false);
+    }
+  }
+
+  // 🔥 2. FETCH EXISTING CONTENT (EDIT MODE LOGIC)
+  Future<void> _fetchExistingContent() async {
+    // Agar sab kuch selected nahi hai, to return karo
+    if (selectedSubject == null || selectedSubSubject == null || selectedTopic == null || selectedSubTopic == null) {
+      _contentController.clear();
+      return;
+    }
+    
+    // Agar hum kuch naya add kar rahe hain (Add New Mode), to content clear rakho
+    if (isAddingSubject || isAddingSubSubject || isAddingTopic || isAddingSubTopic) {
+      _contentController.clear();
+      return;
+    }
+
+    setState(() => isFetchingContent = true);
+
+    try {
+      // ID Generate karo
+      String docId = "${selectedSubject!['id']}_${selectedSubSubject!['id']}_${selectedTopic!['id']}_${selectedSubTopic!['id']}".toLowerCase();
+      String fieldName = "${selectedMode.toLowerCase().split(' ')[0]}_${selectedLang == 'Hindi' ? 'hi' : 'en'}";
+
+      DocumentSnapshot doc = await FirebaseFirestore.instance.collection('notes_content').doc(docId).get();
+
+      if (doc.exists && doc.data() != null) {
+        var data = doc.data() as Map<String, dynamic>;
+        if (data.containsKey(fieldName)) {
+          // ✅ DATA MIL GAYA -> Controller me set karo
+          _contentController.text = data[fieldName];
+        } else {
+          // Doc hai par ye wala mode khali hai
+          _contentController.clear();
+        }
+      } else {
+        // Doc hi nahi hai
+        _contentController.clear();
+      }
+    } catch (e) {
+      print("Error fetching content: $e");
+      _contentController.clear();
+    } finally {
+      setState(() => isFetchingContent = false);
     }
   }
 
@@ -87,15 +132,14 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
       String subTopId = isAddingSubTopic ? _newSubTopId.text.trim() : (selectedSubTopic?['id'] ?? '');
       String subTopName = isAddingSubTopic ? _newSubTopName.text.trim() : (selectedSubTopic?['name'] ?? '');
 
-      // Validation
       if (subjId.isEmpty || subSubjId.isEmpty || topicId.isEmpty || subTopId.isEmpty) {
-        throw "All IDs must be filled! Check your selection.";
+        throw "All IDs must be filled!";
       }
 
-      // Step 2: Hierarchy Update (Local Logic)
+      // Step 2: Hierarchy Update
       List<dynamic> updatedHierarchy = List.from(fullHierarchy);
 
-      // A. Subject
+      // (Hierarchy Logic same as before...)
       Map<String, dynamic> subjectMap;
       if (isAddingSubject) {
         subjectMap = {'id': subjId, 'name': subjName, 'subSubjects': []};
@@ -104,7 +148,6 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
         subjectMap = updatedHierarchy.firstWhere((e) => e['id'] == subjId, orElse: () => {});
       }
 
-      // B. Sub-Subject
       List<dynamic> subList = subjectMap['subSubjects'] ?? [];
       Map<String, dynamic> subSubjectMap;
       if (isAddingSubSubject) {
@@ -114,7 +157,6 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
         subSubjectMap = subList.firstWhere((e) => e['id'] == subSubjId, orElse: () => {});
       }
 
-      // C. Topic
       List<dynamic> topicList = subSubjectMap['topics'] ?? [];
       Map<String, dynamic> topicMap;
       if (isAddingTopic) {
@@ -124,7 +166,6 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
         topicMap = topicList.firstWhere((e) => e['id'] == topicId, orElse: () => {});
       }
 
-      // D. Sub-Topic (Leaf)
       List<dynamic> leafList = topicMap['subTopics'] ?? [];
       if (isAddingSubTopic) {
         bool exists = leafList.any((e) => e['id'] == subTopId);
@@ -133,17 +174,16 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
         }
       }
 
-      // Ensure lists are linked back (Reference safety)
       topicMap['subTopics'] = leafList;
       subSubjectMap['topics'] = topicList;
       subjectMap['subSubjects'] = subList;
 
-      // Step 3: Firebase Save (Metadata)
+      // Update Metadata
       await FirebaseFirestore.instance.collection('app_metadata').doc('notes_index').set({
         'hierarchy': updatedHierarchy
       });
 
-      // Step 4: Content Save
+      // Update Content
       String contentDocId = "${subjId}_${subSubjId}_${topicId}_${subTopId}".toLowerCase();
       String fieldName = "${selectedMode.toLowerCase().split(' ')[0]}_${selectedLang == 'Hindi' ? 'hi' : 'en'}";
 
@@ -154,15 +194,14 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // Success
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ Saved Successfully!"), backgroundColor: Colors.green));
-      _contentController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ Saved/Updated Successfully!"), backgroundColor: Colors.green));
       
-      // Update local state to reflect additions
+      // Don't clear content immediately, lets admin verify or edit further
+      // _contentController.clear(); 
+      
       setState(() {
         fullHierarchy = updatedHierarchy;
-        // Logic to keep selection valid is complex, simpler to reset adding flags
         if(isAddingSubject) { isAddingSubject = false; selectedSubject = subjectMap; }
         if(isAddingSubSubject) { isAddingSubSubject = false; selectedSubSubject = subSubjectMap; }
         if(isAddingTopic) { isAddingTopic = false; selectedTopic = topicMap; }
@@ -181,7 +220,7 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
     if (isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Smart Upload 🧠"), backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+      appBar: AppBar(title: const Text("Admin: Add/Edit Notes 📝"), backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -202,6 +241,7 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
                   selectedSubSubject = null; isAddingSubSubject = false;
                   selectedTopic = null; isAddingTopic = false;
                   selectedSubTopic = null; isAddingSubTopic = false;
+                  _contentController.clear(); // Selection change = Clear old data
                 });
               },
               onAddToggle: () => setState(() => isAddingSubject = !isAddingSubject),
@@ -221,6 +261,7 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
                     selectedSubSubject = val;
                     selectedTopic = null; isAddingTopic = false;
                     selectedSubTopic = null; isAddingSubTopic = false;
+                    _contentController.clear();
                   });
                 },
                 onAddToggle: () => setState(() => isAddingSubSubject = !isAddingSubSubject),
@@ -239,6 +280,7 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
                   setState(() {
                     selectedTopic = val;
                     selectedSubTopic = null; isAddingSubTopic = false;
+                    _contentController.clear();
                   });
                 },
                 onAddToggle: () => setState(() => isAddingTopic = !isAddingTopic),
@@ -253,7 +295,10 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
                 selectedItem: selectedSubTopic,
                 idController: _newSubTopId,
                 nameController: _newSubTopName,
-                onChanged: (val) => setState(() => selectedSubTopic = val),
+                onChanged: (val) {
+                  setState(() => selectedSubTopic = val);
+                  _fetchExistingContent(); // 🔥 FETCH DATA ON SELECTION
+                },
                 onAddToggle: () => setState(() => isAddingSubTopic = !isAddingSubTopic),
               ),
 
@@ -267,7 +312,10 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
                     value: selectedLang,
                     decoration: const InputDecoration(labelText: "Language", border: OutlineInputBorder()),
                     items: const [DropdownMenuItem(value: "Hindi", child: Text("Hindi 🇮🇳")), DropdownMenuItem(value: "English", child: Text("English 🇬🇧"))],
-                    onChanged: (v) => setState(() => selectedLang = v!),
+                    onChanged: (v) {
+                      setState(() => selectedLang = v!);
+                      _fetchExistingContent(); // 🔥 RE-FETCH ON LANGUAGE CHANGE
+                    },
                   ),
                 ),
                 const SizedBox(width: 15),
@@ -280,22 +328,34 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
                       DropdownMenuItem(value: "Revision", child: Text("Revision 🧠")),
                       DropdownMenuItem(value: "Short", child: Text("Short ⚡")),
                     ],
-                    onChanged: (v) => setState(() => selectedMode = v!),
+                    onChanged: (v) {
+                      setState(() => selectedMode = v!);
+                      _fetchExistingContent(); // 🔥 RE-FETCH ON MODE CHANGE
+                    },
                   ),
                 ),
               ],
             ),
 
             const SizedBox(height: 20),
-            TextField(
-              controller: _contentController,
-              maxLines: 8,
-              decoration: const InputDecoration(
-                labelText: "Notes Content (HTML)",
-                alignLabelWithHint: true,
-                border: OutlineInputBorder(),
-                hintText: "<h1>Title</h1><p>Description...</p>",
-              ),
+            
+            // 🔥 CONTENT BOX WITH LOADER
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                TextField(
+                  controller: _contentController,
+                  maxLines: 10,
+                  decoration: const InputDecoration(
+                    labelText: "Notes Content (HTML)",
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(),
+                    hintText: "<h1>Title</h1><p>Description...</p>",
+                  ),
+                ),
+                if (isFetchingContent)
+                  const CircularProgressIndicator(),
+              ],
             ),
 
             const SizedBox(height: 20),
@@ -308,7 +368,7 @@ class _AdminSmartUploadScreenState extends State<AdminSmartUploadScreen> {
                 icon: isUploading ? const SizedBox() : const Icon(Icons.cloud_upload),
                 label: isUploading 
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("UPLOAD & SAVE", style: TextStyle(fontSize: 18)),
+                  : const Text("UPDATE / SAVE", style: TextStyle(fontSize: 18)),
               ),
             ),
             const SizedBox(height: 50),
