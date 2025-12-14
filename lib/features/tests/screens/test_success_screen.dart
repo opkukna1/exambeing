@@ -10,12 +10,18 @@ import 'package:csv/csv.dart';
 import 'package:exambeing/models/question_model.dart'; 
 
 class TestSuccessScreen extends StatefulWidget {
-  // Router sends a Map called 'data', so we accept it here
-  final Map<String, dynamic> data;
+  // Option 1: Direct passed (from test_generator_screen)
+  final List<Question>? questions;
+  final String? topicName;
+
+  // Option 2: Router passed (from app_router)
+  final Map<String, dynamic>? data;
 
   const TestSuccessScreen({
     super.key, 
-    required this.data, 
+    this.questions, 
+    this.topicName,
+    this.data,
   });
 
   @override
@@ -23,23 +29,36 @@ class TestSuccessScreen extends StatefulWidget {
 }
 
 class _TestSuccessScreenState extends State<TestSuccessScreen> {
-  // Variables to hold extracted data
-  late List<Question> questions;
-  late String topicName;
+  // Final variables to use in the UI
+  late List<Question> finalQuestions;
+  late String finalTopicName;
 
   @override
   void initState() {
     super.initState();
-    // Extract data from the map passed by router
-    // Adjusting type casting based on your previous logic
-    try {
-      questions = (widget.data['questions'] as List).cast<Question>();
-      topicName = widget.data['topicName'] as String;
-    } catch (e) {
-      // Fallback in case of parsing error to prevent crash
-      questions = [];
-      topicName = "Unknown Topic";
-      debugPrint("Error parsing TestSuccessScreen data: $e");
+    _initializeData();
+  }
+
+  void _initializeData() {
+    // Logic: Check direct params first, then check data map
+    if (widget.questions != null) {
+      // Case 1: Called from test_generator_screen
+      finalQuestions = widget.questions!;
+      finalTopicName = widget.topicName ?? "Unknown Topic";
+    } else if (widget.data != null) {
+      // Case 2: Called from app_router
+      try {
+        finalQuestions = (widget.data!['questions'] as List).cast<Question>();
+        finalTopicName = widget.data!['topicName'] as String;
+      } catch (e) {
+        debugPrint("Error parsing data map: $e");
+        finalQuestions = [];
+        finalTopicName = "Error Loading Topic";
+      }
+    } else {
+      // Fallback
+      finalQuestions = [];
+      finalTopicName = "No Data";
     }
   }
 
@@ -132,7 +151,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         "Topic Name"
       ]);
 
-      for (var q in questions) {
+      for (var q in finalQuestions) {
         String correctAnswerText = "";
         if (q.options.isNotEmpty && q.correctAnswerIndex >= 0 && q.correctAnswerIndex < q.options.length) {
            correctAnswerText = q.options[q.correctAnswerIndex];
@@ -146,7 +165,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           q.options.length > 3 ? q.options[3] : "",
           correctAnswerText, 
           q.explanation, 
-          topicName
+          finalTopicName
         ]);
       }
 
@@ -172,16 +191,16 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       StringBuffer buffer = StringBuffer();
       buffer.writeln("<html><body>");
       buffer.writeln("<h1>ExamBeing Test Series</h1>");
-      buffer.writeln("<h2>Topic: $topicName</h2>"); 
-      buffer.writeln("<p>Total Questions: ${questions.length}</p><hr>");
+      buffer.writeln("<h2>Topic: $finalTopicName</h2>"); 
+      buffer.writeln("<p>Total Questions: ${finalQuestions.length}</p><hr>");
 
       if (withAnswers) {
         buffer.writeln("<h3>ANSWER KEY & EXPLANATION</h3>");
         buffer.writeln("<table border='1' cellpadding='5' cellspacing='0' width='100%'>");
         buffer.writeln("<tr style='background-color:#f2f2f2'><th>Q</th><th>Correct Answer</th><th>Explanation</th></tr>");
         
-        for (int i = 0; i < questions.length; i++) {
-          final q = questions[i];
+        for (int i = 0; i < finalQuestions.length; i++) {
+          final q = finalQuestions[i];
           String optionLabel = String.fromCharCode(65 + q.correctAnswerIndex); 
           String answerText = "";
           
@@ -197,8 +216,8 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         }
         buffer.writeln("</table>");
       } else {
-        for (int i = 0; i < questions.length; i++) {
-          final q = questions[i];
+        for (int i = 0; i < finalQuestions.length; i++) {
+          final q = finalQuestions[i];
           buffer.writeln("<div style='margin-bottom: 20px;'>");
           buffer.writeln("<p><b>Q${i + 1}. ${q.questionText}</b></p>");
           buffer.writeln("<ul style='list-style-type: none; padding-left: 0;'>"); 
@@ -251,7 +270,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                "Topic: $topicName\nQuestions: ${questions.length}",
+                "Topic: $finalTopicName\nQuestions: ${finalQuestions.length}",
                 style: const TextStyle(fontSize: 16, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
@@ -270,8 +289,8 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                   ),
                   onPressed: () {
                     context.push('/practice-mcq', extra: {
-                      'questions': questions, 
-                      'topicName': topicName, 
+                      'questions': finalQuestions, 
+                      'topicName': finalTopicName, 
                       'mode': 'test'
                     });
                   },
