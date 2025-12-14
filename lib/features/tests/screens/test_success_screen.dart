@@ -7,16 +7,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:csv/csv.dart'; 
-import 'package:exambeing/models/question_model.dart'; // Ensure this path is correct
+import 'package:exambeing/models/question_model.dart'; 
 
 class TestSuccessScreen extends StatefulWidget {
-  final List<Question> questions;
-  final String topicName;
+  // Router sends a Map called 'data', so we accept it here
+  final Map<String, dynamic> data;
 
   const TestSuccessScreen({
     super.key, 
-    required this.questions, 
-    required this.topicName
+    required this.data, 
   });
 
   @override
@@ -24,10 +23,28 @@ class TestSuccessScreen extends StatefulWidget {
 }
 
 class _TestSuccessScreenState extends State<TestSuccessScreen> {
+  // Variables to hold extracted data
+  late List<Question> questions;
+  late String topicName;
+
+  @override
+  void initState() {
+    super.initState();
+    // Extract data from the map passed by router
+    // Adjusting type casting based on your previous logic
+    try {
+      questions = (widget.data['questions'] as List).cast<Question>();
+      topicName = widget.data['topicName'] as String;
+    } catch (e) {
+      // Fallback in case of parsing error to prevent crash
+      questions = [];
+      topicName = "Unknown Topic";
+      debugPrint("Error parsing TestSuccessScreen data: $e");
+    }
+  }
 
   @override
   void deactivate() {
-    // Screen change hone par purane snackbars hata denge
     ScaffoldMessenger.of(context).clearSnackBars(); 
     super.deactivate();
   }
@@ -36,7 +53,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   Future<void> _checkPremiumAndDownload(BuildContext context, {bool withAnswers = false, bool isCsv = false}) async {
     final user = FirebaseAuth.instance.currentUser;
     
-    // Agar user login nahi hai to return
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please login first!"))
@@ -44,7 +60,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       return;
     }
 
-    // 1. Show loading dialog
     showDialog(
       context: context, 
       barrierDismissible: false, 
@@ -52,38 +67,31 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     );
 
     try {
-      // 2. Fetch User Data
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       
-      // Check if widget is still on screen before popping
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
+      Navigator.pop(context); 
 
       final data = userDoc.data();
-      // Check premium status (assuming 'yes' means active)
       final String paidStatus = data != null && data.containsKey('paid_for_gold') ? data['paid_for_gold'] : 'no';
 
       if (paidStatus == 'yes') {
-        // ✅ PREMIUM USER: Proceed to download
         if (isCsv) {
           await _generateAndShareCsv(context);
         } else {
           await _generateAndShareDocx(context, withAnswers);
         }
       } else {
-        // ❌ FREE USER: Show Upgrade Message
         _showPremiumSnackBar(context);
       }
     } catch (e) {
       if (mounted) {
-        // Close dialog if still open due to error (safety check)
         if (Navigator.canPop(context)) Navigator.pop(context); 
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
   }
 
-  // Helper function to show Premium message
   void _showPremiumSnackBar(BuildContext context) {
     ScaffoldMessenger.of(context).clearSnackBars(); 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -113,7 +121,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     try {
       List<List<dynamic>> rows = [];
 
-      // Add Header Row
       rows.add([
         "Question",
         "Option A",
@@ -125,10 +132,8 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         "Topic Name"
       ]);
 
-      // Add Data Rows
-      for (var q in widget.questions) {
+      for (var q in questions) {
         String correctAnswerText = "";
-        // Safe check for index bounds
         if (q.options.isNotEmpty && q.correctAnswerIndex >= 0 && q.correctAnswerIndex < q.options.length) {
            correctAnswerText = q.options[q.correctAnswerIndex];
         }
@@ -141,14 +146,13 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           q.options.length > 3 ? q.options[3] : "",
           correctAnswerText, 
           q.explanation, 
-          widget.topicName
+          topicName
         ]);
       }
 
       String csvData = const ListToCsvConverter().convert(rows);
 
       final directory = await getTemporaryDirectory();
-      // Unique filename using timestamp
       final String fileName = "ExamBeing_Data_${DateTime.now().millisecondsSinceEpoch}.csv";
       final File file = File('${directory.path}/$fileName');
       await file.writeAsString(csvData);
@@ -168,18 +172,17 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       StringBuffer buffer = StringBuffer();
       buffer.writeln("<html><body>");
       buffer.writeln("<h1>ExamBeing Test Series</h1>");
-      buffer.writeln("<h2>Topic: ${widget.topicName}</h2>"); 
-      buffer.writeln("<p>Total Questions: ${widget.questions.length}</p><hr>");
+      buffer.writeln("<h2>Topic: $topicName</h2>"); 
+      buffer.writeln("<p>Total Questions: ${questions.length}</p><hr>");
 
       if (withAnswers) {
-        // --- ANSWER KEY VIEW ---
         buffer.writeln("<h3>ANSWER KEY & EXPLANATION</h3>");
         buffer.writeln("<table border='1' cellpadding='5' cellspacing='0' width='100%'>");
         buffer.writeln("<tr style='background-color:#f2f2f2'><th>Q</th><th>Correct Answer</th><th>Explanation</th></tr>");
         
-        for (int i = 0; i < widget.questions.length; i++) {
-          final q = widget.questions[i];
-          String optionLabel = String.fromCharCode(65 + q.correctAnswerIndex); // A, B, C, D
+        for (int i = 0; i < questions.length; i++) {
+          final q = questions[i];
+          String optionLabel = String.fromCharCode(65 + q.correctAnswerIndex); 
           String answerText = "";
           
           if (q.options.isNotEmpty && q.correctAnswerIndex < q.options.length) {
@@ -194,12 +197,11 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         }
         buffer.writeln("</table>");
       } else {
-        // --- QUESTION PAPER VIEW ---
-        for (int i = 0; i < widget.questions.length; i++) {
-          final q = widget.questions[i];
+        for (int i = 0; i < questions.length; i++) {
+          final q = questions[i];
           buffer.writeln("<div style='margin-bottom: 20px;'>");
           buffer.writeln("<p><b>Q${i + 1}. ${q.questionText}</b></p>");
-          buffer.writeln("<ul style='list-style-type: none; padding-left: 0;'>"); // No bullets, simpler format
+          buffer.writeln("<ul style='list-style-type: none; padding-left: 0;'>"); 
           if(q.options.isNotEmpty) buffer.writeln("<li>(A) ${q.options[0]}</li>");
           if(q.options.length > 1) buffer.writeln("<li>(B) ${q.options[1]}</li>");
           if(q.options.length > 2) buffer.writeln("<li>(C) ${q.options[2]}</li>");
@@ -210,7 +212,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       buffer.writeln("</body></html>");
 
       final directory = await getTemporaryDirectory();
-      // Unique filename
       final String suffix = withAnswers ? "AnswerKey" : "QuestionPaper";
       final String fileName = "ExamBeing_${suffix}_${DateTime.now().millisecondsSinceEpoch}.doc";
       
@@ -233,11 +234,8 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       appBar: AppBar(
         title: const Text("Success"), 
         elevation: 0,
-        // Optional: Disable back button logic if you want strict flow
-        // automaticallyImplyLeading: false, 
       ),
       body: Center(
-        // ✅ Fix: ScrollView added to prevent overflow on small screens
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
@@ -253,7 +251,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                "Topic: ${widget.topicName}\nQuestions: ${widget.questions.length}",
+                "Topic: $topicName\nQuestions: ${questions.length}",
                 style: const TextStyle(fontSize: 16, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
@@ -271,10 +269,9 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                     elevation: 5,
                   ),
                   onPressed: () {
-                    // Navigate to Practice/Test Mode
                     context.push('/practice-mcq', extra: {
-                      'questions': widget.questions, 
-                      'topicName': widget.topicName, 
+                      'questions': questions, 
+                      'topicName': topicName, 
                       'mode': 'test'
                     });
                   },
@@ -287,7 +284,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               const Divider(thickness: 1.5),
               const SizedBox(height: 15),
               
-              // Premium Section Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: const [
@@ -300,7 +296,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               ),
               const SizedBox(height: 15),
 
-              // BUTTONS: Premium DOCX Row
               Row(
                 children: [
                   Expanded(
@@ -333,7 +328,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               
               const SizedBox(height: 15),
 
-              // BUTTON: CSV Download Row
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
