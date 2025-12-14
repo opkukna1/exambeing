@@ -17,7 +17,7 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   // 🔒 ADMIN ID HARDCODED
-  final String adminEmail = "opisiddh42@gmail.com"; 
+  final String adminEmail = "opsiddh42@gmail.com"; 
   bool isAdmin = false;
 
   @override
