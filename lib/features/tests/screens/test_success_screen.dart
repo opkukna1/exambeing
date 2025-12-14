@@ -6,8 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:csv/csv.dart'; // Import csv package
-import 'package:exambeing/models/question_model.dart';
+import 'package:csv/csv.dart'; 
+import 'package:exambeing/models/question_model.dart'; // Ensure this path is correct
 
 class TestSuccessScreen extends StatefulWidget {
   final List<Question> questions;
@@ -27,6 +27,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
   @override
   void deactivate() {
+    // Screen change hone par purane snackbars hata denge
     ScaffoldMessenger.of(context).clearSnackBars(); 
     super.deactivate();
   }
@@ -34,9 +35,16 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   // 🔒 1. CHECK PREMIUM & DOWNLOAD
   Future<void> _checkPremiumAndDownload(BuildContext context, {bool withAnswers = false, bool isCsv = false}) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    
+    // Agar user login nahi hai to return
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please login first!"))
+      );
+      return;
+    }
 
-    // Show loading dialog
+    // 1. Show loading dialog
     showDialog(
       context: context, 
       barrierDismissible: false, 
@@ -44,61 +52,68 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     );
 
     try {
+      // 2. Fetch User Data
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       
+      // Check if widget is still on screen before popping
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
 
       final data = userDoc.data();
+      // Check premium status (assuming 'yes' means active)
       final String paidStatus = data != null && data.containsKey('paid_for_gold') ? data['paid_for_gold'] : 'no';
 
       if (paidStatus == 'yes') {
+        // ✅ PREMIUM USER: Proceed to download
         if (isCsv) {
-          await _generateAndShareCsv(context); // Await here to ensure async completion
+          await _generateAndShareCsv(context);
         } else {
-          await _generateAndShareDocx(context, withAnswers); // Await here
+          await _generateAndShareDocx(context, withAnswers);
         }
       } else {
-        ScaffoldMessenger.of(context).clearSnackBars(); 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              "Premium feature available for only educators and coaching institutes.\nFor buy contact our team: 8005576670",
-              style: TextStyle(color: Colors.white, fontSize: 14),
-            ),
-            backgroundColor: Colors.black87,
-            duration: const Duration(seconds: 4), 
-            action: SnackBarAction(
-              label: 'COPY NUMBER',
-              textColor: Colors.amber,
-              onPressed: () {
-                Clipboard.setData(const ClipboardData(text: "8005576670"));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Number copied to clipboard!"))
-                );
-              },
-            ),
-          ),
-        );
+        // ❌ FREE USER: Show Upgrade Message
+        _showPremiumSnackBar(context);
       }
     } catch (e) {
       if (mounted) {
-        // Ensure dialog is closed if error occurs while loading is visible
-        // We can check if the route is the dialog, but simplest is to rely on the pop above or user interaction
-        // If pop wasn't called because of error before it:
-        // Navigator.of(context).pop(); // Optional safety if error happens before data fetch logic completes
-        
+        // Close dialog if still open due to error (safety check)
+        if (Navigator.canPop(context)) Navigator.pop(context); 
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
   }
 
-  // 📄 2. GENERATE CSV Function (Updated with Explanation)
+  // Helper function to show Premium message
+  void _showPremiumSnackBar(BuildContext context) {
+    ScaffoldMessenger.of(context).clearSnackBars(); 
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          "Premium feature available for educators only.\nTo buy, contact: 8005576670",
+          style: TextStyle(color: Colors.white, fontSize: 14),
+        ),
+        backgroundColor: Colors.black87,
+        duration: const Duration(seconds: 5), 
+        action: SnackBarAction(
+          label: 'COPY NUMBER',
+          textColor: Colors.amber,
+          onPressed: () {
+            Clipboard.setData(const ClipboardData(text: "8005576670"));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Number copied to clipboard!"))
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // 📄 2. GENERATE CSV Function
   Future<void> _generateAndShareCsv(BuildContext context) async {
     try {
       List<List<dynamic>> rows = [];
 
-      // Add Header Row - Updated 'Solution' to 'Explanation'
+      // Add Header Row
       rows.add([
         "Question",
         "Option A",
@@ -106,15 +121,15 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         "Option C",
         "Option D",
         "Correct Answer",
-        "Explanation", // ✅ Changed from Solution to Explanation
+        "Explanation",
         "Topic Name"
       ]);
 
       // Add Data Rows
       for (var q in widget.questions) {
-        // Logic to get correct answer text based on index
         String correctAnswerText = "";
-        if (q.options.length > q.correctAnswerIndex && q.correctAnswerIndex >= 0) {
+        // Safe check for index bounds
+        if (q.options.isNotEmpty && q.correctAnswerIndex >= 0 && q.correctAnswerIndex < q.options.length) {
            correctAnswerText = q.options[q.correctAnswerIndex];
         }
 
@@ -125,7 +140,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           q.options.length > 2 ? q.options[2] : "",
           q.options.length > 3 ? q.options[3] : "",
           correctAnswerText, 
-          q.explanation, // ✅ Using 'explanation' from the model
+          q.explanation, 
           widget.topicName
         ]);
       }
@@ -133,15 +148,12 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       String csvData = const ListToCsvConverter().convert(rows);
 
       final directory = await getTemporaryDirectory();
-      // Added timestamp to filename to ensure uniqueness
-      final String fileName = "ExamBeing_Test_${DateTime.now().millisecondsSinceEpoch}.csv";
+      // Unique filename using timestamp
+      final String fileName = "ExamBeing_Data_${DateTime.now().millisecondsSinceEpoch}.csv";
       final File file = File('${directory.path}/$fileName');
       await file.writeAsString(csvData);
 
-      // ✅ Using ShareResult to ensure we wait effectively (though UI stays same)
       await Share.shareXFiles([XFile(file.path)], text: 'Here is your generated Test CSV');
-      
-      // ⚠️ Note: We do NOT pop the context here. The user stays on this screen.
 
     } catch (e) {
       if (mounted) {
@@ -150,7 +162,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     }
   }
 
-  // 📄 3. GENERATE DOCX (Existing function)
+  // 📄 3. GENERATE DOCX Function
   Future<void> _generateAndShareDocx(BuildContext context, bool withAnswers) async {
     try {
       StringBuffer buffer = StringBuffer();
@@ -160,41 +172,52 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       buffer.writeln("<p>Total Questions: ${widget.questions.length}</p><hr>");
 
       if (withAnswers) {
-        buffer.writeln("<h3>ANSWER KEY</h3>");
-        buffer.writeln("<table border='1' cellpadding='5'><tr><th>Q No.</th><th>Answer</th></tr>");
+        // --- ANSWER KEY VIEW ---
+        buffer.writeln("<h3>ANSWER KEY & EXPLANATION</h3>");
+        buffer.writeln("<table border='1' cellpadding='5' cellspacing='0' width='100%'>");
+        buffer.writeln("<tr style='background-color:#f2f2f2'><th>Q</th><th>Correct Answer</th><th>Explanation</th></tr>");
         
         for (int i = 0; i < widget.questions.length; i++) {
           final q = widget.questions[i];
-          String optionLabel = String.fromCharCode(65 + q.correctAnswerIndex); 
+          String optionLabel = String.fromCharCode(65 + q.correctAnswerIndex); // A, B, C, D
           String answerText = "";
           
-          if (q.options.length > q.correctAnswerIndex) {
+          if (q.options.isNotEmpty && q.correctAnswerIndex < q.options.length) {
             answerText = q.options[q.correctAnswerIndex];
           }
 
-          buffer.writeln("<tr><td>${i + 1}</td><td><b>($optionLabel) $answerText</b></td></tr>");
+          buffer.writeln("<tr>");
+          buffer.writeln("<td align='center'>${i + 1}</td>");
+          buffer.writeln("<td><b>($optionLabel) $answerText</b></td>");
+          buffer.writeln("<td>${q.explanation.isNotEmpty ? q.explanation : 'No explanation'}</td>");
+          buffer.writeln("</tr>");
         }
         buffer.writeln("</table>");
       } else {
+        // --- QUESTION PAPER VIEW ---
         for (int i = 0; i < widget.questions.length; i++) {
           final q = widget.questions[i];
+          buffer.writeln("<div style='margin-bottom: 20px;'>");
           buffer.writeln("<p><b>Q${i + 1}. ${q.questionText}</b></p>");
-          buffer.writeln("<ul>");
+          buffer.writeln("<ul style='list-style-type: none; padding-left: 0;'>"); // No bullets, simpler format
           if(q.options.isNotEmpty) buffer.writeln("<li>(A) ${q.options[0]}</li>");
           if(q.options.length > 1) buffer.writeln("<li>(B) ${q.options[1]}</li>");
           if(q.options.length > 2) buffer.writeln("<li>(C) ${q.options[2]}</li>");
           if(q.options.length > 3) buffer.writeln("<li>(D) ${q.options[3]}</li>");
-          buffer.writeln("</ul><br>");
+          buffer.writeln("</ul></div>");
         }
       }
       buffer.writeln("</body></html>");
 
       final directory = await getTemporaryDirectory();
-      final String fileName = withAnswers ? "AnswerKey.doc" : "QuestionPaper.doc";
+      // Unique filename
+      final String suffix = withAnswers ? "AnswerKey" : "QuestionPaper";
+      final String fileName = "ExamBeing_${suffix}_${DateTime.now().millisecondsSinceEpoch}.doc";
+      
       final File file = File('${directory.path}/$fileName');
       await file.writeAsString(buffer.toString());
 
-      await Share.shareXFiles([XFile(file.path)], text: 'Here is your generated ${withAnswers ? "Answer Key" : "Question Paper"}');
+      await Share.shareXFiles([XFile(file.path)], text: 'Here is your generated $suffix');
 
     } catch (e) {
       if (mounted) {
@@ -207,76 +230,127 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text("Success"), elevation: 0),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 80),
-            const SizedBox(height: 24),
-            const Text("Test Generated Successfully!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-            const SizedBox(height: 40),
-
-            // BUTTON 1: Attempt
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                onPressed: () {
-                  context.push('/practice-mcq', extra: {'questions': widget.questions, 'topicName': widget.topicName, 'mode': 'test'});
-                },
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text("ATTEMPT TEST NOW", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      appBar: AppBar(
+        title: const Text("Success"), 
+        elevation: 0,
+        // Optional: Disable back button logic if you want strict flow
+        // automaticallyImplyLeading: false, 
+      ),
+      body: Center(
+        // ✅ Fix: ScrollView added to prevent overflow on small screens
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(Icons.check_circle, color: Colors.green, size: 80),
+              const SizedBox(height: 24),
+              const Text(
+                "Test Generated Successfully!", 
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold), 
+                textAlign: TextAlign.center
               ),
-            ),
-            
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 10),
-            const Text("Premium Downloads 👑", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const SizedBox(height: 10),
-
-            // BUTTONS: Premium DOCX Row
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
-                    onPressed: () => _checkPremiumAndDownload(context, withAnswers: false),
-                    icon: const Icon(Icons.description, color: Colors.blue),
-                    label: const Text("Paper (DOCX)"),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
-                    onPressed: () => _checkPremiumAndDownload(context, withAnswers: true),
-                    icon: const Icon(Icons.key, color: Colors.green),
-                    label: const Text("Key (DOCX)"),
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 10),
-
-            // BUTTON: CSV Download Row
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  side: const BorderSide(color: Colors.teal), // Different color for CSV
-                ),
-                onPressed: () => _checkPremiumAndDownload(context, isCsv: true), // Trigger CSV download
-                icon: const Icon(Icons.table_view, color: Colors.teal),
-                label: const Text("Export Data (CSV)", style: TextStyle(color: Colors.teal)),
+              const SizedBox(height: 10),
+              Text(
+                "Topic: ${widget.topicName}\nQuestions: ${widget.questions.length}",
+                style: const TextStyle(fontSize: 16, color: Colors.grey),
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
+              const SizedBox(height: 40),
+
+              // BUTTON 1: Attempt
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple, 
+                    foregroundColor: Colors.white, 
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    elevation: 5,
+                  ),
+                  onPressed: () {
+                    // Navigate to Practice/Test Mode
+                    context.push('/practice-mcq', extra: {
+                      'questions': widget.questions, 
+                      'topicName': widget.topicName, 
+                      'mode': 'test'
+                    });
+                  },
+                  icon: const Icon(Icons.play_arrow_rounded, size: 28),
+                  label: const Text("ATTEMPT TEST NOW", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              
+              const SizedBox(height: 30),
+              const Divider(thickness: 1.5),
+              const SizedBox(height: 15),
+              
+              // Premium Section Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.star, color: Colors.amber),
+                  SizedBox(width: 8),
+                  Text("Educator Tools (Premium)", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  SizedBox(width: 8),
+                  Icon(Icons.star, color: Colors.amber),
+                ],
+              ),
+              const SizedBox(height: 15),
+
+              // BUTTONS: Premium DOCX Row
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: const BorderSide(color: Colors.blueAccent)
+                      ),
+                      onPressed: () => _checkPremiumAndDownload(context, withAnswers: false),
+                      icon: const Icon(Icons.print, color: Colors.blue),
+                      label: const Text("Paper (Print)"),
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: const BorderSide(color: Colors.green)
+                      ),
+                      onPressed: () => _checkPremiumAndDownload(context, withAnswers: true),
+                      icon: const Icon(Icons.vpn_key, color: Colors.green),
+                      label: const Text("Answer Key"),
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 15),
+
+              // BUTTON: CSV Download Row
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    side: const BorderSide(color: Colors.teal),
+                  ),
+                  onPressed: () => _checkPremiumAndDownload(context, isCsv: true),
+                  icon: const Icon(Icons.table_chart, color: Colors.teal),
+                  label: const Text("Export as CSV (Excel)", style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
