@@ -20,7 +20,7 @@ import 'package:exambeing/features/practice/screens/solutions_screen.dart';
 import 'package:exambeing/features/notes/screens/my_notes_screen.dart';
 import 'package:exambeing/features/notes/screens/add_edit_note_screen.dart';
 
-// 🔥 NEW NOTES IMPORTS (Added)
+// 🔥 NOTES IMPORTS
 import 'package:exambeing/features/notes/screens/notes_selection_screen.dart';
 import 'package:exambeing/features/notes/screens/notes_online_view_screen.dart';
 import 'package:exambeing/features/admin/screens/admin_smart_upload.dart'; 
@@ -47,7 +47,6 @@ import 'package:exambeing/features/tests/subject_list_screen.dart';
 // ⬆️=================================⬆️
 
 import 'package:exambeing/models/bookmarked_note_model.dart';
-// Removed: notes_topics_screen, topic_notes_screen imports (Deleted Files)
 
 /// 🚨 Safe Error Screen
 class _ErrorRouteScreen extends StatelessWidget {
@@ -108,16 +107,10 @@ final GoRouter router = GoRouter(
         GoRoute(path: '/bookmarks_home', builder: (context, state) => const BookmarksHomeScreen()),
         GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
         
-        // Other Tab Routes
+        // Other Tab Routes (Jo tabs me dikhne chahiye)
         GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
         
-        // ✅ UPDATED: /public-notes ab nayi Selection Screen kholta hai
-        GoRoute(
-          path: '/public-notes', 
-          builder: (context, state) => const NotesSelectionScreen()
-        ), 
-        
-        // ❌ REMOVED: /schedules (File deleted)
+        // ❌ YAHAN SE HATA DIYA HAI: public-notes (ab full screen hai)
         
         GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
         GoRoute(path: '/pomodoro', builder: (context, state) => const PomodoroScreen()),
@@ -127,17 +120,24 @@ final GoRouter router = GoRouter(
     ),
     
     // =================================================================
-    // 🛑 FULL SCREEN ROUTES (Yahan Tabs nahi dikhenge)
+    // 🛑 FULL SCREEN ROUTES (Yahan Tabs NAHI dikhenge)
     // =================================================================
 
-    // ✅ NEW: Admin Smart Upload Screen
+    // ✅ FIXED: Moved here so it covers bottom bar & handles Back button correctly
+    GoRoute(
+      path: '/public-notes', 
+      parentNavigatorKey: _rootNavigatorKey, // Important for Full Screen
+      builder: (context, state) => const NotesSelectionScreen()
+    ), 
+
+    // ✅ Admin Smart Upload Screen
     GoRoute(
       path: '/admin-smart-upload',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const AdminSmartUploadScreen(),
     ),
 
-    // ✅ NEW: Online Notes View Screen
+    // ✅ Online Notes View Screen
     GoRoute(
       path: '/notes-online-view',
       parentNavigatorKey: _rootNavigatorKey,
@@ -295,7 +295,6 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-    // ❌ REMOVED: /notes_topics, /topic_notes (Files deleted)
     
     GoRoute(
       path: '/bookmark-question-detail',
