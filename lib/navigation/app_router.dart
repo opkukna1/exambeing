@@ -42,7 +42,7 @@ import 'package:exambeing/features/tools/screens/timetable_screen.dart';
 import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
 
 // ⬇️===== TEST & SERIES IMPORTS =====⬇️
-import 'package:exambeing/features/tests/daily_test_screen.dart';
+import 'package:exambeing/features/tests/daily_test_screen.dart'; // Import for TestQuestion
 import 'package:exambeing/features/tests/result_screen.dart';
 import 'package:exambeing/features/tests/solution_screen.dart';
 import 'package:exambeing/features/tests/test_list_screen.dart';
@@ -218,18 +218,23 @@ final GoRouter router = GoRouter(
       },
     ),
 
-    // ✅ NEW ADDED: Result Screen Route (Fixed Error)
+    // ✅ FIXED: Result Screen Route (Updated for Modern UI)
     GoRoute(
       path: '/result-screen',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final data = state.extra as Map<String, dynamic>? ?? {};
+
+        // Modern ResultScreen ko ab alag parameters chahiye
         return ResultScreen(
-          score: data['score'] ?? 0,
-          totalQuestions: data['totalQuestions'] ?? 0,
-          correctAnswers: data['correctAnswers'] ?? 0,
-          wrongAnswers: data['wrongAnswers'] ?? 0,
-          notAttempted: data['notAttempted'] ?? 0,
+          score: (data['score'] ?? 0).toDouble(), // Double me convert kiya
+          correct: data['correct'] ?? data['correctAnswers'] ?? 0, 
+          wrong: data['wrong'] ?? data['wrongAnswers'] ?? 0,
+          unattempted: data['unattempted'] ?? data['notAttempted'] ?? 0,
+          topicName: data['topicName'] ?? "Test Result",
+          // Questions aur Answers pass kar rahe hain solutions ke liye
+          questions: (data['questions'] as List<dynamic>?)?.map((e) => e as TestQuestion).toList() ?? [],
+          userAnswers: (data['userAnswers'] as Map<dynamic, dynamic>?)?.cast<String, int>() ?? {},
         );
       },
     ),
