@@ -4,10 +4,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+// ✅ 1. FCM IMPORT
 import 'package:firebase_messaging/firebase_messaging.dart';
 
-// Imports
+// ✅ 2. AdManager Import
 import 'package:exambeing/services/ad_manager.dart';
+
+// ✅ 3. Test Generator Import
+import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,18 +27,19 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _activateLuckyTrial();
-    AdManager.loadInterstitialAd();
-    _saveDeviceToken();
+    AdManager.loadInterstitialAd(); // Ad Pre-load
+    _saveDeviceToken(); // Token Save
   }
 
-  // --- TOKEN SAVE & LUCKY TRIAL LOGIC (Same as before) ---
+  // --- TOKEN SAVE FUNCTION (Logic Safe) ---
   Future<void> _saveDeviceToken() async {
-    // ... (Purana code same rakhein)
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
       FirebaseMessaging messaging = FirebaseMessaging.instance;
-      NotificationSettings settings = await messaging.requestPermission(alert: true, badge: true, sound: true);
+      NotificationSettings settings = await messaging.requestPermission(
+        alert: true, badge: true, sound: true,
+      );
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         String? token = await messaging.getToken();
         if (token != null) {
@@ -44,11 +50,13 @@ class _HomeScreenState extends State<HomeScreen> {
           }, SetOptions(merge: true));
         }
       }
-    } catch (e) { debugPrint("Error: $e"); }
+    } catch (e) {
+      debugPrint("❌ Error saving token: $e");
+    }
   }
 
+  // --- 🎉 LUCKY TRIAL LOGIC (Logic Safe) ---
   Future<void> _activateLuckyTrial() async {
-    // ... (Purana code same rakhein)
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     final prefs = await SharedPreferences.getInstance();
@@ -67,16 +75,38 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showLuckyDialog() {
-    // ... (Dialog code same rakhein)
-     showDialog(
+    showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: Colors.white,
-        title: const Column(children: [Icon(Icons.celebration, size: 60, color: Colors.orange), SizedBox(height: 10), Text("🎉 Congratulations!", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold))]),
-        content: const Text("You got 3 Months Premium!", textAlign: TextAlign.center),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Claim"))],
+        title: Column(
+          children: [
+            const Icon(Icons.celebration, size: 60, color: Colors.orange),
+            const SizedBox(height: 10),
+            Text("🎉 Congratulations!", style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold, fontSize: 24)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Text("You are our Lucky User #1000! 🏆", textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(height: 16),
+            Text("3 MONTHS FREE PREMIUM", textAlign: TextAlign.center, style: TextStyle(fontSize: 20, color: Colors.blue, fontWeight: FontWeight.w900)),
+            SizedBox(height: 8),
+            Text("Access all Test Series and Notes for free for 90 days.", textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+          ],
+        ),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12)),
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Claim Offer Now", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -84,48 +114,54 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
       children: [
         _buildWelcomeCard(context),
-        const SizedBox(height: 24),
+        const SizedBox(height: 25),
         
-        // 1. Daily Test
+        // 📅 1. Daily Test (Updated Design)
         _buildDailyTestCard(context),
         
-        const SizedBox(height: 16),
-
-        // 🔥 2. CUSTOM TEST BUTTON (Updated Modern UI)
-        _buildModernCustomTestCard(context),
+        const SizedBox(height: 20),
         
-        const SizedBox(height: 16),
+        // ✨ 2. Custom Test & Notes Row
+        Row(
+          children: [
+            Expanded(child: _buildModernCustomTestCard()),
+            const SizedBox(width: 15),
+            Expanded(child: _buildModernNotesCard()),
+          ],
+        ),
 
-        // 🔥 3. SMART NOTES BUTTON (Orange)
-        _buildModernNotesCard(context),
+        const SizedBox(height: 30),
 
-        const SizedBox(height: 24),
-
-        // 4. Test Series
+        // 📚 3. Test Series Section
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("Popular Series 🏆", style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            const Icon(Icons.arrow_forward, color: Colors.grey),
+          ],
+        ),
+        const SizedBox(height: 15),
         _buildTestSeriesSection(context),
       ],
     );
   }
 
-  // 🔵 NEW: MODERN CUSTOM TEST CARD (Indigo Gradient)
-  Widget _buildModernCustomTestCard(BuildContext context) {
+  // 🔥 NEW: Modern Custom Test Card (Full Screen Nav)
+  Widget _buildModernCustomTestCard() {
     return Container(
+      height: 160,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
-          colors: [Color(0xFF6a11cb), Color(0xFF2575fc)], // Indigo-Blue Gradient
+          colors: [Color(0xFF6A11CB), Color(0xFF2575FC)], // Purple-Blue
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2575fc).withOpacity(0.4),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
+          BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5)),
         ],
       ),
       child: Material(
@@ -133,61 +169,30 @@ class _HomeScreenState extends State<HomeScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-            // ✅ Full Screen Navigation Path
-            context.push('/test-generator'); 
+            // ✅ FULL SCREEN NAVIGATION
+            Navigator.push(
+              context, 
+              MaterialPageRoute(builder: (context) => const TestGeneratorScreen())
+            );
           },
           child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Row(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          "SELF CHALLENGE 🎯",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        "Create Custom\nTest & Quiz",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: const [
-                          Text("Start Now", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-                          SizedBox(width: 5),
-                          Icon(Icons.arrow_forward, color: Colors.white, size: 16),
-                        ],
-                      )
-                    ],
-                  ),
-                ),
                 Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.auto_awesome, color: Colors.white, size: 35),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+                  child: const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text("Custom\nTest", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, height: 1.2)),
+                    SizedBox(height: 5),
+                    Text("Create Now", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  ],
                 ),
               ],
             ),
@@ -197,49 +202,44 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 🟠 MODERN NOTES CARD (Orange Gradient - Same as before)
-  Widget _buildModernNotesCard(BuildContext context) {
+  // 📝 NEW: Modern Notes Card (Full Screen Nav)
+  Widget _buildModernNotesCard() {
     return Container(
+      height: 160,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFff9966), Color(0xFFff5e62)], // Orange Gradient
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
+        border: Border.all(color: Colors.orange.shade100, width: 1.5),
         boxShadow: [
-          BoxShadow(color: const Color(0xFFff5e62).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 5)),
+          BoxShadow(color: Colors.orange.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => context.push('/public-notes'),
+          onTap: () {
+            // ✅ FULL SCREEN NAVIGATION
+            context.push('/public-notes'); 
+          },
           child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Row(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
-                        child: const Text("SMART NOTES 📚", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text("Quick Revision &\nShort Notes", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, height: 1.2)),
-                      const SizedBox(height: 8),
-                      Row(children: const [Text("Read Now", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)), SizedBox(width: 5), Icon(Icons.arrow_forward, color: Colors.white, size: 16)]),
-                    ],
-                  ),
-                ),
                 Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
-                  child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 35),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
+                  child: const Icon(Icons.menu_book_rounded, color: Colors.orange, size: 24),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text("Quick\nNotes", style: TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.bold, height: 1.2)),
+                    SizedBox(height: 5),
+                    Text("Read Topics", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
                 ),
               ],
             ),
@@ -249,21 +249,196 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ... (Baki saare widgets - DailyTestCard, TestSeriesSection, WelcomeCard same raheinge)
-  // Copy-paste them from previous code to keep file complete.
-  
+  // 📅 UPDATED: Daily Test Card
   Widget _buildDailyTestCard(BuildContext context) {
-    // (Purana code rakhein)
-    return Card(child: Padding(padding: EdgeInsets.all(20), child: Text("Daily Test Loading..."))); // Placeholder for brevity
+    final DateTime now = DateTime.now();
+    final String todayDocId = DateFormat('yyyy-MM-dd').format(now);
+    final String dateTitle = DateFormat('dd MMM').format(now);
+
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('DailyTests').doc(todayDocId).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: LinearProgressIndicator());
+        }
+
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(16)),
+            child: Row(
+              children: [
+                Icon(Icons.coffee, color: Colors.grey.shade400, size: 30),
+                const SizedBox(width: 15),
+                const Text("No Test for today yet!", style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          );
+        }
+
+        final data = snapshot.data!.data() as Map<String, dynamic>;
+        final subtitle = data['subtitle'] ?? "Daily Practice Test";
+        final questionIds = List<String>.from(data['questionIds'] ?? []);
+        
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF11998e), Color(0xFF38ef7d)], // Green Gradient
+              begin: Alignment.topLeft, end: Alignment.bottomRight
+            ),
+            boxShadow: [
+              BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(24),
+              onTap: () {
+                AdManager.showInterstitialAd(() {
+                  context.push('/test-screen', extra: {'ids': questionIds});
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.circle, color: Colors.redAccent, size: 8),
+                                const SizedBox(width: 6),
+                                Text("LIVE • $dateTitle", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(subtitle, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 5),
+                          Text("${questionIds.length} Questions", style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      height: 50, width: 50,
+                      decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                      child: const Icon(Icons.play_arrow_rounded, color: Color(0xFF11998e), size: 32),
+                    )
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
+  // 📚 UPDATED: Test Series Grid
   Widget _buildTestSeriesSection(BuildContext context) {
-    // (Purana StreamBuilder code rakhein)
-    return Container(); // Placeholder
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('testSeriesHome').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Text("No series available.");
+
+        final seriesList = snapshot.data!.docs;
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.85,
+          ),
+          itemCount: seriesList.length,
+          itemBuilder: (context, index) {
+            final data = seriesList[index].data() as Map<String, dynamic>;
+            final title = data['title'] ?? "Series";
+            final category = data['category'] ?? "Exam";
+            
+            Color accentColor = index % 2 == 0 ? Colors.purple : Colors.indigo;
+            Color iconBg = index % 2 == 0 ? Colors.purple.shade50 : Colors.indigo.shade50;
+
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                   BoxShadow(color: Colors.grey.shade200, blurRadius: 5, offset: const Offset(0, 3)),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {
+                    if (data['type'] == 'subject') {
+                      context.push('/subject-list', extra: {'seriesId': seriesList[index].id, 'seriesTitle': title});
+                    } else {
+                      context.push('/test-list', extra: {'seriesId': seriesList[index].id, 'subjectId': 'default', 'subjectTitle': title});
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          height: 45, width: 45,
+                          decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
+                          child: Icon(Icons.menu_book, color: accentColor),
+                        ),
+                        const Spacer(),
+                        Text(category.toUpperCase(), style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text("View All", style: TextStyle(color: accentColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 4),
+                            Icon(Icons.arrow_forward_rounded, size: 14, color: accentColor)
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
+  // 👋 Welcome Card
   Widget _buildWelcomeCard(BuildContext context) {
-    // (Purana code rakhein)
-    return Container(padding: EdgeInsets.all(20), child: Text("Welcome!")); // Placeholder
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Hello, Aspirant 👋', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+            const SizedBox(height: 5),
+            const Text('Let\'s Crack It!', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 24)),
+          ],
+        ),
+        CircleAvatar(
+          radius: 25,
+          backgroundColor: Colors.grey[200],
+          child: IconButton(icon: const Icon(Icons.notifications_none, color: Colors.black), onPressed: (){}),
+        )
+      ],
+    );
   }
 }
