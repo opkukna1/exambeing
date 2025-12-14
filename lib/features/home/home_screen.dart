@@ -14,7 +14,7 @@ import 'package:exambeing/services/ad_manager.dart';
 // ✅ 3. Test Generator Import
 import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
 
-// ✅ 4. BADGES IMPORT (Added for Notification Red Dot)
+// ✅ 4. BADGES IMPORT
 import 'package:badges/badges.dart' as badges;
 
 class HomeScreen extends StatefulWidget {
@@ -131,6 +131,18 @@ class _HomeScreenState extends State<HomeScreen> {
     return unread;
   }
 
+  // ✅ FIXED: Dedicated Function to handle clicks
+  void _handleNotificationClick() {
+    // Debug print to check if click is working
+    debugPrint("🔔 Bell Icon Clicked!");
+    
+    // Navigate using Router
+    context.push('/notifications').then((_) {
+      // Refresh UI when coming back to update badge count
+      if(mounted) setState(() {}); 
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -139,12 +151,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildWelcomeCard(context),
         const SizedBox(height: 25),
         
-        // 📅 1. Daily Test (Updated Design with Button)
+        // 📅 1. Daily Test
         _buildDailyTestCard(context),
         
         const SizedBox(height: 20),
         
-        // ✨ 2. Custom Test & Notes Row (Both Attractive)
+        // ✨ 2. Custom Test & Notes Row
         Row(
           children: [
             Expanded(child: _buildModernCustomTestCard()),
@@ -169,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 🔥 CUSTOM TEST CARD (Blue/Purple Gradient)
+  // 🔥 CUSTOM TEST CARD
   Widget _buildModernCustomTestCard() {
     return Container(
       height: 170, 
@@ -221,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 📝 NOTES CARD (Attractive Orange Gradient)
+  // 📝 NOTES CARD
   Widget _buildModernNotesCard() {
     return Container(
       height: 170,
@@ -318,7 +330,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Badge
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
@@ -331,17 +342,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                
                 const SizedBox(height: 15),
-                
-                // Title
                 Text(subtitle, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 5),
                 Text("${questionIds.length} Important Questions", style: const TextStyle(color: Colors.white70, fontSize: 15)),
-                
                 const SizedBox(height: 20),
-
-                // ✅ "Start Today's Test" Button
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -446,7 +451,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 👋 Welcome Card (Updated with Notification Badge)
+  // 👋 Welcome Card (FIXED: CLICKABLE BELL ICON)
   Widget _buildWelcomeCard(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -460,19 +465,24 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         
-        // 🔔 BADGE ICON IMPLEMENTATION
+        // 🔔 BADGE ICON IMPLEMENTATION (UPDATED)
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection('notifications').snapshots(),
           builder: (context, snapshot) {
-            // Unread count calculate karein
-            if (!snapshot.hasData) {
+            
+            // ✅ Case 1: Agar Data load ho raha hai ya Empty hai tab bhi BUTTON CLICKABLE hona chahiye
+            if (!snapshot.hasData || snapshot.hasError) {
               return CircleAvatar(
                 radius: 25,
                 backgroundColor: Colors.grey[200],
-                child: const Icon(Icons.notifications_none, color: Colors.black),
+                child: IconButton(
+                  icon: const Icon(Icons.notifications_none, color: Colors.black),
+                  onPressed: _handleNotificationClick, // CLICK ENABLED
+                ),
               );
             }
 
+            // ✅ Case 2: Data hai -> Count nikalo aur Badge dikhao
             return FutureBuilder<int>(
               future: _getUnreadCount(snapshot.data!.docs),
               initialData: 0,
@@ -492,12 +502,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     badgeStyle: const badges.BadgeStyle(badgeColor: Colors.red),
                     child: IconButton(
                       icon: const Icon(Icons.notifications_none, color: Colors.black),
-                      onPressed: () async {
-                        // Navigate to Notification Screen
-                        await context.push('/notifications');
-                        // Refresh UI to remove badge on return
-                        setState(() {}); 
-                      },
+                      onPressed: _handleNotificationClick, // CLICK ENABLED
                     ),
                   ),
                 );
