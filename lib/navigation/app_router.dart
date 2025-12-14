@@ -19,15 +19,18 @@ import 'package:exambeing/features/bookmarks/screens/bookmarks_home_screen.dart'
 import 'package:exambeing/features/practice/screens/solutions_screen.dart';
 import 'package:exambeing/features/notes/screens/my_notes_screen.dart';
 import 'package:exambeing/features/notes/screens/add_edit_note_screen.dart';
-import 'package:exambeing/features/notes/screens/notes_subjects_screen.dart';
-import 'package:exambeing/features/schedule/screens/schedules_screen.dart';
+
+// 🔥 NEW NOTES IMPORTS (Added)
+import 'package:exambeing/features/notes/screens/notes_selection_screen.dart';
+import 'package:exambeing/features/notes/screens/notes_online_view_screen.dart';
+import 'package:exambeing/features/admin/screens/admin_smart_upload.dart'; 
+
 import 'package:exambeing/features/bookmarks/screens/bookmarked_question_detail_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_screen.dart';
 import 'package:exambeing/features/profile/screens/profile_screen.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/models/public_note_model.dart';
 import 'package:exambeing/models/my_note_model.dart';
-import 'package:exambeing/helpers/database_helper.dart';
 import 'package:exambeing/features/profile/screens/settings_screen.dart';
 import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
 import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
@@ -44,9 +47,7 @@ import 'package:exambeing/features/tests/subject_list_screen.dart';
 // ⬆️=================================⬆️
 
 import 'package:exambeing/models/bookmarked_note_model.dart';
-import 'package:exambeing/features/notes/screens/notes_topics_screen.dart';
-import 'package:exambeing/features/notes/screens/topic_notes_screen.dart';
-import 'package:exambeing/models/note_sub_subject_model.dart';
+// Removed: notes_topics_screen, topic_notes_screen imports (Deleted Files)
 
 /// 🚨 Safe Error Screen
 class _ErrorRouteScreen extends StatelessWidget {
@@ -109,8 +110,15 @@ final GoRouter router = GoRouter(
         
         // Other Tab Routes
         GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
-        GoRoute(path: '/public-notes', builder: (context, state) => const NotesSubjectsScreen()), 
-        GoRoute(path: '/schedules', builder: (context, state) => const SchedulesScreen()),
+        
+        // ✅ UPDATED: /public-notes ab nayi Selection Screen kholta hai
+        GoRoute(
+          path: '/public-notes', 
+          builder: (context, state) => const NotesSelectionScreen()
+        ), 
+        
+        // ❌ REMOVED: /schedules (File deleted)
+        
         GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
         GoRoute(path: '/pomodoro', builder: (context, state) => const PomodoroScreen()),
         GoRoute(path: '/todo-list', builder: (context, state) => const TodoListScreen()),
@@ -121,6 +129,23 @@ final GoRouter router = GoRouter(
     // =================================================================
     // 🛑 FULL SCREEN ROUTES (Yahan Tabs nahi dikhenge)
     // =================================================================
+
+    // ✅ NEW: Admin Smart Upload Screen
+    GoRoute(
+      path: '/admin-smart-upload',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const AdminSmartUploadScreen(),
+    ),
+
+    // ✅ NEW: Online Notes View Screen
+    GoRoute(
+      path: '/notes-online-view',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final data = state.extra as Map<String, dynamic>;
+        return NotesOnlineViewScreen(data: data);
+      },
+    ),
 
     // 1. TEST SERIES (Nested)
     GoRoute(
@@ -168,8 +193,6 @@ final GoRouter router = GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
-        // NOTE: Agar revision logic pass kar rahe hain to yahan check karna padega
-        // Currently supporting only IDs for daily test
         final questionIds = (extra?['ids'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [];
         if (questionIds.isEmpty) return _ErrorRouteScreen(path: state.matchedLocation);
         return DailyTestScreen(questionIds: questionIds);
@@ -186,8 +209,6 @@ final GoRouter router = GoRouter(
       },
     ),
     
-    // ✅ FIX: Path changed to match your navigation call ('/score-screen')
-    // ✅ FIX: Added 'timeTaken' parameter
     GoRoute(
       path: '/score-screen', 
       parentNavigatorKey: _rootNavigatorKey,
@@ -197,38 +218,18 @@ final GoRouter router = GoRouter(
         
         return ScoreScreen(
           totalQuestions: data['totalQuestions'],
-          finalScore: (data['finalScore'] as num).toDouble(), // Safe Casting
+          finalScore: (data['finalScore'] as num).toDouble(),
           correctCount: data['correctCount'],
           wrongCount: data['wrongCount'],
           unattemptedCount: data['unattemptedCount'],
           topicName: data['topicName'],
           questions: data['questions'] as List<Question>,
           userAnswers: data['userAnswers'] as Map<int, String>,
-          
-          // ✅ FIX: Added timeTaken with default fallback
           timeTaken: data['timeTaken'] as Duration? ?? Duration.zero,
         );
       },
     ),
 
-    // Old Result Screen (Can be kept if used elsewhere)
-    GoRoute(
-      path: '/result-screen',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        final data = state.extra as Map<String, dynamic>?;
-        if (data == null) return _ErrorRouteScreen(path: state.matchedLocation);
-        return ResultScreen(
-          score: data['score'],
-          correct: data['correct'],
-          wrong: data['wrong'],
-          unattempted: data['unattempted'],
-          questions: data['questions'],
-          userAnswers: data['userAnswers'],
-          topicName: data['topicName'],
-        );
-      },
-    ),
     GoRoute(
       path: '/solutions',
       parentNavigatorKey: _rootNavigatorKey,
@@ -294,22 +295,8 @@ final GoRouter router = GoRouter(
         return _ErrorRouteScreen(path: state.matchedLocation);
       },
     ),
-    GoRoute(
-      path: '/notes_topics',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        if (state.extra is Map<String, dynamic>) return NotesTopicsScreen(subjectData: state.extra as Map<String, dynamic>);
-        return _ErrorRouteScreen(path: state.matchedLocation);
-      },
-    ),
-    GoRoute(
-      path: '/topic_notes',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) {
-        if (state.extra is NoteSubSubject) return TopicNotesScreen(subSubject: state.extra as NoteSubSubject);
-        return _ErrorRouteScreen(path: state.matchedLocation);
-      },
-    ),
+    // ❌ REMOVED: /notes_topics, /topic_notes (Files deleted)
+    
     GoRoute(
       path: '/bookmark-question-detail',
       parentNavigatorKey: _rootNavigatorKey,
