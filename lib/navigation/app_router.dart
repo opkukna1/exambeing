@@ -25,7 +25,7 @@ import 'package:exambeing/features/notes/screens/notes_selection_screen.dart';
 import 'package:exambeing/features/notes/screens/notes_online_view_screen.dart';
 import 'package:exambeing/features/admin/screens/admin_smart_upload.dart'; 
 
-// 🔥 TEST GENERATOR IMPORTS (Added)
+// 🔥 TEST GENERATOR IMPORTS
 import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
 import 'package:exambeing/features/tests/screens/test_success_screen.dart';
 
@@ -161,7 +161,6 @@ final GoRouter router = GoRouter(
       path: '/test-success',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        // Agar aap data pass kar rahe hain to receive karein
         final extra = state.extra as Map<String, dynamic>? ?? {}; 
         return TestSuccessScreen(data: extra); 
       },
@@ -207,7 +206,7 @@ final GoRouter router = GoRouter(
       },
     ),
 
-    // 2. DAILY TEST
+    // 2. DAILY TEST & RESULTS
     GoRoute(
       path: '/test-screen',
       parentNavigatorKey: _rootNavigatorKey,
@@ -216,6 +215,22 @@ final GoRouter router = GoRouter(
         final questionIds = (extra?['ids'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [];
         if (questionIds.isEmpty) return _ErrorRouteScreen(path: state.matchedLocation);
         return DailyTestScreen(questionIds: questionIds);
+      },
+    ),
+
+    // ✅ NEW ADDED: Result Screen Route (Fixed Error)
+    GoRoute(
+      path: '/result-screen',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final data = state.extra as Map<String, dynamic>? ?? {};
+        return ResultScreen(
+          score: data['score'] ?? 0,
+          totalQuestions: data['totalQuestions'] ?? 0,
+          correctAnswers: data['correctAnswers'] ?? 0,
+          wrongAnswers: data['wrongAnswers'] ?? 0,
+          notAttempted: data['notAttempted'] ?? 0,
+        );
       },
     ),
 
