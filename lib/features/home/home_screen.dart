@@ -11,7 +11,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 // ✅ 2. AdManager Import
 import 'package:exambeing/services/ad_manager.dart';
 
-// ✅ 3. Test Generator Import (Custom Test ke liye)
+// ✅ 3. Test Generator Import
 import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -179,8 +179,9 @@ class _HomeScreenState extends State<HomeScreen> {
         // 1. Daily Test Card
         _buildDailyTestCard(context),
         
-        // ⬇️===== NEW CUSTOM TEST BUTTON =====⬇️
         const SizedBox(height: 16),
+
+        // 2. Custom Test Button (Simple Card)
         Card(
           color: Colors.indigo.shade50,
           elevation: 0,
@@ -199,7 +200,6 @@ class _HomeScreenState extends State<HomeScreen> {
             subtitle: const Text("Select topics & challenge yourself!"),
             trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18, color: Colors.indigo),
             onTap: () {
-              // Direct Navigation
               Navigator.push(
                 context, 
                 MaterialPageRoute(builder: (context) => const TestGeneratorScreen())
@@ -207,23 +207,108 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ),
+        
         const SizedBox(height: 16),
-        // ⬆️==================================⬆️
 
-        // 2. Notes Card
-        _buildActionCard(
-          context: context,
-          icon: Icons.note_alt_outlined,
-          title: 'Notes',
-          subtitle: 'Read subject-wise short notes',
-          color: Colors.orange,
-          onTap: () => context.go('/public-notes'),
-        ),
+        // 🔥 3. MODERN NOTES CARD (Updated UI + Navigation Fix)
+        _buildModernNotesCard(context),
+
         const SizedBox(height: 24),
 
-        // 3. Test Series Section
+        // 4. Test Series Section
         _buildTestSeriesSection(context),
       ],
+    );
+  }
+
+  // 🔥 NEW MODERN NOTES CARD WIDGET
+  Widget _buildModernNotesCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFff9966), Color(0xFFff5e62)], // Sunset Orange Gradient
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFff5e62).withOpacity(0.4),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            // ✅ SOLUTION 1: context.push() use kiya taki Back button kaam kare
+            context.push('/public-notes'); 
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          "SMART NOTES 📚",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        "Quick Revision &\nShort Notes",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: const [
+                          Text(
+                            "Read Now",
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                          ),
+                          SizedBox(width: 5),
+                          Icon(Icons.arrow_forward, color: Colors.white, size: 16),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+                // Decorative Image/Icon
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 35),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -497,52 +582,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildActionCard({
-    required BuildContext context,
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required MaterialColor color,
-    required VoidCallback onTap,
-  }) {
-    Color iconColor = Theme.of(context).brightness == Brightness.dark 
-                     ? color.shade300 
-                     : color;
-    Color iconBgColor = Theme.of(context).brightness == Brightness.dark
-                     ? color.shade900.withOpacity(0.5)
-                     : color.withOpacity(0.2);
-
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12.0),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              CircleAvatar(
-                  radius: 28,
-                  backgroundColor: iconBgColor,
-                  child: Icon(icon, color: iconColor, size: 32)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
-                  ],
-                ),
-              ),
-              Icon(Icons.arrow_forward_ios_rounded, color: Theme.of(context).textTheme.bodySmall?.color, size: 20),
-            ],
-          ),
-        ),
       ),
     );
   }
