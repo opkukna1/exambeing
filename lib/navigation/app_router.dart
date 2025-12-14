@@ -25,6 +25,10 @@ import 'package:exambeing/features/notes/screens/notes_selection_screen.dart';
 import 'package:exambeing/features/notes/screens/notes_online_view_screen.dart';
 import 'package:exambeing/features/admin/screens/admin_smart_upload.dart'; 
 
+// 🔥 TEST GENERATOR IMPORTS (Added)
+import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
+import 'package:exambeing/features/tests/screens/test_success_screen.dart';
+
 import 'package:exambeing/features/bookmarks/screens/bookmarked_question_detail_screen.dart';
 import 'package:exambeing/features/bookmarks/screens/bookmarked_note_detail_screen.dart';
 import 'package:exambeing/features/profile/screens/profile_screen.dart';
@@ -110,8 +114,6 @@ final GoRouter router = GoRouter(
         // Other Tab Routes (Jo tabs me dikhne chahiye)
         GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
         
-        // ❌ YAHAN SE HATA DIYA HAI: public-notes (ab full screen hai)
-        
         GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
         GoRoute(path: '/pomodoro', builder: (context, state) => const PomodoroScreen()),
         GoRoute(path: '/todo-list', builder: (context, state) => const TodoListScreen()),
@@ -123,10 +125,10 @@ final GoRouter router = GoRouter(
     // 🛑 FULL SCREEN ROUTES (Yahan Tabs NAHI dikhenge)
     // =================================================================
 
-    // ✅ FIXED: Moved here so it covers bottom bar & handles Back button correctly
+    // ✅ FIXED: Public Notes (Full Screen)
     GoRoute(
       path: '/public-notes', 
-      parentNavigatorKey: _rootNavigatorKey, // Important for Full Screen
+      parentNavigatorKey: _rootNavigatorKey, 
       builder: (context, state) => const NotesSelectionScreen()
     ), 
 
@@ -144,6 +146,24 @@ final GoRouter router = GoRouter(
       builder: (context, state) {
         final data = state.extra as Map<String, dynamic>;
         return NotesOnlineViewScreen(data: data);
+      },
+    ),
+
+    // ✅ NEW: TEST GENERATOR (Full Screen) 🚀
+    GoRoute(
+      path: '/test-generator',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const TestGeneratorScreen(),
+    ),
+
+    // ✅ NEW: TEST SUCCESS (Full Screen) 🎉
+    GoRoute(
+      path: '/test-success',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        // Agar aap data pass kar rahe hain to receive karein
+        final extra = state.extra as Map<String, dynamic>? ?? {}; 
+        return TestSuccessScreen(data: extra); 
       },
     ),
 
