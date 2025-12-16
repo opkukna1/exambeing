@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,28 +12,35 @@ class StudyResultsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String userId = FirebaseAuth.instance.currentUser?.uid ?? "";
+    final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      appBar: AppBar(title: Text("$examName Report Card 📊")),
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text("My Performance 🏆"),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('user_exam_results') // ⚡ Yahan Results save honge
-            .where('userId', isEqualTo: userId)
-            .where('examId', isEqualTo: examId)
-            .orderBy('completedAt', descending: true)
+            .collection('users')
+            .doc(user!.uid)
+            .collection('test_results')
+            .orderBy('attemptedAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          var docs = snapshot.data!.docs;
 
-          if (snapshot.data!.docs.isEmpty) {
-            return Center(
+          if (docs.isEmpty) {
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.analytics_outlined, size: 60, color: Colors.grey),
-                  const SizedBox(height: 10),
-                  Text("No tests attempted yet for $examName", style: const TextStyle(color: Colors.grey)),
+                  Icon(Icons.bar_chart, size: 60, color: Colors.grey),
+                  SizedBox(height: 10),
+                  Text("No tests attempted yet!", style: TextStyle(color: Colors.grey)),
                 ],
               ),
             );
@@ -40,34 +48,89 @@ class StudyResultsScreen extends StatelessWidget {
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: snapshot.data!.docs.length,
+            itemCount: docs.length,
             itemBuilder: (context, index) {
-              var data = snapshot.data!.docs[index];
+              var data = docs[index].data() as Map<String, dynamic>;
+              double score = (data['score'] as num).toDouble();
+              int totalQ = data['totalQ'] ?? 10;
               
-              // Calculation
-              int score = data['score'];
-              int total = data['totalQuestions'];
-              double percentage = (score / total) * 100;
-              Color gradeColor = percentage >= 60 ? Colors.green : (percentage >= 33 ? Colors.orange : Colors.red);
+              // Formatting Date
+              Timestamp? ts = data['attemptedAt'];
+              String dateStr = ts != null 
+                ? DateFormat('dd MMM, hh:mm a').format(ts.toDate()) 
+                : "Just now";
 
               return Card(
-                elevation: 3,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: gradeColor.withOpacity(0.1),
-                    child: Text("${percentage.toInt()}%", style: TextStyle(color: gradeColor, fontWeight: FontWeight.bold, fontSize: 12)),
+                margin: const EdgeInsets.only(bottom: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(data['testTitle'] ?? "Test", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              Text(dateStr, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: score >= 0 ? Colors.green.shade50 : Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(20)
+                            ),
+                            child: Text(
+                              "Score: ${score.toStringAsFixed(1)}", 
+                              style: TextStyle(fontWeight: FontWeight.bold, color: score >= 0 ? Colors.green : Colors.red)
+                            ),
+                          )
+                        ],
+                      ),
+                      const Divider(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatItem(Icons.check_circle, "${data['correct']}", Colors.green, "Correct"),
+                          _buildStatItem(Icons.cancel, "${data['wrong']}", Colors.red, "Wrong"),
+                          _buildStatItem(Icons.remove_circle_outline, "${data['skipped']}", Colors.orange, "Skipped"),
+                        ],
+                      ),
+                      const SizedBox(height: 15),
+                      // 👇 Solutions Button (Future Scope: Is par click karke details dikha sakte ho)
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () {
+                             // Yahan Solutions Screen par navigate kar sakte hain
+                             // jisme questionsSnapshot aur userResponse pass karenge
+                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Detailed Solutions coming soon!")));
+                          },
+                          child: const Text("View Solutions (Coming Soon)"),
+                        ),
+                      )
+                    ],
                   ),
-                  title: Text(data['weekTitle'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("Date: ${DateFormat('dd MMM, hh:mm a').format((data['completedAt'] as Timestamp).toDate())}"),
-                  trailing: Text("$score / $total", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
               );
             },
           );
         },
       ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String val, Color color, String label) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 24),
+        const SizedBox(height: 4),
+        Text(val, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      ],
     );
   }
 }
