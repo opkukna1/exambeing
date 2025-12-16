@@ -1,68 +1,133 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../../../models/test_model.dart';
 
-class SolutionsScreen extends StatelessWidget {
-  final String testId;
-  final List<Question> originalQuestions;
+class TestSolutionScreen extends StatelessWidget {
+  final List<dynamic> questions;
+  final Map<String, dynamic> userAnswers;
+  final String testTitle;
 
-  const SolutionsScreen({required this.testId, required this.originalQuestions});
+  const TestSolutionScreen({
+    super.key,
+    required this.questions,
+    required this.userAnswers,
+    required this.testTitle,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final userId = FirebaseAuth.instance.currentUser!.uid;
-
     return Scaffold(
-      appBar: AppBar(title: Text("Result & Solutions")),
-      body: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance.collection('users').doc(userId).collection('my_results').doc(testId).get(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+      appBar: AppBar(
+        title: const Text("Solutions & Analysis 🧐"),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 1,
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: questions.length,
+        itemBuilder: (context, index) {
+          var q = questions[index];
+          String qKey = q['id'] ?? q['question']; // Key to find user answer
+          int? userSelectedOpt = userAnswers[qKey];
+          int correctOpt = q['correctIndex'];
 
-          final data = snapshot.data!.data() as Map<String, dynamic>;
-          final userAnswers = data['userAnswers'] as Map<String, dynamic>; // { "qId": "A" }
-          final score = data['score'];
-
-          return Column(
-            children: [
-              Container(
-                padding: EdgeInsets.all(20),
-                color: Colors.blueAccent.withOpacity(0.1),
-                child: Center(child: Text("Your Score: $score / ${originalQuestions.length}", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: originalQuestions.length,
-                  itemBuilder: (context, index) {
-                    final question = originalQuestions[index];
-                    final userAnswer = userAnswers[question.id] ?? "Skipped";
-                    final isCorrect = userAnswer == question.correctOption;
-
-                    return Card(
-                      color: isCorrect ? Colors.green[50] : Colors.red[50],
-                      margin: EdgeInsets.all(8),
-                      child: Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Q${index+1}: ${question.questionText}", style: TextStyle(fontWeight: FontWeight.bold)),
-                            SizedBox(height: 5),
-                            Text("Your Answer: $userAnswer", style: TextStyle(color: isCorrect ? Colors.green : Colors.red)),
-                            if (!isCorrect) 
-                              Text("Correct Answer: ${question.correctOption}", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                            Divider(),
-                            Text("Explanation: ", style: TextStyle(fontWeight: FontWeight.w600)),
-                            Text(question.explanation),
-                          ],
+          // Determine Status
+          bool isSkipped = userSelectedOpt == null;
+          bool isCorrect = userSelectedOpt == correctOpt;
+          
+          return Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            // Border Color based on Status
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: isSkipped ? Colors.orange 
+                     : isCorrect ? Colors.green 
+                     : Colors.red,
+                width: 1.5
+              )
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Question Number & Status Badge
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Q.${index + 1}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isSkipped ? Colors.orange.shade50 : isCorrect ? Colors.green.shade50 : Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(4)
                         ),
+                        child: Text(
+                          isSkipped ? "SKIPPED" : isCorrect ? "CORRECT" : "WRONG",
+                          style: TextStyle(
+                            fontSize: 10, 
+                            fontWeight: FontWeight.bold,
+                            color: isSkipped ? Colors.orange : isCorrect ? Colors.green : Colors.red
+                          ),
+                        ),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  
+                  // Question Text
+                  Text(
+                    q['question'], 
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+                  ),
+                  const SizedBox(height: 15),
+
+                  // Options List
+                  ...List.generate(q['options'].length, (optIndex) {
+                    String optionText = q['options'][optIndex];
+                    
+                    // Styling Logic
+                    Color bgColor = Colors.white;
+                    Color textColor = Colors.black;
+                    IconData? icon;
+
+                    if (optIndex == correctOpt) {
+                      // ✅ Always highlight correct answer Green
+                      bgColor = Colors.green.shade100;
+                      textColor = Colors.green.shade900;
+                      icon = Icons.check_circle;
+                    } else if (optIndex == userSelectedOpt) {
+                      // ❌ Highlight wrong selection Red
+                      bgColor = Colors.red.shade100;
+                      textColor = Colors.red.shade900;
+                      icon = Icons.cancel;
+                    }
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200)
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              "${String.fromCharCode(65 + optIndex)}. $optionText",
+                              style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                          if (icon != null) Icon(icon, size: 18, color: textColor)
+                        ],
                       ),
                     );
-                  },
-                ),
+                  }),
+                ],
               ),
-            ],
+            ),
           );
         },
       ),
