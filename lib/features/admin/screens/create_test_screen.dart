@@ -19,12 +19,12 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   DateTime? _unlockTime;
 
   // --- ⚙️ Exam Settings (Marking & Time) ---
-  int _durationMinutes = 60;   // Default 60 mins
-  double _positiveMark = 4.0;  // Default +4
-  double _negativeMark = 1.0;  // Default -1
-  double _skipMark = 0.0;      // Default 0
+  int _durationMinutes = 60;   
+  double _positiveMark = 4.0;  
+  double _negativeMark = 1.0;  
+  double _skipMark = 0.0;      
 
-  // Total Marks Calculation (Dynamic)
+  // Total Marks Calculation
   double get _totalMaxMarks => _questions.length * _positiveMark;
 
   // --- Questions Data ---
@@ -36,7 +36,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   int get _totalSelectedQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
 
   // ---------------------------------------------------
-  // 1️⃣ UI HELPERS (Date & Dialogs)
+  // 1️⃣ UI HELPERS
   // ---------------------------------------------------
 
   void _pickDate() async {
@@ -124,7 +124,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   }
 
   // ---------------------------------------------------
-  // ⚙️ 2️⃣ NEW: SETTINGS CARD (Marking System)
+  // ⚙️ 2️⃣ SETTINGS CARD
   // ---------------------------------------------------
   Widget _buildSettingsCard() {
     return Card(
@@ -139,19 +139,13 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
             const Text("⚙️ Exam Settings & Marking", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
             const SizedBox(height: 15),
             
-            // Row 1: Time & Total Marks Display
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
                     initialValue: _durationMinutes.toString(),
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: "Time (Mins)", 
-                      filled: true, fillColor: Colors.white,
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5)
-                    ),
+                    decoration: const InputDecoration(labelText: "Time (Mins)", filled: true, fillColor: Colors.white, border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5)),
                     onChanged: (v) => setState(() => _durationMinutes = int.tryParse(v) ?? 60),
                   ),
                 ),
@@ -172,35 +166,13 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
             ),
             const SizedBox(height: 15),
             
-            // Row 2: Marking Scheme (+, -, Skip)
             Row(
               children: [
-                Expanded(
-                  child: TextFormField(
-                    initialValue: _positiveMark.toString(),
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: "Right (+)", filled: true, fillColor: Colors.white, border: OutlineInputBorder()),
-                    onChanged: (v) => setState(() => _positiveMark = double.tryParse(v) ?? 4.0),
-                  ),
-                ),
+                Expanded(child: TextFormField(initialValue: _positiveMark.toString(), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Right (+)", filled: true, fillColor: Colors.white, border: OutlineInputBorder()), onChanged: (v) => setState(() => _positiveMark = double.tryParse(v) ?? 4.0))),
                 const SizedBox(width: 10),
-                Expanded(
-                  child: TextFormField(
-                    initialValue: _negativeMark.toString(),
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: "Wrong (-)", filled: true, fillColor: Colors.white, border: OutlineInputBorder()),
-                    onChanged: (v) => setState(() => _negativeMark = double.tryParse(v) ?? 1.0),
-                  ),
-                ),
+                Expanded(child: TextFormField(initialValue: _negativeMark.toString(), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Wrong (-)", filled: true, fillColor: Colors.white, border: OutlineInputBorder()), onChanged: (v) => setState(() => _negativeMark = double.tryParse(v) ?? 1.0))),
                 const SizedBox(width: 10),
-                Expanded(
-                  child: TextFormField(
-                    initialValue: _skipMark.toString(),
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: "Skip", filled: true, fillColor: Colors.white, border: OutlineInputBorder()),
-                    onChanged: (v) => setState(() => _skipMark = double.tryParse(v) ?? 0.0),
-                  ),
-                ),
+                Expanded(child: TextFormField(initialValue: _skipMark.toString(), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Skip", filled: true, fillColor: Colors.white, border: OutlineInputBorder()), onChanged: (v) => setState(() => _skipMark = double.tryParse(v) ?? 0.0))),
               ],
             ),
           ],
@@ -210,7 +182,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   }
 
   // ---------------------------------------------------
-  // 🤖 3️⃣ AUTO GENERATOR LOGIC (Same as before)
+  // 🤖 3️⃣ AUTO GENERATOR LOGIC
   // ---------------------------------------------------
 
   void _openAutoGeneratorSheet() {
@@ -251,8 +223,12 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                           itemBuilder: (context, index) {
                             var subDoc = subjects[index];
                             var data = subDoc.data() as Map<String, dynamic>;
+                            
+                            // 🔥 SHOW SUBJECT NAME FROM CSV FIELD
+                            String subjectName = data['subjectName'] ?? data['name'] ?? 'Unnamed Subject';
+                            
                             return ExpansionTile(
-                              title: Text(data['subjectName'] ?? 'Subject', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              title: Text(subjectName, style: const TextStyle(fontWeight: FontWeight.bold)),
                               leading: const Icon(Icons.library_books, color: Colors.deepPurple),
                               children: [_buildTopicsList(subDoc.id, setSheetState)],
                             );
@@ -296,14 +272,19 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
           children: topics.map((topicDoc) {
             var tData = topicDoc.data() as Map<String, dynamic>;
             int count = _topicCounts[topicDoc.id] ?? 0;
+            
+            // 🔥 SHOW TOPIC NAME FROM CSV FIELD
+            String topicName = tData['topicName'] ?? tData['name'] ?? 'Unnamed Topic';
+
             return Container(
               color: count > 0 ? Colors.green.shade50 : Colors.transparent,
               child: ListTile(
                 dense: true,
-                title: Text(tData['topicName'] ?? 'Topic'),
+                title: Text(topicName),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // ➖ MINUS BUTTON (Decrease by 1)
                     IconButton(
                       icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
                       onPressed: () => setSheetState(() {
@@ -314,9 +295,11 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                       }),
                     ),
                     Text("$count", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    
+                    // ➕ PLUS BUTTON (Increase by 5)
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-                      onPressed: () => setSheetState(() => _topicCounts[topicDoc.id] = count + 1),
+                      onPressed: () => setSheetState(() => _topicCounts[topicDoc.id] = count + 5), // 🔥 ADDS 5
                     ),
                   ],
                 ),
@@ -366,12 +349,30 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
 
   void _processFetchedDoc(QueryDocumentSnapshot doc, List<Map<String, dynamic>> list) {
     var data = doc.data() as Map<String, dynamic>;
-    bool alreadyExists = _questions.any((q) => q['question'] == data['question']) || list.any((q) => q['question'] == data['question']);
+    
+    // 🔥 PARSE QUESTION USING CSV FIELD NAMES
+    String questionText = data['questionText'] ?? data['question'] ?? 'No Question';
+    
+    // Parse Options from option0, option1 etc.
+    List<String> options = [];
+    if(data['option0'] != null) options.add(data['option0'].toString());
+    if(data['option1'] != null) options.add(data['option1'].toString());
+    if(data['option2'] != null) options.add(data['option2'].toString());
+    if(data['option3'] != null) options.add(data['option3'].toString());
+    if(data['option4'] != null) options.add(data['option4'].toString());
+
+    // Fallback if options are stored as array
+    if(options.isEmpty && data['options'] != null) {
+      options = List<String>.from(data['options']);
+    }
+
+    bool alreadyExists = _questions.any((q) => q['question'] == questionText) || list.any((q) => q['question'] == questionText);
+    
     if (!alreadyExists) {
       list.add({
-        'question': data['question'] ?? 'No Question',
-        'options': List<String>.from(data['options'] ?? []),
-        'correctIndex': data['correctOptionIndex'] ?? 0,
+        'question': questionText,
+        'options': options,
+        'correctIndex': data['correctAnswerIndex'] ?? data['correctIndex'] ?? 0,
         'id': doc.id
       });
     }
@@ -400,13 +401,12 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         'questions': _questions,
         'createdAt': FieldValue.serverTimestamp(),
         'attemptedUsers': [],
-        // 🔥 SAVING EXAM SETTINGS
         'settings': {
           'positive': _positiveMark,
           'negative': _negativeMark,
           'skip': _skipMark,
           'duration': _durationMinutes,
-          'totalMaxMarks': _totalMaxMarks, // Saving total marks too for reference
+          'totalMaxMarks': _totalMaxMarks,
         }
       });
       if(mounted) Navigator.pop(context);
@@ -424,7 +424,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title & Time
             TextField(controller: _testTitleController, decoration: const InputDecoration(labelText: "Test Title (e.g. Physics Weekly)", border: OutlineInputBorder())),
             const SizedBox(height: 10),
             ListTile(
@@ -433,15 +432,9 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
               trailing: const Icon(Icons.calendar_today, color: Colors.deepPurple),
               onTap: _pickDate,
             ),
-            
             const SizedBox(height: 15),
-            
-            // 🔥 NEW: SETTINGS CARD
             _buildSettingsCard(),
-
             const SizedBox(height: 20),
-            
-            // Buttons Row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -466,8 +459,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
               ],
             ),
             const Divider(),
-
-            // List of Added Questions
             _questions.isEmpty 
             ? const Padding(padding: EdgeInsets.all(20), child: Center(child: Text("No questions added yet.")))
             : ListView.builder(
@@ -492,10 +483,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                 );
               },
             ),
-
             const SizedBox(height: 30),
-            
-            // Final Save Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
