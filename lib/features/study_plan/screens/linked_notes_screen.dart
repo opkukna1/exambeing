@@ -1,174 +1,220 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+// ✅ Make sure ye import sahi ho (jaha aap notes show krte hain)
+// import 'package:exambeing/features/notes/screens/online_notes_screen.dart'; 
+// Agar path alag hai to update karein, main niche example use kar rha hu.
 
-// ⚠️ IMPORTANT: Apni NotesOnlineViewScreen wali file ka sahi path yahan import karein
-// Example: import 'package:exambeing/features/notes/screens/notes_online_view_screen.dart';
-// Abhi main maan ke chal raha hu ki aap path fix kar lenge. 
-// Agar file same folder me nahi hai to error aayega, use fix kar lena.
-
-import 'package:exambeing/features/notes/screens/notes_online_view_screen.dart'; 
+// 👇 Temporary Import for logic (Replace with your actual file)
+import 'package:exambeing/features/notes/screens/online_notes_screen.dart'; 
 
 class LinkedNotesScreen extends StatelessWidget {
   final String weekTitle;
-  final List<dynamic> linkedTopics; // Names of topics (e.g. "Indus Valley")
+  // Yaha wo list aayegi jo Admin ne save ki thi (subject, topic, ids sab isme hai)
+  final List<dynamic> scheduleData; 
 
-  const LinkedNotesScreen({super.key, required this.weekTitle, required this.linkedTopics});
+  const LinkedNotesScreen({
+    super.key, 
+    required this.weekTitle, 
+    required this.scheduleData
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    if (linkedTopics.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(title: Text(weekTitle)),
-        body: const Center(child: Text("No topics assigned for this week.")),
-      );
-    }
+  // 🔥 1. POPUP DIALOG LOGIC
+  void _showReadingOptions(BuildContext context, Map<String, dynamic> topicData) {
+    // Default values
+    String selectedMode = 'Detailed';
+    String selectedLang = 'Hindi';
 
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(title: Text(weekTitle), elevation: 0),
-      body: StreamBuilder<QuerySnapshot>(
-        // 🔥 QUERY: Hum 'displayName' dhoondhenge jo linkedTopics se match kare
-        stream: FirebaseFirestore.instance
-            .collection('notes_content')
-            .where('displayName', whereIn: linkedTopics) 
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                   const Icon(Icons.library_books_outlined, size: 50, color: Colors.grey),
-                   const SizedBox(height: 10),
-                   Padding(
-                     padding: const EdgeInsets.all(16.0),
-                     child: Text(
-                       "Notes for these topics are not uploaded yet:\n\n${linkedTopics.join(", ")}", 
-                       textAlign: TextAlign.center,
-                       style: const TextStyle(color: Colors.grey),
-                     ),
-                   ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: snapshot.data!.docs.length,
-            itemBuilder: (context, index) {
-              var doc = snapshot.data!.docs[index];
-              var data = doc.data() as Map<String, dynamic>;
-
-              // Naam nikalo (DisplayName ya TopicName)
-              String title = data['displayName'] ?? "Untitled Note";
-
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.deepPurple.shade50,
-                    child: const Icon(Icons.article, color: Colors.deepPurple),
-                  ),
-                  title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text("Tap to read"),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-                  onTap: () {
-                    // ✅ USER KO PUCHO: Language aur Mode kya chahiye?
-                    _showOptionsAndOpenNote(context, data);
-                  },
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  // 👇 Dialog to select Language & Mode before opening
-  void _showOptionsAndOpenNote(BuildContext context, Map<String, dynamic> noteData) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Select Preferences", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              
-              // 1. Language Options
-              const Text("Language:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-              const SizedBox(height: 10),
-              Row(
+        // StatefulBuilder zaroori hai taaki Dialog ke andar dropdown change ho sake
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              title: Column(
                 children: [
-                  _buildOptionBtn(ctx, "Hindi", noteData),
-                  const SizedBox(width: 10),
-                  _buildOptionBtn(ctx, "English", noteData),
+                  const Icon(Icons.settings_suggest, size: 40, color: Colors.deepPurple),
+                  const SizedBox(height: 10),
+                  const Text("Reading Preferences", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
-              const SizedBox(height: 20),
-            ],
-          ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Topic: ${topicData['topic']}", style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.grey)),
+                  const Divider(height: 20),
+                  
+                  // --- MODE DROPDOWN ---
+                  const Text("Select Mode:", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8)
+                    ),
+                    child: DropdownButton<String>(
+                      value: selectedMode,
+                      isExpanded: true,
+                      underline: const SizedBox(), // Line hatane ke liye
+                      items: ['Detailed', 'Revision', 'Short'].map((String val) {
+                        return DropdownMenuItem(value: val, child: Text(val));
+                      }).toList(),
+                      onChanged: (val) {
+                        setDialogState(() => selectedMode = val!);
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  // --- LANGUAGE DROPDOWN ---
+                  const Text("Select Language:", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8)
+                    ),
+                    child: DropdownButton<String>(
+                      value: selectedLang,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      items: ['Hindi', 'English', 'Hinglish'].map((String val) {
+                        return DropdownMenuItem(value: val, child: Text(val));
+                      }).toList(),
+                      onChanged: (val) {
+                        setDialogState(() => selectedLang = val!);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx), // Cancel
+                  child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx); // Dialog band karein
+
+                    // 🔥 NAVIGATE TO NOTES SCREEN
+                    // Yahan hum IDs + Mode + Lang bhej rahe hain
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (c) => OnlineNotesScreen( // 👈 Aapki Main Notes Screen
+                          // IDs from saved schedule data
+                          subjId: topicData['subjId'],     
+                          subSubjId: topicData['subSubjId'],
+                          topicId: topicData['topicId'],
+                          subTopId: topicData['subTopId'],
+                          
+                          // Display Names
+                          displayName: topicData['subTopic'], 
+                          topicName: topicData['topic'],
+                          
+                          // User Preferences from Dialog
+                          mode: selectedMode,
+                          language: selectedLang,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text("OPEN NOTES 🚀"),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildOptionBtn(BuildContext context, String lang, Map<String, dynamic> noteData) {
-    return Expanded(
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.deepPurple.shade50,
-          foregroundColor: Colors.deepPurple,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-        ),
-        onPressed: () {
-          // Close BottomSheet
-          Navigator.pop(context);
-          
-          // Mode select karne ka option bhi de sakte hain, par abhi simplify karke 'Detailed' kholte hain
-          // Aap chahein to ek aur Dialog laga sakte hain Mode ke liye.
-          
-          _openViewer(context, noteData, lang, "Detailed");
-        },
-        child: Text(lang),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        title: Text("$weekTitle Notes"),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
       ),
-    );
-  }
+      body: scheduleData.isEmpty
+          ? const Center(child: Text("No notes linked yet."))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: scheduleData.length,
+              itemBuilder: (context, index) {
+                // Admin ne jo data save kiya tha, wo yahan ek Map hai
+                var item = scheduleData[index] as Map<String, dynamic>;
 
-  void _openViewer(BuildContext context, Map<String, dynamic> rawData, String lang, String mode) {
-    // Data prepare karein jo NotesOnlineViewScreen ko chahiye
-    // Make sure ki rawData me subjId, topicId wagera maujood hain.
-    // Agar Firestore document me ye IDs save nahi hain, to ye logic fail ho jayega.
-    // Assuming: notes_content documents contain these ID fields internally.
-    
-    Map<String, dynamic> dataForViewer = {
-      'subjId': rawData['subjId'] ?? '',
-      'subSubjId': rawData['subSubjId'] ?? '',
-      'topicId': rawData['topicId'] ?? '',
-      'subTopId': rawData['subTopId'] ?? '',
-      'displayName': rawData['displayName'] ?? 'Note',
-      'lang': lang,
-      'mode': mode,
-    };
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Subject & SubSubject Tag
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(6)
+                          ),
+                          child: Text(
+                            "${item['subject']}  •  ${item['subSubject']}",
+                            style: TextStyle(fontSize: 12, color: Colors.blue.shade800, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 10),
+                        
+                        // Topic Name
+                        Text(
+                          item['topic'],
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          "Focus: ${item['subTopic']}",
+                          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        ),
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => NotesOnlineViewScreen(data: dataForViewer),
-      ),
+                        const SizedBox(height: 15),
+                        const Divider(),
+                        
+                        // 🔥 READ BUTTON
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () => _showReadingOptions(context, item),
+                            icon: const Icon(Icons.menu_book, size: 18),
+                            label: const Text("READ NOTES"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
