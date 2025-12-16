@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-// ✅ Make sure ye import sahi ho (jaha aap notes show krte hain)
-// import 'package:exambeing/features/notes/screens/online_notes_screen.dart'; 
-// Agar path alag hai to update karein, main niche example use kar rha hu.
 
-// 👇 Temporary Import for logic (Replace with your actual file)
-import 'package:exambeing/features/notes/screens/online_notes_screen.dart'; 
+// ✅ CORRECT IMPORT (Updated Path)
+import 'package:exambeing/features/notes/screens/notes_online_view_screen.dart'; 
 
 class LinkedNotesScreen extends StatelessWidget {
   final String weekTitle;
@@ -107,11 +104,11 @@ class LinkedNotesScreen extends StatelessWidget {
                     Navigator.pop(ctx); // Dialog band karein
 
                     // 🔥 NAVIGATE TO NOTES SCREEN
-                    // Yahan hum IDs + Mode + Lang bhej rahe hain
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (c) => OnlineNotesScreen( // 👈 Aapki Main Notes Screen
+                        // ✅ Widget Name Updated based on file name (NotesOnlineViewScreen)
+                        builder: (c) => NotesOnlineViewScreen( 
                           // IDs from saved schedule data
                           subjId: topicData['subjId'],     
                           subSubjId: topicData['subSubjId'],
