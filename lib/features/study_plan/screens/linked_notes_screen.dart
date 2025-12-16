@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// Note Detail Import karein
-import 'package:exambeing/features/notes/screens/note_detail_screen.dart';
-import 'package:exambeing/models/public_note_model.dart';
+
+// ⚠️ IMPORTANT: Apni NotesOnlineViewScreen wali file ka sahi path yahan import karein
+// Example: import 'package:exambeing/features/notes/screens/notes_online_view_screen.dart';
+// Abhi main maan ke chal raha hu ki aap path fix kar lenge. 
+// Agar file same folder me nahi hai to error aayega, use fix kar lena.
+
+import 'package:exambeing/features/notes/screens/notes_online_view_screen.dart'; 
 
 class LinkedNotesScreen extends StatelessWidget {
   final String weekTitle;
-  final List<dynamic> linkedTopics; // List jo Admin ne select ki thi
+  final List<dynamic> linkedTopics; // Names of topics (e.g. "Indus Valley")
 
   const LinkedNotesScreen({super.key, required this.weekTitle, required this.linkedTopics});
 
   @override
   Widget build(BuildContext context) {
-    // Agar koi topic nahi hai
     if (linkedTopics.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: Text(weekTitle)),
@@ -21,56 +24,150 @@ class LinkedNotesScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(weekTitle)),
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(title: Text(weekTitle), elevation: 0),
       body: StreamBuilder<QuerySnapshot>(
-        // 🔥 MAGIC QUERY: "whereIn" sirf wahi notes layega jo list me hain
-        // NOTE: Firestore limit hai ki 'whereIn' me max 10 items ho sakte hain.
-        // Agar topics 10 se zyada hain, to logic badalna padega (Client side filtering).
-        // Abhi ke liye Maan ke chalte hain 10 se kam topics honge per week.
+        // 🔥 QUERY: Hum 'displayName' dhoondhenge jo linkedTopics se match kare
         stream: FirebaseFirestore.instance
             .collection('notes_content')
-            .where('topicName', whereIn: linkedTopics) 
+            .where('displayName', whereIn: linkedTopics) 
             .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
           
-          if (snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                   const Icon(Icons.note_alt_outlined, size: 50, color: Colors.grey),
+                   const Icon(Icons.library_books_outlined, size: 50, color: Colors.grey),
                    const SizedBox(height: 10),
-                   Text("Notes for '${linkedTopics.join(", ")}' \nare not uploaded yet.", textAlign: TextAlign.center),
+                   Padding(
+                     padding: const EdgeInsets.all(16.0),
+                     child: Text(
+                       "Notes for these topics are not uploaded yet:\n\n${linkedTopics.join(", ")}", 
+                       textAlign: TextAlign.center,
+                       style: const TextStyle(color: Colors.grey),
+                     ),
+                   ),
                 ],
               ),
             );
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               var doc = snapshot.data!.docs[index];
-              PublicNote note = PublicNote.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+              var data = doc.data() as Map<String, dynamic>;
+
+              // Naam nikalo (DisplayName ya TopicName)
+              String title = data['displayName'] ?? "Untitled Note";
 
               return Card(
-                elevation: 3,
-                margin: const EdgeInsets.only(bottom: 10),
+                elevation: 2,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
-                  leading: const CircleAvatar(backgroundColor: Colors.deepPurple, child: Icon(Icons.book, color: Colors.white)),
-                  title: Text(note.title ?? "No Title", style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(note.topicName ?? ""),
-                  trailing: const Icon(Icons.arrow_forward),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.deepPurple.shade50,
+                    child: const Icon(Icons.article, color: Colors.deepPurple),
+                  ),
+                  title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text("Tap to read"),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
                   onTap: () {
-                    // Note Open Karein
-                    Navigator.push(context, MaterialPageRoute(builder: (c) => NoteDetailScreen(note: note)));
+                    // ✅ USER KO PUCHO: Language aur Mode kya chahiye?
+                    _showOptionsAndOpenNote(context, data);
                   },
                 ),
               );
             },
           );
         },
+      ),
+    );
+  }
+
+  // 👇 Dialog to select Language & Mode before opening
+  void _showOptionsAndOpenNote(BuildContext context, Map<String, dynamic> noteData) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Select Preferences", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              
+              // 1. Language Options
+              const Text("Language:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _buildOptionBtn(ctx, "Hindi", noteData),
+                  const SizedBox(width: 10),
+                  _buildOptionBtn(ctx, "English", noteData),
+                ],
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOptionBtn(BuildContext context, String lang, Map<String, dynamic> noteData) {
+    return Expanded(
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.deepPurple.shade50,
+          foregroundColor: Colors.deepPurple,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        onPressed: () {
+          // Close BottomSheet
+          Navigator.pop(context);
+          
+          // Mode select karne ka option bhi de sakte hain, par abhi simplify karke 'Detailed' kholte hain
+          // Aap chahein to ek aur Dialog laga sakte hain Mode ke liye.
+          
+          _openViewer(context, noteData, lang, "Detailed");
+        },
+        child: Text(lang),
+      ),
+    );
+  }
+
+  void _openViewer(BuildContext context, Map<String, dynamic> rawData, String lang, String mode) {
+    // Data prepare karein jo NotesOnlineViewScreen ko chahiye
+    // Make sure ki rawData me subjId, topicId wagera maujood hain.
+    // Agar Firestore document me ye IDs save nahi hain, to ye logic fail ho jayega.
+    // Assuming: notes_content documents contain these ID fields internally.
+    
+    Map<String, dynamic> dataForViewer = {
+      'subjId': rawData['subjId'] ?? '',
+      'subSubjId': rawData['subSubjId'] ?? '',
+      'topicId': rawData['topicId'] ?? '',
+      'subTopId': rawData['subTopId'] ?? '',
+      'displayName': rawData['displayName'] ?? 'Note',
+      'lang': lang,
+      'mode': mode,
+    };
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NotesOnlineViewScreen(data: dataForViewer),
       ),
     );
   }
