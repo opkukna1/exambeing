@@ -3,10 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
-// ✅ IMPORTS (Make sure these files exist in your project)
+// ✅ IMPORTS
 import 'package:exambeing/features/admin/screens/create_week_schedule.dart';
 import 'package:exambeing/features/study_plan/screens/linked_notes_screen.dart';
 import 'package:exambeing/features/study_plan/screens/study_results_screen.dart';
+// 👇 NEW IMPORTS FOR TEST SYSTEM
+import 'package:exambeing/features/admin/screens/create_test_screen.dart';
+import 'package:exambeing/features/study_plan/screens/attempt_test_screen.dart';
 
 class BookmarksHomeScreen extends StatefulWidget {
   const BookmarksHomeScreen({super.key});
@@ -23,7 +26,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
   String? selectedExamId;
   String? selectedExamName;
   
-  // New: Week Selection State
+  // Week Selection State
   String? selectedWeekId;
   Map<String, dynamic>? selectedWeekData;
 
@@ -65,18 +68,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
     );
   }
 
-  // 3️⃣ ADMIN: Placeholder functions for specific buttons
-  void _adminAddNotes() {
-    // Navigate to Add Notes Screen
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Open Add Notes Screen")));
-  }
-
-  void _adminCreateTest() {
-    // Navigate to Create Test Screen
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Open Create Test Screen")));
-  }
-
-  // 4️⃣ Show Schedule Dialog (User View)
+  // 3️⃣ Show Schedule Dialog (User View)
   void _showScheduleDialog(List<dynamic> topics, String title) {
     showDialog(
       context: context,
@@ -84,7 +76,9 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
         title: Text("Schedule: $title"),
         content: SizedBox(
           width: double.maxFinite,
-          child: ListView.builder(
+          child: topics.isEmpty 
+          ? const Padding(padding: EdgeInsets.all(10), child: Text("No detailed schedule yet."))
+          : ListView.builder(
             shrinkWrap: true,
             itemCount: topics.length,
             itemBuilder: (c, i) => ListTile(
@@ -150,7 +144,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                           setState(() {
                             selectedExamId = doc.id;
                             selectedExamName = doc['examName'];
-                            selectedWeekId = null; // Reset week when exam changes
+                            selectedWeekId = null; 
                             selectedWeekData = null;
                           });
                         },
@@ -259,7 +253,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
             const Divider(height: 30),
 
             // ------------------------------------------------
-            // 3️⃣ SECTION: MAIN 4 BUTTONS (Schedule, Notes, Test, Result)
+            // 3️⃣ SECTION: MAIN 4 BUTTONS (Action Center)
             // ------------------------------------------------
             if (selectedWeekId != null && selectedWeekData != null) ...[
               Padding(
@@ -276,7 +270,8 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                 mainAxisSpacing: 16,
                 childAspectRatio: 1.3,
                 children: [
-                  // Button 1: Schedule
+                  
+                  // 🟡 Button 1: Schedule
                   _buildActionButton(
                     icon: Icons.list_alt, 
                     label: "Schedule", 
@@ -284,31 +279,120 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                     onTap: () => _showScheduleDialog(selectedWeekData!['linkedTopics'] ?? [], selectedWeekData!['weekTitle'])
                   ),
 
-                  // Button 2: Notes
+                  // 🟢 Button 2: Notes
                   _buildActionButton(
                     icon: Icons.menu_book, 
                     label: "Notes", 
                     color: Colors.green, 
                     onTap: () {
+                      // Pass Full Schedule Data for Popup Logic
+                      List<dynamic> dataToSend = selectedWeekData != null && selectedWeekData!.containsKey('scheduleData')
+                          ? selectedWeekData!['scheduleData']
+                          : [];
+
                       Navigator.push(context, MaterialPageRoute(builder: (c) => LinkedNotesScreen(
                         weekTitle: selectedWeekData!['weekTitle'],
-                        linkedTopics: selectedWeekData!['linkedTopics'] ?? []
+                        scheduleData: dataToSend
                       )));
                     }
                   ),
 
-                  // Button 3: Test
-                  _buildActionButton(
-                    icon: Icons.quiz, 
-                    label: "Test", 
-                    color: Colors.deepPurple, 
-                    onTap: () {
-                      // START TEST LOGIC
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Starting Test...")));
-                    }
+                  // 🟣 Button 3: Test (SMART LOGIC HERE) 🧠
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('study_schedules')
+                        .doc(selectedExamId)
+                        .collection('weeks')
+                        .doc(selectedWeekId)
+                        .collection('tests')
+                        .limit(1) // Assuming 1 test per week
+                        .snapshots(),
+                    builder: (context, testSnapshot) {
+                      
+                      String label = "Loading...";
+                      VoidCallback? onTap;
+                      Color color = Colors.grey;
+                      IconData icon = Icons.hourglass_empty;
+
+                      if (testSnapshot.connectionState == ConnectionState.waiting) {
+                         // Waiting state
+                      } else if (testSnapshot.hasData && testSnapshot.data!.docs.isNotEmpty) {
+                        // ✅ TEST EXISTS
+                        var testDoc = testSnapshot.data!.docs.first;
+                        var testData = testDoc.data() as Map<String, dynamic>;
+                        DateTime unlockTime = (testData['unlockTime'] as Timestamp).toDate();
+                        List<dynamic> attemptedUsers = testData['attemptedUsers'] ?? [];
+                        String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+
+                        bool isLocked = DateTime.now().isBefore(unlockTime);
+                        bool hasAttempted = attemptedUsers.contains(currentUserId);
+
+                        if (isAdmin) {
+                          label = "Edit Test";
+                          color = Colors.deepPurple;
+                          icon = Icons.edit_note;
+                          onTap = () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("To Edit: Delete and Create new (for now).")));
+                        } else {
+                          // USER LOGIC
+                          if (hasAttempted) {
+                            label = "View Result";
+                            color = Colors.blue;
+                            icon = Icons.done_all;
+                            onTap = () {
+                               Navigator.push(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(
+                                  examId: selectedExamId!,
+                                  examName: selectedExamName ?? "Exam"
+                               )));
+                            };
+                          } else if (isLocked) {
+                            label = "Locked";
+                            color = Colors.grey;
+                            icon = Icons.lock_clock;
+                            onTap = () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Starts: ${DateFormat('dd MMM hh:mm a').format(unlockTime)}")));
+                          } else {
+                            label = "Start Test";
+                            color = Colors.deepPurple;
+                            icon = Icons.play_circle_fill;
+                            onTap = () {
+                              Navigator.push(context, MaterialPageRoute(builder: (c) => AttemptTestScreen(
+                                testId: testDoc.id,
+                                testData: testData,
+                                examId: selectedExamId!,
+                                weekId: selectedWeekId!,
+                              )));
+                            };
+                          }
+                        }
+                      } else {
+                        // ❌ NO TEST EXISTS
+                        if (isAdmin) {
+                          label = "Create Test";
+                          color = Colors.redAccent;
+                          icon = Icons.add_task;
+                          onTap = () {
+                            Navigator.push(context, MaterialPageRoute(builder: (c) => CreateTestScreen(
+                              examId: selectedExamId!,
+                              weekId: selectedWeekId!
+                            )));
+                          };
+                        } else {
+                          label = "No Test";
+                          color = Colors.grey.shade300;
+                          icon = Icons.do_not_disturb;
+                          onTap = null;
+                        }
+                      }
+
+                      return _buildActionButton(
+                        icon: icon, 
+                        label: label, 
+                        color: color, 
+                        onTap: onTap != null ? onTap : (){}
+                      );
+                    },
                   ),
 
-                  // Button 4: Result
+                  // 🔵 Button 4: Result
                   _buildActionButton(
                     icon: Icons.bar_chart, 
                     label: "Result", 
@@ -326,7 +410,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
               const SizedBox(height: 20),
 
               // ------------------------------------------------
-              // 4️⃣ SECTION: ADMIN CONTROLS (Visible Only to Admin)
+              // 4️⃣ SECTION: ADMIN EXTRA CONTROLS
               // ------------------------------------------------
               if (isAdmin) ...[
                 Container(
@@ -346,9 +430,14 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                         spacing: 10,
                         runSpacing: 10,
                         children: [
-                          _buildAdminButton(Icons.note_add, "Add Notes", _adminAddNotes),
-                          _buildAdminButton(Icons.add_task, "Create Test", _adminCreateTest),
                           _buildAdminButton(Icons.edit_calendar, "Add Schedule", () => _addWeekSchedule(selectedExamId!)),
+                          // Admin Test shortcut
+                          _buildAdminButton(Icons.add_task, "Add Test", () {
+                             Navigator.push(context, MaterialPageRoute(builder: (c) => CreateTestScreen(
+                              examId: selectedExamId!,
+                              weekId: selectedWeekId!
+                            )));
+                          }),
                         ],
                       ),
                     ],
@@ -390,7 +479,11 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
               child: Icon(icon, color: color, size: 30),
             ),
             const SizedBox(height: 10),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))
+            Text(
+              label, 
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
+            )
           ],
         ),
       ),
