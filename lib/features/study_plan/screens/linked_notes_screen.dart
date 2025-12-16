@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
-// ✅ CORRECT IMPORT (Updated Path)
+// ✅ CORRECT IMPORT
 import 'package:exambeing/features/notes/screens/notes_online_view_screen.dart'; 
 
 class LinkedNotesScreen extends StatelessWidget {
   final String weekTitle;
-  // Yaha wo list aayegi jo Admin ne save ki thi (subject, topic, ids sab isme hai)
   final List<dynamic> scheduleData; 
 
   const LinkedNotesScreen({
@@ -23,7 +22,6 @@ class LinkedNotesScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) {
-        // StatefulBuilder zaroori hai taaki Dialog ke andar dropdown change ho sake
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -54,7 +52,7 @@ class LinkedNotesScreen extends StatelessWidget {
                     child: DropdownButton<String>(
                       value: selectedMode,
                       isExpanded: true,
-                      underline: const SizedBox(), // Line hatane ke liye
+                      underline: const SizedBox(),
                       items: ['Detailed', 'Revision', 'Short'].map((String val) {
                         return DropdownMenuItem(value: val, child: Text(val));
                       }).toList(),
@@ -91,7 +89,7 @@ class LinkedNotesScreen extends StatelessWidget {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx), // Cancel
+                  onPressed: () => Navigator.pop(ctx),
                   child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
                 ),
                 ElevatedButton(
@@ -101,27 +99,24 @@ class LinkedNotesScreen extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
                   ),
                   onPressed: () {
-                    Navigator.pop(ctx); // Dialog band karein
+                    Navigator.pop(ctx); 
 
-                    // 🔥 NAVIGATE TO NOTES SCREEN
+                    // 🔥 UPDATED NAVIGATION LOGIC
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        // ✅ Widget Name Updated based on file name (NotesOnlineViewScreen)
                         builder: (c) => NotesOnlineViewScreen( 
-                          // IDs from saved schedule data
-                          subjId: topicData['subjId'],     
-                          subSubjId: topicData['subSubjId'],
-                          topicId: topicData['topicId'],
-                          subTopId: topicData['subTopId'],
-                          
-                          // Display Names
-                          displayName: topicData['subTopic'], 
-                          topicName: topicData['topic'],
-                          
-                          // User Preferences from Dialog
-                          mode: selectedMode,
-                          language: selectedLang,
+                          // ✅ FIX: Sara data ab ek 'data' map me jayega
+                          data: {
+                            'subjId': topicData['subjId'],     
+                            'subSubjId': topicData['subSubjId'],
+                            'topicId': topicData['topicId'],
+                            'subTopId': topicData['subTopId'],
+                            'displayName': topicData['subTopic'], 
+                            'topicName': topicData['topic'],
+                            'mode': selectedMode,
+                            'lang': selectedLang, // Note key: 'lang' used in map
+                          }
                         ),
                       ),
                     );
@@ -152,7 +147,6 @@ class LinkedNotesScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               itemCount: scheduleData.length,
               itemBuilder: (context, index) {
-                // Admin ne jo data save kiya tha, wo yahan ek Map hai
                 var item = scheduleData[index] as Map<String, dynamic>;
 
                 return Card(
@@ -164,7 +158,6 @@ class LinkedNotesScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Subject & SubSubject Tag
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
@@ -179,7 +172,6 @@ class LinkedNotesScreen extends StatelessWidget {
                         
                         const SizedBox(height: 10),
                         
-                        // Topic Name
                         Text(
                           item['topic'],
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -192,7 +184,6 @@ class LinkedNotesScreen extends StatelessWidget {
                         const SizedBox(height: 15),
                         const Divider(),
                         
-                        // 🔥 READ BUTTON
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
