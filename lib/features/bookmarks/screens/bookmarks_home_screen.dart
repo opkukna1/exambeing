@@ -3,10 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
-// ✅ IMPORTS
+// ✅ IMPORTS (Make sure these files exist in your project)
 import 'package:exambeing/features/admin/screens/create_week_schedule.dart';
 import 'package:exambeing/features/study_plan/screens/linked_notes_screen.dart';
-import 'package:exambeing/features/study_plan/screens/study_results_screen.dart'; // ✅ Result Screen Import
+import 'package:exambeing/features/study_plan/screens/study_results_screen.dart';
 
 class BookmarksHomeScreen extends StatefulWidget {
   const BookmarksHomeScreen({super.key});
@@ -22,6 +22,10 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
 
   String? selectedExamId;
   String? selectedExamName;
+  
+  // New: Week Selection State
+  String? selectedWeekId;
+  Map<String, dynamic>? selectedWeekData;
 
   // 1️⃣ ADMIN: Create New Exam
   void _addNewExam() {
@@ -61,26 +65,35 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
     );
   }
 
-  // 3️⃣ DELETE EXAM (Admin Only)
-  void _deleteExam(String docId) {
+  // 3️⃣ ADMIN: Placeholder functions for specific buttons
+  void _adminAddNotes() {
+    // Navigate to Add Notes Screen
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Open Add Notes Screen")));
+  }
+
+  void _adminCreateTest() {
+    // Navigate to Create Test Screen
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Open Create Test Screen")));
+  }
+
+  // 4️⃣ Show Schedule Dialog (User View)
+  void _showScheduleDialog(List<dynamic> topics, String title) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Delete Exam?"),
-        content: const Text("Is exam ka sara schedule delete ho jayega."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-          TextButton(
-            onPressed: () async {
-              await FirebaseFirestore.instance.collection('study_schedules').doc(docId).delete();
-              if (mounted) {
-                 Navigator.pop(ctx);
-                 setState(() { selectedExamId = null; });
-              }
-            },
-            child: const Text("DELETE", style: TextStyle(color: Colors.red)),
-          )
-        ],
+        title: Text("Schedule: $title"),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: topics.length,
+            itemBuilder: (c, i) => ListTile(
+              leading: const Icon(Icons.check_circle_outline, color: Colors.deepPurple),
+              title: Text(topics[i].toString()),
+            ),
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Close"))],
       ),
     );
   }
@@ -88,7 +101,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text("Self Study Plan 🚀"),
         backgroundColor: Colors.white,
@@ -103,237 +116,299 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
             )
         ],
       ),
-      body: Column(
-        children: [
-          // 🔽 SECTION 1: EXAM SELECTION (Horizontal List)
-          SizedBox(
-            height: 140,
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('study_schedules').orderBy('createdAt', descending: true).snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                var exams = snapshot.data!.docs;
-
-                if (exams.isEmpty) {
-                  return Center(
-                    child: isAdmin 
-                    ? const Text("Tap + to add Exam") 
-                    : const Text("No active exams found."),
-                  );
-                }
-
-                return ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: exams.length,
-                  itemBuilder: (context, index) {
-                    var doc = exams[index];
-                    bool isSelected = selectedExamId == doc.id;
-
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          selectedExamId = doc.id;
-                          selectedExamName = doc['examName'];
-                        });
-                      },
-                      child: Container(
-                        width: 120,
-                        margin: const EdgeInsets.only(right: 12),
-                        decoration: BoxDecoration(
-                          color: isSelected ? Colors.deepPurple : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: isSelected ? Colors.deepPurple : Colors.grey.shade300),
-                          boxShadow: [
-                             if(isSelected) BoxShadow(color: Colors.deepPurple.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))
-                          ]
-                        ),
-                        child: Stack(
-                          children: [
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.emoji_events, size: 30, color: isSelected ? Colors.white : Colors.orange),
-                                const SizedBox(height: 8),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                  child: Text(
-                                    doc['examName'],
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: isSelected ? Colors.white : Colors.black87
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (isAdmin)
-                              Positioned(
-                                top: 0, right: 0,
-                                child: InkWell(
-                                  onTap: () => _deleteExam(doc.id),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                                    child: const Icon(Icons.close, size: 10, color: Colors.white),
-                                  ),
-                                ),
-                              )
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            
+            // ------------------------------------------------
+            // 1️⃣ SECTION: EXAM SELECTION (Horizontal)
+            // ------------------------------------------------
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text("Choose Exam", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
             ),
-          ),
+            SizedBox(
+              height: 60,
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('study_schedules').orderBy('createdAt', descending: true).snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                  var exams = snapshot.data!.docs;
 
-          const Divider(height: 1),
+                  if (exams.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text("No Exams Found"));
 
-          // 🔽 SECTION 2: WEEKS SCHEDULE LIST
-          Expanded(
-            child: selectedExamId == null
-                ? const Center(child: Text("👈 Select an Exam to view Schedule"))
-                : StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('study_schedules')
-                        .doc(selectedExamId)
-                        .collection('weeks')
-                        .orderBy('unlockTime')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                      var weeks = snapshot.data!.docs;
-
-                      return Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text("Schedule for $selectedExamName", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                if (isAdmin)
-                                  ElevatedButton.icon(
-                                    onPressed: () => _addWeekSchedule(selectedExamId!),
-                                    icon: const Icon(Icons.add, size: 16),
-                                    label: const Text("Add Week"),
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
-                                  )
-                              ],
+                  return ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: exams.length,
+                    itemBuilder: (context, index) {
+                      var doc = exams[index];
+                      bool isSelected = selectedExamId == doc.id;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            selectedExamId = doc.id;
+                            selectedExamName = doc['examName'];
+                            selectedWeekId = null; // Reset week when exam changes
+                            selectedWeekData = null;
+                          });
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.deepPurple : Colors.white,
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(color: isSelected ? Colors.deepPurple : Colors.grey.shade300),
+                            boxShadow: isSelected ? [BoxShadow(color: Colors.deepPurple.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : [],
+                          ),
+                          child: Center(
+                            child: Text(
+                              doc['examName'],
+                              style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
                             ),
                           ),
-                          
-                          Expanded(
-                            child: weeks.isEmpty
-                                ? const Center(child: Text("No schedule added yet."))
-                                : ListView.builder(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    itemCount: weeks.length,
-                                    itemBuilder: (context, index) {
-                                      var weekDoc = weeks[index];
-                                      var data = weekDoc.data() as Map<String, dynamic>;
-                                      DateTime unlockDate = (data['unlockTime'] as Timestamp).toDate();
-                                      bool isLocked = DateTime.now().isBefore(unlockDate);
-                                      List<dynamic> topics = data['linkedTopics'] ?? [];
-
-                                      return Card(
-                                        margin: const EdgeInsets.only(bottom: 16),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16.0),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                children: [
-                                                  Text(data['weekTitle'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                                                  if(isAdmin)
-                                                    InkWell(
-                                                      onTap: () => FirebaseFirestore.instance.collection('study_schedules').doc(selectedExamId).collection('weeks').doc(weekDoc.id).delete(),
-                                                      child: const Icon(Icons.delete, color: Colors.grey, size: 20),
-                                                    )
-                                                ],
-                                              ),
-                                              Text("Test Unlocks: ${DateFormat('dd MMM').format(unlockDate)}", style: const TextStyle(color: Colors.grey)),
-                                              
-                                              const SizedBox(height: 15),
-                                              
-                                              // 👇 ROW 1: NOTES & TEST BUTTONS
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: OutlinedButton.icon(
-                                                      onPressed: () {
-                                                        Navigator.push(context, MaterialPageRoute(builder: (c) => LinkedNotesScreen(
-                                                          weekTitle: data['weekTitle'],
-                                                          linkedTopics: topics
-                                                        )));
-                                                      },
-                                                      icon: const Icon(Icons.menu_book, color: Colors.green),
-                                                      label: const Text("Read Notes"),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 10),
-                                                  Expanded(
-                                                    child: ElevatedButton.icon(
-                                                      onPressed: isLocked && !isAdmin 
-                                                        ? null 
-                                                        : () {
-                                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Starting Test covering: ${topics.join(", ")}")));
-                                                          // TEST NAVIGATION HERE
-                                                          // Navigator.push(context, MaterialPageRoute(builder: (c) => TestScreen(...)));
-                                                        },
-                                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
-                                                      icon: Icon(isLocked ? Icons.lock : Icons.play_arrow),
-                                                      label: Text(isLocked ? "Locked" : "Start Test"),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-
-                                              const SizedBox(height: 8),
-
-                                              // 🏆 4TH BUTTON: VIEW RESULTS
-                                              SizedBox(
-                                                width: double.infinity,
-                                                child: TextButton.icon(
-                                                  onPressed: () {
-                                                    // ✅ Result Screen Navigation
-                                                    Navigator.push(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(
-                                                      examId: selectedExamId!,
-                                                      examName: selectedExamName ?? "Exam"
-                                                    )));
-                                                  },
-                                                  icon: const Icon(Icons.bar_chart, color: Colors.blue),
-                                                  label: const Text("View Results / Progress"),
-                                                  style: TextButton.styleFrom(
-                                                    backgroundColor: Colors.blue.shade50,
-                                                    foregroundColor: Colors.blue,
-                                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ),
-                        ],
+                        ),
                       );
                     },
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // ------------------------------------------------
+            // 2️⃣ SECTION: WEEK SELECTION (Horizontal)
+            // ------------------------------------------------
+            if (selectedExamId != null) ...[
+               Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text("Choose Week", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                    if(isAdmin)
+                      InkWell(
+                        onTap: () => _addWeekSchedule(selectedExamId!),
+                        child: const Text("+ Add Week", style: TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold)),
+                      )
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: 100,
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('study_schedules')
+                      .doc(selectedExamId)
+                      .collection('weeks')
+                      .orderBy('unlockTime')
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const SizedBox();
+                    var weeks = snapshot.data!.docs;
+                    
+                    if (weeks.isEmpty) return const Center(child: Text("No schedule added yet."));
+
+                    return ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: weeks.length,
+                      itemBuilder: (context, index) {
+                        var weekDoc = weeks[index];
+                        var data = weekDoc.data() as Map<String, dynamic>;
+                        bool isSelected = selectedWeekId == weekDoc.id;
+                        DateTime unlockDate = (data['unlockTime'] as Timestamp).toDate();
+                        bool isLocked = DateTime.now().isBefore(unlockDate) && !isAdmin;
+
+                        return GestureDetector(
+                          onTap: isLocked ? null : () {
+                            setState(() {
+                              selectedWeekId = weekDoc.id;
+                              selectedWeekData = data;
+                            });
+                          },
+                          child: Container(
+                            width: 140,
+                            margin: const EdgeInsets.only(right: 12),
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.blue.shade50 : Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isSelected ? Colors.blue : Colors.grey.shade300, width: isSelected ? 2 : 1),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(isLocked ? Icons.lock : Icons.calendar_today, color: isLocked ? Colors.grey : Colors.blue),
+                                const SizedBox(height: 5),
+                                Text(data['weekTitle'], style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                Text(DateFormat('dd MMM').format(unlockDate), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+
+            const Divider(height: 30),
+
+            // ------------------------------------------------
+            // 3️⃣ SECTION: MAIN 4 BUTTONS (Schedule, Notes, Test, Result)
+            // ------------------------------------------------
+            if (selectedWeekId != null && selectedWeekData != null) ...[
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text("Action Center: ${selectedWeekData!['weekTitle']}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.3,
+                children: [
+                  // Button 1: Schedule
+                  _buildActionButton(
+                    icon: Icons.list_alt, 
+                    label: "Schedule", 
+                    color: Colors.orange, 
+                    onTap: () => _showScheduleDialog(selectedWeekData!['linkedTopics'] ?? [], selectedWeekData!['weekTitle'])
                   ),
-          ),
-        ],
+
+                  // Button 2: Notes
+                  _buildActionButton(
+                    icon: Icons.menu_book, 
+                    label: "Notes", 
+                    color: Colors.green, 
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => LinkedNotesScreen(
+                        weekTitle: selectedWeekData!['weekTitle'],
+                        linkedTopics: selectedWeekData!['linkedTopics'] ?? []
+                      )));
+                    }
+                  ),
+
+                  // Button 3: Test
+                  _buildActionButton(
+                    icon: Icons.quiz, 
+                    label: "Test", 
+                    color: Colors.deepPurple, 
+                    onTap: () {
+                      // START TEST LOGIC
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Starting Test...")));
+                    }
+                  ),
+
+                  // Button 4: Result
+                  _buildActionButton(
+                    icon: Icons.bar_chart, 
+                    label: "Result", 
+                    color: Colors.blue, 
+                    onTap: () {
+                       Navigator.push(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(
+                        examId: selectedExamId!,
+                        examName: selectedExamName ?? "Exam"
+                      )));
+                    }
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 20),
+
+              // ------------------------------------------------
+              // 4️⃣ SECTION: ADMIN CONTROLS (Visible Only to Admin)
+              // ------------------------------------------------
+              if (isAdmin) ...[
+                Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.shade200)
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Admin Controls 🛡️", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _buildAdminButton(Icons.note_add, "Add Notes", _adminAddNotes),
+                          _buildAdminButton(Icons.add_task, "Create Test", _adminCreateTest),
+                          _buildAdminButton(Icons.edit_calendar, "Add Schedule", () => _addWeekSchedule(selectedExamId!)),
+                        ],
+                      ),
+                    ],
+                  ),
+                )
+              ]
+
+            ] else if (selectedExamId != null) ...[
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 50),
+                  child: Text("👆 Select a Week above to see actions", style: TextStyle(color: Colors.grey)),
+                ),
+              )
+            ]
+          ],
+        ),
       ),
+    );
+  }
+
+  // Helper Widget for Main User Buttons
+  Widget _buildActionButton({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 4))],
+          border: Border.all(color: Colors.grey.shade200)
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 30),
+            ),
+            const SizedBox(height: 10),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper Widget for Admin Buttons
+  Widget _buildAdminButton(IconData icon, String label, VoidCallback onTap) {
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.red,
+        elevation: 0,
+        side: const BorderSide(color: Colors.red, width: 1)
+      ),
+      icon: Icon(icon, size: 18),
+      label: Text(label),
     );
   }
 }
