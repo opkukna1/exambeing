@@ -42,20 +42,19 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    int selectedIndex = _calculateSelectedIndex(context);
+
     return PopScope(
       canPop: false,
-      // ignore: deprecated_member_use
       onPopInvoked: (bool didPop) {
         if (didPop) return;
-
         final now = DateTime.now();
         const maxDuration = Duration(seconds: 2);
         final isWarning = lastPressed == null || now.difference(lastPressed!) > maxDuration;
 
         if (isWarning) {
           lastPressed = DateTime.now();
-          final scaffoldMessenger = ScaffoldMessenger.of(context);
-          scaffoldMessenger.showSnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Press back again to exit'), duration: maxDuration),
           );
         } else {
@@ -63,23 +62,85 @@ class _MainScreenState extends State<MainScreen> {
         }
       },
       child: Scaffold(
+        // Background color thoda grey rakha hai taaki white bar pop kare
+        backgroundColor: Colors.grey.shade50, 
+        extendBody: true, // Body ko bottom bar ke piche jaane deta hai
         appBar: AppBar(
           title: Image.asset('assets/logo.png', height: 40),
-          backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-          elevation: Theme.of(context).appBarTheme.elevation,
-          iconTheme: Theme.of(context).iconTheme,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          iconTheme: const IconThemeData(color: Colors.black),
         ),
-        drawer: const AppDrawer(), // Drawer yahaan call ho raha hai
+        drawer: const AppDrawer(),
         body: widget.child,
-        bottomNavigationBar: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          currentIndex: _calculateSelectedIndex(context),
-          onTap: (index) => _onItemTapped(index, context),
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book), label: 'Tests'),
-            BottomNavigationBarItem(icon: Icon(Icons.bookmark_border), activeIcon: Icon(Icons.bookmark), label: 'Bookmarks'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
+
+        // ✨ MODERN FLOATING NAVIGATION BAR ✨
+        bottomNavigationBar: SafeArea(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(20, 0, 20, 20), // Side aur Bottom se gap
+            height: 70,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(35), // Capsule Shape
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(Icons.home_rounded, "Home", 0, selectedIndex),
+                _buildNavItem(Icons.menu_book_rounded, "Tests", 1, selectedIndex),
+                _buildNavItem(Icons.auto_stories_rounded, "Self Study", 2, selectedIndex),
+                _buildNavItem(Icons.person_rounded, "Profile", 3, selectedIndex),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✨ CUSTOM ANIMATED ITEM WIDGET
+  Widget _buildNavItem(IconData icon, String label, int index, int selectedIndex) {
+    bool isSelected = index == selectedIndex;
+    
+    return GestureDetector(
+      onTap: () => _onItemTapped(index, context),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutQuad,
+        padding: isSelected 
+            ? const EdgeInsets.symmetric(horizontal: 20, vertical: 10) 
+            : const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.deepPurple : Colors.transparent, // Active Color
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : Colors.grey.shade400,
+              size: 26,
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ]
           ],
         ),
       ),
@@ -87,7 +148,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// Drawer's Code
+// Drawer's Code (Same as before, bas Self Study update ke sath)
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 
@@ -102,13 +163,13 @@ class AppDrawer extends StatelessWidget {
         children: <Widget>[
           if (user != null)
             UserAccountsDrawerHeader(
-              accountName: Text(user.displayName ?? 'No Name'),
-              accountEmail: Text(user.email ?? 'No Email'),
+              accountName: Text(user.displayName ?? 'Student'),
+              accountEmail: Text(user.email ?? ''),
               currentAccountPicture: CircleAvatar(
                 backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
                 child: user.photoURL == null ? const Icon(Icons.person, size: 40) : null,
               ),
-              decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
+              decoration: BoxDecoration(color: Colors.deepPurple), // Consistent Theme
             )
           else
             DrawerHeader(
@@ -117,7 +178,17 @@ class AppDrawer extends StatelessWidget {
             ),
 
           ListTile(leading: const Icon(Icons.home_outlined), title: const Text('Home'), onTap: () { Navigator.pop(context); context.go('/'); }),
-          ListTile(leading: const Icon(Icons.bookmarks_outlined), title: const Text('Bookmarks'), onTap: () { Navigator.pop(context); context.go('/bookmarks_home'); }),
+          
+          // Self Study Link
+          ListTile(
+            leading: const Icon(Icons.auto_stories_outlined), 
+            title: const Text('Self Study'), 
+            onTap: () { 
+              Navigator.pop(context); 
+              context.go('/bookmarks_home'); 
+            }
+          ),
+
           ListTile(
             leading: const Icon(Icons.note_add_outlined),
             title: const Text('My Notes'),
@@ -130,41 +201,11 @@ class AppDrawer extends StatelessWidget {
           const Divider(),
           Padding(
             padding: const EdgeInsets.only(left: 16.0, top: 16.0, bottom: 8.0),
-            child: Text(
-              'Study Tools',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
+            child: Text('Study Tools', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
           ),
-          ListTile(
-            leading: const Icon(Icons.timer_outlined),
-            title: const Text('Pomodoro Timer'),
-            onTap: () {
-              Navigator.pop(context);
-              context.push('/pomodoro');
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.check_circle_outline),
-            title: const Text('To-Do List'),
-            onTap: () {
-              Navigator.pop(context);
-              context.push('/todo-list');
-            },
-          ),
-          
-          // ⬇️===== YEH HAI NAYA "TIMETABLE" LINK =====⬇️
-          ListTile(
-            leading: const Icon(Icons.calendar_month_outlined),
-            title: const Text('My Timetable'),
-            onTap: () {
-              Navigator.pop(context);
-              context.push('/timetable'); // Naya route
-            },
-          ),
-          // ⬆️========================================⬆️
+          ListTile(leading: const Icon(Icons.timer_outlined), title: const Text('Pomodoro Timer'), onTap: () { Navigator.pop(context); context.push('/pomodoro'); }),
+          ListTile(leading: const Icon(Icons.check_circle_outline), title: const Text('To-Do List'), onTap: () { Navigator.pop(context); context.push('/todo-list'); }),
+          ListTile(leading: const Icon(Icons.calendar_month_outlined), title: const Text('My Timetable'), onTap: () { Navigator.pop(context); context.push('/timetable'); }),
           
           const Divider(),
           if (user != null)
@@ -180,11 +221,7 @@ class AppDrawer extends StatelessWidget {
               },
             )
           else
-             ListTile(
-              leading: const Icon(Icons.login),
-              title: const Text('Login'),
-              onTap: () => context.go('/login-hub'),
-            ),
+             ListTile(leading: const Icon(Icons.login), title: const Text('Login'), onTap: () => context.go('/login-hub')),
         ],
       ),
     );
