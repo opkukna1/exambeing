@@ -62,9 +62,11 @@ class _MainScreenState extends State<MainScreen> {
         }
       },
       child: Scaffold(
-        // Background color thoda grey rakha hai taaki white bar pop kare
-        backgroundColor: Colors.grey.shade50, 
-        extendBody: true, // Body ko bottom bar ke piche jaane deta hai
+        backgroundColor: Colors.grey.shade50,
+        
+        // 🚨 MAIN CHANGE: Isko false kar diya taaki content overlap na ho
+        extendBody: false, 
+        
         appBar: AppBar(
           title: Image.asset('assets/logo.png', height: 40),
           backgroundColor: Colors.white,
@@ -73,32 +75,37 @@ class _MainScreenState extends State<MainScreen> {
           iconTheme: const IconThemeData(color: Colors.black),
         ),
         drawer: const AppDrawer(),
+        
         body: widget.child,
 
-        // ✨ MODERN FLOATING NAVIGATION BAR ✨
-        bottomNavigationBar: SafeArea(
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(20, 0, 20, 20), // Side aur Bottom se gap
-            height: 70,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(35), // Capsule Shape
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(Icons.home_rounded, "Home", 0, selectedIndex),
-                _buildNavItem(Icons.menu_book_rounded, "Tests", 1, selectedIndex),
-                _buildNavItem(Icons.auto_stories_rounded, "Self Study", 2, selectedIndex),
-                _buildNavItem(Icons.person_rounded, "Profile", 3, selectedIndex),
-              ],
+        // ✨ MODERN FLOATING NAVIGATION BAR (Fixed Layout) ✨
+        bottomNavigationBar: Container(
+          // Niche white color diya taaki gap feel na ho
+          color: Colors.transparent, 
+          child: SafeArea(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(20, 0, 20, 20), // Bottom se gap
+              height: 70,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(35), // Capsule Shape
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(Icons.home_rounded, "Home", 0, selectedIndex),
+                  _buildNavItem(Icons.menu_book_rounded, "Tests", 1, selectedIndex),
+                  _buildNavItem(Icons.auto_stories_rounded, "Self Study", 2, selectedIndex),
+                  _buildNavItem(Icons.person_rounded, "Profile", 3, selectedIndex),
+                ],
+              ),
             ),
           ),
         ),
@@ -119,7 +126,7 @@ class _MainScreenState extends State<MainScreen> {
             ? const EdgeInsets.symmetric(horizontal: 20, vertical: 10) 
             : const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.deepPurple : Colors.transparent, // Active Color
+          color: isSelected ? Colors.deepPurple : Colors.transparent, 
           borderRadius: BorderRadius.circular(25),
         ),
         child: Row(
@@ -148,7 +155,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// Drawer's Code (Same as before, bas Self Study update ke sath)
+// Drawer Code (Same as before)
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 
@@ -169,7 +176,7 @@ class AppDrawer extends StatelessWidget {
                 backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
                 child: user.photoURL == null ? const Icon(Icons.person, size: 40) : null,
               ),
-              decoration: BoxDecoration(color: Colors.deepPurple), // Consistent Theme
+              decoration: const BoxDecoration(color: Colors.deepPurple),
             )
           else
             DrawerHeader(
@@ -179,7 +186,6 @@ class AppDrawer extends StatelessWidget {
 
           ListTile(leading: const Icon(Icons.home_outlined), title: const Text('Home'), onTap: () { Navigator.pop(context); context.go('/'); }),
           
-          // Self Study Link
           ListTile(
             leading: const Icon(Icons.auto_stories_outlined), 
             title: const Text('Self Study'), 
