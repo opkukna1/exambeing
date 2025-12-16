@@ -1,8 +1,10 @@
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+
+// ✅ IMPORT THE NEW SOLUTION SCREEN
+import 'package:exambeing/features/study_plan/screens/test_solution_screen.dart'; 
 
 class StudyResultsScreen extends StatelessWidget {
   final String examId;
@@ -34,16 +36,7 @@ class StudyResultsScreen extends StatelessWidget {
           var docs = snapshot.data!.docs;
 
           if (docs.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.bar_chart, size: 60, color: Colors.grey),
-                  SizedBox(height: 10),
-                  Text("No tests attempted yet!", style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            );
+            return const Center(child: Text("No tests attempted yet!"));
           }
 
           return ListView.builder(
@@ -52,7 +45,6 @@ class StudyResultsScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               var data = docs[index].data() as Map<String, dynamic>;
               double score = (data['score'] as num).toDouble();
-              int totalQ = data['totalQ'] ?? 10;
               
               // Formatting Date
               Timestamp? ts = data['attemptedAt'];
@@ -100,16 +92,27 @@ class StudyResultsScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 15),
-                      // 👇 Solutions Button (Future Scope: Is par click karke details dikha sakte ho)
+                      
+                      // 👇 UPDATED BUTTON LOGIC HERE
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
                           onPressed: () {
-                             // Yahan Solutions Screen par navigate kar sakte hain
-                             // jisme questionsSnapshot aur userResponse pass karenge
-                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Detailed Solutions coming soon!")));
+                             // Check if detailed data exists (Old results might not have it)
+                             if (data['questionsSnapshot'] != null && data['userResponse'] != null) {
+                               Navigator.push(
+                                 context, 
+                                 MaterialPageRoute(builder: (c) => TestSolutionScreen(
+                                   testTitle: data['testTitle'] ?? "Solutions",
+                                   questions: data['questionsSnapshot'],
+                                   userAnswers: data['userResponse']
+                                 ))
+                               );
+                             } else {
+                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Details not available for this old test.")));
+                             }
                           },
-                          child: const Text("View Solutions (Coming Soon)"),
+                          child: const Text("View Solutions & Analysis"),
                         ),
                       )
                     ],
