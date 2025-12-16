@@ -26,7 +26,10 @@ class TestSolutionScreen extends StatelessWidget {
         itemCount: questions.length,
         itemBuilder: (context, index) {
           var q = questions[index];
-          String qKey = q['id'] ?? q['question']; // Key to find user answer
+          // Use ID if available, else fallback to question text for mapping
+          String qKey = q['id'] ?? q['question']; 
+          
+          // User answer might be stored with String keys in Firestore Map
           int? userSelectedOpt = userAnswers[qKey];
           int correctOpt = q['correctIndex'];
 
@@ -36,8 +39,7 @@ class TestSolutionScreen extends StatelessWidget {
           
           return Card(
             margin: const EdgeInsets.only(bottom: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            // Border Color based on Status
+            // ✅ FIX: 'shape' sirf ek baar define kiya hai ab
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
