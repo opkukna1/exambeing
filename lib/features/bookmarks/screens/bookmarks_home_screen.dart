@@ -3,10 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
-// ✅ NEW IMPORTS (Make sure these files exist as per previous steps)
+// ✅ IMPORTS
 import 'package:exambeing/features/admin/screens/create_week_schedule.dart';
 import 'package:exambeing/features/study_plan/screens/linked_notes_screen.dart';
-// import 'package:exambeing/features/test/screens/test_screen.dart'; // Uncomment when test screen is ready
+import 'package:exambeing/features/study_plan/screens/study_results_screen.dart'; // ✅ Result Screen Import
 
 class BookmarksHomeScreen extends StatefulWidget {
   const BookmarksHomeScreen({super.key});
@@ -53,9 +53,8 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
     );
   }
 
-  // 2️⃣ ADMIN: Add Week Schedule (UPDATED LOGIC)
+  // 2️⃣ ADMIN: Add Week Schedule
   void _addWeekSchedule(String examId) {
-    // ✅ Ab ye Dialog nahi, balki Topic Selection wali nayi screen kholega
     Navigator.push(
       context, 
       MaterialPageRoute(builder: (c) => CreateWeekSchedule(examId: examId))
@@ -171,7 +170,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                 ),
                               ],
                             ),
-                            // Admin Delete Button (Small x)
                             if (isAdmin)
                               Positioned(
                                 top: 0, right: 0,
@@ -213,7 +211,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
 
                       return Column(
                         children: [
-                          // Header for selected exam
                           Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Row(
@@ -231,7 +228,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                             ),
                           ),
                           
-                          // List of Weeks
                           Expanded(
                             child: weeks.isEmpty
                                 ? const Center(child: Text("No schedule added yet."))
@@ -243,8 +239,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                       var data = weekDoc.data() as Map<String, dynamic>;
                                       DateTime unlockDate = (data['unlockTime'] as Timestamp).toDate();
                                       bool isLocked = DateTime.now().isBefore(unlockDate);
-                                      
-                                      // Topics List fetch kar rahe hain
                                       List<dynamic> topics = data['linkedTopics'] ?? [];
 
                                       return Card(
@@ -270,13 +264,12 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                               
                                               const SizedBox(height: 15),
                                               
-                                              // ACTION BUTTONS
+                                              // 👇 ROW 1: NOTES & TEST BUTTONS
                                               Row(
                                                 children: [
                                                   Expanded(
                                                     child: OutlinedButton.icon(
                                                       onPressed: () {
-                                                        // ✅ OPEN LINKED NOTES SCREEN
                                                         Navigator.push(context, MaterialPageRoute(builder: (c) => LinkedNotesScreen(
                                                           weekTitle: data['weekTitle'],
                                                           linkedTopics: topics
@@ -292,11 +285,9 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                                       onPressed: isLocked && !isAdmin 
                                                         ? null 
                                                         : () {
-                                                          // ✅ START TEST LOGIC (Topic list pass kar rahe hain)
-                                                          // Yahan aap apna Test Screen push karein:
-                                                          // Navigator.push(context, MaterialPageRoute(builder: (c) => DynamicTestScreen(topics: topics)));
-                                                          
                                                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Starting Test covering: ${topics.join(", ")}")));
+                                                          // TEST NAVIGATION HERE
+                                                          // Navigator.push(context, MaterialPageRoute(builder: (c) => TestScreen(...)));
                                                         },
                                                       style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
                                                       icon: Icon(isLocked ? Icons.lock : Icons.play_arrow),
@@ -304,7 +295,31 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                                     ),
                                                   ),
                                                 ],
-                                              )
+                                              ),
+
+                                              const SizedBox(height: 8),
+
+                                              // 🏆 4TH BUTTON: VIEW RESULTS
+                                              SizedBox(
+                                                width: double.infinity,
+                                                child: TextButton.icon(
+                                                  onPressed: () {
+                                                    // ✅ Result Screen Navigation
+                                                    Navigator.push(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(
+                                                      examId: selectedExamId!,
+                                                      examName: selectedExamName ?? "Exam"
+                                                    )));
+                                                  },
+                                                  icon: const Icon(Icons.bar_chart, color: Colors.blue),
+                                                  label: const Text("View Results / Progress"),
+                                                  style: TextButton.styleFrom(
+                                                    backgroundColor: Colors.blue.shade50,
+                                                    foregroundColor: Colors.blue,
+                                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+                                                  ),
+                                                ),
+                                              ),
                                             ],
                                           ),
                                         ),
