@@ -10,6 +10,8 @@ import 'package:exambeing/features/study_plan/screens/study_results_screen.dart'
 // 👇 NEW IMPORTS FOR TEST SYSTEM
 import 'package:exambeing/features/admin/screens/create_test_screen.dart';
 import 'package:exambeing/features/study_plan/screens/attempt_test_screen.dart';
+// 👇 NEW IMPORT FOR EDIT SCHEDULE
+import 'package:exambeing/features/admin/screens/edit_week_schedule.dart';
 
 class BookmarksHomeScreen extends StatefulWidget {
   const BookmarksHomeScreen({super.key});
@@ -430,7 +432,17 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                         spacing: 10,
                         runSpacing: 10,
                         children: [
-                          _buildAdminButton(Icons.edit_calendar, "Add Schedule", () => _addWeekSchedule(selectedExamId!)),
+                          _buildAdminButton(Icons.add_box, "Add Week", () => _addWeekSchedule(selectedExamId!)),
+                          
+                          // 🔥 NEW: EDIT SCHEDULE BUTTON
+                          _buildAdminButton(Icons.edit_document, "Edit Schedule", () {
+                             Navigator.push(context, MaterialPageRoute(builder: (c) => EditWeekSchedule(
+                               examId: selectedExamId!,
+                               weekId: selectedWeekId!,
+                               currentData: selectedWeekData!,
+                             )));
+                          }),
+
                           // Admin Test shortcut
                           _buildAdminButton(Icons.add_task, "Add Test", () {
                              Navigator.push(context, MaterialPageRoute(builder: (c) => CreateTestScreen(
