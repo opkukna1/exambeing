@@ -3,8 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
-// ✅ Agar apke project me Admin form alag file me hai to import karein, 
-// Varna neeche maine _showAddWeekDialog function isi file me rakha hai simplicity ke liye.
+// ✅ NEW IMPORTS (Make sure these files exist as per previous steps)
+import 'package:exambeing/features/admin/screens/create_week_schedule.dart';
+import 'package:exambeing/features/study_plan/screens/linked_notes_screen.dart';
+// import 'package:exambeing/features/test/screens/test_screen.dart'; // Uncomment when test screen is ready
 
 class BookmarksHomeScreen extends StatefulWidget {
   const BookmarksHomeScreen({super.key});
@@ -51,67 +53,12 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
     );
   }
 
-  // 2️⃣ ADMIN: Add Week Schedule
+  // 2️⃣ ADMIN: Add Week Schedule (UPDATED LOGIC)
   void _addWeekSchedule(String examId) {
-    TextEditingController titleController = TextEditingController();
-    DateTime selectedDate = DateTime.now();
-    // Topics selection logic complex ho sakta hai, abhi simple rakhte hain testing ke liye
-    
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: const Text("Add Week Schedule"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(labelText: "Week Title (e.g. Week 1: History)"),
-                ),
-                const SizedBox(height: 10),
-                ListTile(
-                  title: Text("Unlock: ${DateFormat('dd MMM').format(selectedDate)}"),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: () async {
-                    DateTime? picked = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) {
-                      setDialogState(() => selectedDate = picked);
-                    }
-                  },
-                ),
-                const Text("Note: Topics selection agle update me lagayenge.", style: TextStyle(fontSize: 12, color: Colors.grey)),
-              ],
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () async {
-                  if (titleController.text.isNotEmpty) {
-                    await FirebaseFirestore.instance
-                        .collection('study_schedules')
-                        .doc(examId)
-                        .collection('weeks')
-                        .add({
-                      'weekTitle': titleController.text.trim(),
-                      'unlockTime': Timestamp.fromDate(selectedDate),
-                      'linkedTopics': [], // Abhi empty rakha hai
-                      'createdAt': FieldValue.serverTimestamp(),
-                    });
-                    if (mounted) Navigator.pop(ctx);
-                  }
-                },
-                child: const Text("SAVE WEEK"),
-              )
-            ],
-          );
-        },
-      ),
+    // ✅ Ab ye Dialog nahi, balki Topic Selection wali nayi screen kholega
+    Navigator.push(
+      context, 
+      MaterialPageRoute(builder: (c) => CreateWeekSchedule(examId: examId))
     );
   }
 
@@ -296,6 +243,9 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                       var data = weekDoc.data() as Map<String, dynamic>;
                                       DateTime unlockDate = (data['unlockTime'] as Timestamp).toDate();
                                       bool isLocked = DateTime.now().isBefore(unlockDate);
+                                      
+                                      // Topics List fetch kar rahe hain
+                                      List<dynamic> topics = data['linkedTopics'] ?? [];
 
                                       return Card(
                                         margin: const EdgeInsets.only(bottom: 16),
@@ -326,8 +276,11 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                                   Expanded(
                                                     child: OutlinedButton.icon(
                                                       onPressed: () {
-                                                        // TODO: Open Linked Notes Screen
-                                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Opening Notes for this week...")));
+                                                        // ✅ OPEN LINKED NOTES SCREEN
+                                                        Navigator.push(context, MaterialPageRoute(builder: (c) => LinkedNotesScreen(
+                                                          weekTitle: data['weekTitle'],
+                                                          linkedTopics: topics
+                                                        )));
                                                       },
                                                       icon: const Icon(Icons.menu_book, color: Colors.green),
                                                       label: const Text("Read Notes"),
@@ -339,8 +292,11 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                                       onPressed: isLocked && !isAdmin 
                                                         ? null 
                                                         : () {
-                                                          // TODO: Start Test Logic
-                                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Starting Test...")));
+                                                          // ✅ START TEST LOGIC (Topic list pass kar rahe hain)
+                                                          // Yahan aap apna Test Screen push karein:
+                                                          // Navigator.push(context, MaterialPageRoute(builder: (c) => DynamicTestScreen(topics: topics)));
+                                                          
+                                                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Starting Test covering: ${topics.join(", ")}")));
                                                         },
                                                       style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
                                                       icon: Icon(isLocked ? Icons.lock : Icons.play_arrow),
