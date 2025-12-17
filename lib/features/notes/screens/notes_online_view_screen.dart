@@ -4,8 +4,6 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 // ✅ PDF Packages
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
-// ✅ TTS Package
-import 'package:flutter_tts/flutter_tts.dart';
 
 class NotesOnlineViewScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -21,53 +19,13 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
   bool _isLoading = true;
   String _errorMessage = "";
 
-  // 🔊 TTS Variables
-  final FlutterTts _flutterTts = FlutterTts();
-  bool _isSpeaking = false;
-
   @override
   void initState() {
     super.initState();
     _fetchContent();
-    _initTts();
   }
 
-  @override
-  void dispose() {
-    _flutterTts.stop();
-    super.dispose();
-  }
-
-  // 🔊 TTS Logic
-  void _initTts() async {
-    String langCode = widget.data['lang'] == 'Hindi' ? 'hi-IN' : 'en-US';
-    await _flutterTts.setLanguage(langCode);
-    await _flutterTts.setSpeechRate(0.5);
-    _flutterTts.setCompletionHandler(() {
-      if (mounted) setState(() => _isSpeaking = false);
-    });
-  }
-
-  Future<void> _toggleReading() async {
-    if (_htmlContent == null) return;
-    if (_isSpeaking) {
-      await _flutterTts.stop();
-      if (mounted) setState(() => _isSpeaking = false);
-    } else {
-      String plainText = _removeHtmlTags(_htmlContent!);
-      if (plainText.isNotEmpty) {
-        if (mounted) setState(() => _isSpeaking = true);
-        await _flutterTts.speak(plainText);
-      }
-    }
-  }
-
-  String _removeHtmlTags(String htmlString) {
-    RegExp exp = RegExp(r"<[^>]*>", multiLine: true, caseSensitive: true);
-    return htmlString.replaceAll(exp, ' ').trim();
-  }
-
-  // 1️⃣ Fetch Content
+  // 1️⃣ Fetch Content from Database
   Future<void> _fetchContent() async {
     try {
       final String subjId = widget.data['subjId'];
@@ -97,20 +55,18 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     }
   }
 
-  // 🔥 2️⃣ PDF GENERATOR (Beautiful Cover Page)
+  // 🔥 2️⃣ PDF GENERATOR (Premium Design without TTS)
   Future<void> _downloadPdf() async {
     if (_htmlContent == null) return;
 
-    // --- Data Extraction ---
-    // Agar Subject Name data me nahi hai to generic name use karenge, par koshish karenge nikalne ki
-    String subject = widget.data['subjectName'] ?? "Subject / SubSubject"; 
-    String topic = widget.data['topicName'] ?? "Topic"; 
-    String subtopic = widget.data['displayName'] ?? "Notes"; // Subtopic (File Name)
-    
+    // Extract Info
+    String subject = widget.data['subjectName'] ?? "Subject";
+    String topic = widget.data['topicName'] ?? "Topic";
+    String subtopic = widget.data['displayName'] ?? "Notes"; 
     String mode = widget.data['mode'] ?? "Detailed";
     String lang = widget.data['lang'] ?? "English";
     
-    // --- A. HEADER HTML (Fixed) ---
+    // --- A. FIXED HEADER HTML ---
     String headerHtml = """
       <div class="pdf-header">
         <div class="header-brand">
@@ -156,7 +112,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
       </div>
     """;
 
-    // --- C. CSS STYLING (Sundar Design) ---
+    // --- C. CSS STYLING ---
     String css = """
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&family=Hind:wght@400;600;700&display=swap" rel="stylesheet">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -178,42 +134,28 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         .brand-tagline { font-size: 10px; opacity: 0.9; margin-left: 10px; padding-left: 10px; border-left: 1px solid rgba(255,255,255,0.3); }
         .header-cta { display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.2); }
 
-        /* 🔥 PREMIUM COVER PAGE 🔥 */
+        /* COVER PAGE */
         .cover-page {
-            position: relative; z-index: 5000; /* Hides Header */
-            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%); /* Light Gradient BG */
+            position: relative; z-index: 5000; 
+            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
             width: 100%; height: 297mm; 
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             text-align: center; border: 12px solid #1e40af; 
             padding: 40px;
         }
-        
-        /* Decorative Corners */
-        .corner-deco {
-            position: absolute; width: 100px; height: 100px;
-            border-style: solid; border-color: #fbbf24;
-        }
+        .corner-deco { position: absolute; width: 100px; height: 100px; border-style: solid; border-color: #fbbf24; }
         .tl { top: 20px; left: 20px; border-width: 5px 0 0 5px; }
         .br { bottom: 20px; right: 20px; border-width: 0 5px 5px 0; }
 
-        /* Logo Area */
         .cover-icon { 
             font-size: 80px; color: #1e40af; margin-bottom: 30px; 
             background: white; padding: 30px; border-radius: 50%;
             box-shadow: 0 10px 25px rgba(30, 64, 175, 0.15);
         }
-
-        /* Hierarchy Text */
-        .label-tag {
-            font-size: 10px; text-transform: uppercase; letter-spacing: 2px;
-            color: #64748b; font-weight: 700; margin-bottom: 5px; display: block;
-        }
-
+        .label-tag { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #64748b; font-weight: 700; margin-bottom: 5px; display: block; }
         .subject-name { font-size: 28px; font-weight: 700; color: #1e3a8a; margin-bottom: 20px; text-transform: uppercase; }
-        
         .topic-name { font-size: 22px; font-weight: 500; color: #475569; margin-bottom: 30px; }
-
-        /* Subtopic Highlight Box */
+        
         .subtopic-box {
             background: white; border: 2px dashed #1e40af; 
             padding: 20px 40px; border-radius: 12px;
@@ -222,22 +164,15 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         }
         .subtopic-name { font-size: 36px; font-weight: 800; color: #0f172a; line-height: 1.2; }
 
-        /* Meta Badges */
         .meta-row { display: flex; gap: 15px; justify-content: center; margin-bottom: 60px; }
         .meta-badge { background: #1e40af; color: white; padding: 8px 20px; border-radius: 20px; font-size: 12px; font-weight: 600; }
         .meta-badge-outline { border: 2px solid #1e40af; color: #1e40af; padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: 700; }
 
-        /* Footer */
         .compiled-by { font-size: 16px; font-weight: 600; color: #334155; margin-bottom: 15px; }
-        .copyright-warning { 
-            font-size: 11px; color: #dc2626; border-top: 1px solid #dc2626; 
-            padding-top: 10px; width: 70%; margin: 0 auto;
-        }
+        .copyright-warning { font-size: 11px; color: #dc2626; border-top: 1px solid #dc2626; padding-top: 10px; width: 70%; margin: 0 auto; }
 
         /* MAIN CONTENT */
-        .main-content {
-            margin-top: 60px; padding: 40px; font-size: 14px; line-height: 1.6; color: #333; min-height: 90vh;
-        }
+        .main-content { margin-top: 60px; padding: 40px; font-size: 14px; line-height: 1.6; color: #333; min-height: 90vh; }
         
         /* PROMO CSS */
         .promo-page-wrapper { page-break-before: always; width: 100%; height: 297mm; background: white; z-index: 5000; position: relative; }
@@ -289,7 +224,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
               </div>
               
               <div class="compiled-by">
-                  Compiled By Exambeing App 🚀
+                  Compiled By Exambeing App 
               </div>
 
               <div class="copyright-warning">
@@ -308,7 +243,6 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
       </html>
     """;
 
-    // --- 5. GENERATE PDF ---
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async {
         return await Printing.convertHtml(
@@ -338,18 +272,13 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         backgroundColor: _getThemeColor(mode),
         foregroundColor: Colors.white,
         actions: [
-          if (!_isLoading && _htmlContent != null) ...[
-            IconButton(
-              icon: Icon(_isSpeaking ? Icons.stop_circle_outlined : Icons.record_voice_over),
-              tooltip: _isSpeaking ? "Stop Reading" : "Read Aloud",
-              onPressed: _toggleReading,
-            ),
+          // 📥 ONLY PDF Download Button
+          if (!_isLoading && _htmlContent != null)
             IconButton(
               icon: const Icon(Icons.download_for_offline),
               tooltip: "Download PDF",
               onPressed: _downloadPdf,
             ),
-          ]
         ],
       ),
       body: _isLoading
