@@ -4,7 +4,6 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 // ✅ PDF Packages
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
-// ❌ Maine TTS (Bolne wala) import HATA diya hai
 
 class NotesOnlineViewScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -56,19 +55,18 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     }
   }
 
-  // 🔥 2️⃣ PDF GENERATOR (Premium Design, NO TTS)
+  // 🔥 2️⃣ PDF GENERATOR (Table Fix + Header Fix + Split View)
   Future<void> _downloadPdf() async {
     if (_htmlContent == null) return;
 
     // --- Data Extraction ---
     String subject = widget.data['subjectName'] ?? ""; 
     String topic = widget.data['topicName'] ?? ""; 
-    String subtopic = widget.data['displayName'] ?? "NOTES"; // Ye BADA dikhega
-    
+    String subtopic = widget.data['displayName'] ?? "NOTES"; 
     String mode = widget.data['mode'] ?? "";
     String lang = widget.data['lang'] ?? "";
 
-    // HTML Logic (Only show if data exists)
+    // HTML Logic
     String subjectHtml = subject.isNotEmpty ? '<span class="label-tag">SUBJECT</span><div class="subject-name">$subject</div>' : '';
     String topicHtml = topic.isNotEmpty ? '<span class="label-tag">TOPIC</span><div class="topic-name">$topic</div>' : '';
     
@@ -111,14 +109,44 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
       </div>
     """;
 
-    // --- C. CSS STYLING ---
+    // --- C. CSS STYLING (UPDATED FOR TABLES) ---
     String css = """
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&family=Hind:wght@400;600;700&display=swap" rel="stylesheet">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
       <style>
-        @page { margin: 0; size: A4; }
+        /* PAGE MARGINS (Header Safe) */
+        @page { 
+            size: A4; 
+            margin-top: 80px;    
+            margin-bottom: 50px; 
+            margin-left: 30px; 
+            margin-right: 30px; 
+        }
+
         * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; }
+        body { font-family: 'Poppins', sans-serif; background: #fff; margin: 0; }
+
+        /* 🔥 FIX FOR TABLES & IMAGES CUTTING OFF */
+        img, svg, video, canvas, audio, iframe, embed, object {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+
+        table {
+            width: 100% !important;
+            table-layout: fixed; /* Ensures table stays inside column */
+            border-collapse: collapse;
+            font-size: 11px; /* Slightly smaller font for tables */
+            margin-bottom: 10px;
+        }
+
+        td, th {
+            border: 1px solid #ddd;
+            padding: 4px;
+            word-wrap: break-word; /* Forces long words to break */
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
 
         /* WATERMARK */
         .watermark {
@@ -126,12 +154,15 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
             transform: translate(-50%, -50%) rotate(-45deg);
             font-size: 80px; font-weight: 900;
             color: rgba(0, 0, 0, 0.04);
-            z-index: 0; pointer-events: none; white-space: nowrap;
+            z-index: -10; pointer-events: none; white-space: nowrap;
         }
 
         /* FIXED HEADER */
         .pdf-header {
-            position: fixed; top: 0; left: 0; width: 100%; height: 40px;
+            position: fixed; 
+            top: -60px; 
+            left: 0; right: 0; 
+            height: 40px;
             background: linear-gradient(90deg, #0f172a 0%, #1e40af 100%);
             color: white; display: flex; align-items: center; justify-content: space-between;
             padding: 0 30px; border-bottom: 2px solid #fbbf24; z-index: 1000;
@@ -141,60 +172,53 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
 
         /* COVER PAGE */
         .cover-page {
-            position: relative; z-index: 5000; 
+            position: relative; 
+            z-index: 5000; 
             background: white;
-            width: 100%; height: 297mm; 
+            margin-top: -80px; 
+            margin-left: -30px; margin-right: -30px;
+            width: 210mm; height: 297mm; 
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             text-align: center; border: 10px double #1e40af; 
             padding: 40px;
+            page-break-after: always;
         }
         .corner-deco { position: absolute; width: 80px; height: 80px; border-style: solid; border-color: #fbbf24; }
         .tl { top: 20px; left: 20px; border-width: 5px 0 0 5px; }
         .br { bottom: 20px; right: 20px; border-width: 0 5px 5px 0; }
 
         .cover-icon { font-size: 60px; color: #1e40af; margin-bottom: 40px; }
-
         .label-tag { font-size: 10px; letter-spacing: 2px; color: #94a3b8; font-weight: 700; margin-bottom: 5px; display: block; }
         .subject-name { font-size: 24px; font-weight: 700; color: #334155; margin-bottom: 20px; text-transform: uppercase; }
         .topic-name { font-size: 20px; color: #475569; margin-bottom: 30px; }
         
-        /* 🔥 BIG SUBTOPIC */
-        .subtopic-box {
-            padding: 30px 20px; 
-            margin-bottom: 60px; width: 100%;
-        }
-        .subtopic-name { 
-            font-size: 45px; 
-            font-weight: 900; 
-            color: #1e40af; 
-            line-height: 1.1; 
-            text-transform: uppercase;
-            text-shadow: 2px 2px 0px #e2e8f0;
-        }
+        .subtopic-box { padding: 30px 20px; margin-bottom: 60px; width: 100%; }
+        .subtopic-name { font-size: 45px; font-weight: 900; color: #1e40af; line-height: 1.1; text-transform: uppercase; text-shadow: 2px 2px 0px #e2e8f0; }
 
         .meta-row { display: flex; gap: 15px; justify-content: center; margin-bottom: 80px; }
         .meta-badge { background: #f1f5f9; color: #334155; padding: 5px 15px; border-radius: 5px; font-size: 12px; font-weight: 600; border: 1px solid #cbd5e1; }
 
-        /* 🔥 BIG COMPILED BY */
-        .compiled-by { 
-            font-size: 22px; 
-            font-weight: 800; 
-            color: #0f172a; 
-            margin-bottom: 20px; 
-            letter-spacing: 1px;
-        }
+        .compiled-by { font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 20px; letter-spacing: 1px; }
         .copyright-warning { font-size: 10px; color: #ef4444; margin-top: 10px; }
 
-        /* MAIN CONTENT (Split View) */
+        /* MAIN CONTENT (Split View - Optimized) */
         .main-content {
-            margin-top: 60px; padding: 0 40px; 
-            min-height: 90vh; position: relative; z-index: 1;
-            column-count: 2; column-gap: 40px; column-rule: 1px solid #e2e8f0;
-            text-align: justify; font-size: 13px; line-height: 1.6;
+            position: relative; z-index: 1;
+            column-count: 2; 
+            column-gap: 25px; /* Slightly reduced gap to give more width */
+            column-rule: 1px solid #e2e8f0;
+            text-align: justify; 
+            font-size: 13px; 
+            line-height: 1.6;
         }
         
-        /* PROMO CSS (Simplified) */
-        .promo-page-wrapper { page-break-before: always; width: 100%; height: 297mm; background: white; z-index: 5000; position: relative; }
+        /* PROMO PAGE */
+        .promo-page-wrapper { 
+            page-break-before: always; 
+            margin-top: -80px; margin-left: -30px; margin-right: -30px;
+            width: 210mm; height: 297mm; 
+            background: white; z-index: 5000; position: relative; 
+        }
         .promo-header { background: #1e3a8a; color: white; padding: 30px; height: 150px; }
         .promo-content { padding: 30px; }
         .features-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
@@ -235,11 +259,11 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
               </div>
               
               <div class="compiled-by">
-                  Compiled By Exambeing App 
+                  Compiled By Exambeing App 🚀
               </div>
 
               <div class="copyright-warning">
-                  ⚠️ COPYRIGHT WARNING: 2025 All Rights Reserved to Exambeing.
+                  ⚠️ COPYRIGHT WARNING: All Rights Reserved to Exambeing.
               </div>
           </div>
 
@@ -278,10 +302,9 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
             Text("$mode Mode • $lang", style: const TextStyle(fontSize: 12)),
           ],
         ),
-        backgroundColor: _getThemeColor(mode),
+        backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
-          // ✅ Sirf PDF Button hai, TTS button hata diya gaya
           if (!_isLoading && _htmlContent != null)
             IconButton(
               icon: const Icon(Icons.download_for_offline),
@@ -302,11 +325,5 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
                   ),
                 ),
     );
-  }
-
-  Color _getThemeColor(String mode) {
-    if (mode == 'Revision') return Colors.orange.shade700;
-    if (mode == 'Short') return Colors.red.shade700;
-    return Colors.deepPurple;
   }
 }
