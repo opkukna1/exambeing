@@ -4,7 +4,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 // ✅ PDF Packages
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+// ❌ Maine TTS (Bolne wala) import HATA diya hai
 
 class NotesOnlineViewScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -20,49 +20,10 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
   bool _isLoading = true;
   String _errorMessage = "";
 
-  // 🔊 TTS Variables
-  final FlutterTts _flutterTts = FlutterTts();
-  bool _isSpeaking = false;
-
   @override
   void initState() {
     super.initState();
     _fetchContent();
-    _initTts();
-  }
-
-  @override
-  void dispose() {
-    _flutterTts.stop();
-    super.dispose();
-  }
-
-  void _initTts() async {
-    String langCode = widget.data['lang'] == 'Hindi' ? 'hi-IN' : 'en-US';
-    await _flutterTts.setLanguage(langCode);
-    await _flutterTts.setSpeechRate(0.5);
-    _flutterTts.setCompletionHandler(() {
-      if (mounted) setState(() => _isSpeaking = false);
-    });
-  }
-
-  Future<void> _toggleReading() async {
-    if (_htmlContent == null) return;
-    if (_isSpeaking) {
-      await _flutterTts.stop();
-      if (mounted) setState(() => _isSpeaking = false);
-    } else {
-      String plainText = _removeHtmlTags(_htmlContent!);
-      if (plainText.isNotEmpty) {
-        if (mounted) setState(() => _isSpeaking = true);
-        await _flutterTts.speak(plainText);
-      }
-    }
-  }
-
-  String _removeHtmlTags(String htmlString) {
-    RegExp exp = RegExp(r"<[^>]*>", multiLine: true, caseSensitive: true);
-    return htmlString.replaceAll(exp, ' ').trim();
   }
 
   // 1️⃣ Fetch Content
@@ -95,12 +56,11 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     }
   }
 
-  // 🔥 2️⃣ PDF GENERATOR (Clean Cover + Watermark + Split View)
+  // 🔥 2️⃣ PDF GENERATOR (Premium Design, NO TTS)
   Future<void> _downloadPdf() async {
     if (_htmlContent == null) return;
 
     // --- Data Extraction ---
-    // Agar naam empty hai to empty string rakhenge taaki print na ho
     String subject = widget.data['subjectName'] ?? ""; 
     String topic = widget.data['topicName'] ?? ""; 
     String subtopic = widget.data['displayName'] ?? "NOTES"; // Ye BADA dikhega
@@ -108,7 +68,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     String mode = widget.data['mode'] ?? "";
     String lang = widget.data['lang'] ?? "";
 
-    // HTML Logic for Subject/Topic (Only show if exists)
+    // HTML Logic (Only show if data exists)
     String subjectHtml = subject.isNotEmpty ? '<span class="label-tag">SUBJECT</span><div class="subject-name">$subject</div>' : '';
     String topicHtml = topic.isNotEmpty ? '<span class="label-tag">TOPIC</span><div class="topic-name">$topic</div>' : '';
     
@@ -160,12 +120,12 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         body { font-family: 'Poppins', sans-serif; margin: 0; background: #fff; }
 
-        /* WATERMARK (Fixed on all pages) */
+        /* WATERMARK */
         .watermark {
             position: fixed; top: 50%; left: 50%; 
             transform: translate(-50%, -50%) rotate(-45deg);
             font-size: 80px; font-weight: 900;
-            color: rgba(0, 0, 0, 0.04); /* Very Light Grey */
+            color: rgba(0, 0, 0, 0.04);
             z-index: 0; pointer-events: none; white-space: nowrap;
         }
 
@@ -194,7 +154,6 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
 
         .cover-icon { font-size: 60px; color: #1e40af; margin-bottom: 40px; }
 
-        /* Typography */
         .label-tag { font-size: 10px; letter-spacing: 2px; color: #94a3b8; font-weight: 700; margin-bottom: 5px; display: block; }
         .subject-name { font-size: 24px; font-weight: 700; color: #334155; margin-bottom: 20px; text-transform: uppercase; }
         .topic-name { font-size: 20px; color: #475569; margin-bottom: 30px; }
@@ -205,9 +164,9 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
             margin-bottom: 60px; width: 100%;
         }
         .subtopic-name { 
-            font-size: 45px; /* Huge Size */
+            font-size: 45px; 
             font-weight: 900; 
-            color: #1e40af; /* Blue Color */
+            color: #1e40af; 
             line-height: 1.1; 
             text-transform: uppercase;
             text-shadow: 2px 2px 0px #e2e8f0;
@@ -226,7 +185,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         }
         .copyright-warning { font-size: 10px; color: #ef4444; margin-top: 10px; }
 
-        /* MAIN CONTENT */
+        /* MAIN CONTENT (Split View) */
         .main-content {
             margin-top: 60px; padding: 0 40px; 
             min-height: 90vh; position: relative; z-index: 1;
@@ -276,11 +235,11 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
               </div>
               
               <div class="compiled-by">
-                  Compiled By Exambeing App 🚀
+                  Compiled By Exambeing App 
               </div>
 
               <div class="copyright-warning">
-                  ⚠️ COPYRIGHT WARNING: All Rights Reserved to Exambeing.
+                  ⚠️ COPYRIGHT WARNING: 2025 All Rights Reserved to Exambeing.
               </div>
           </div>
 
@@ -319,21 +278,16 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
             Text("$mode Mode • $lang", style: const TextStyle(fontSize: 12)),
           ],
         ),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: _getThemeColor(mode),
         foregroundColor: Colors.white,
         actions: [
-          if (!_isLoading && _htmlContent != null) ...[
-            IconButton(
-              icon: Icon(_isSpeaking ? Icons.stop_circle_outlined : Icons.record_voice_over),
-              tooltip: _isSpeaking ? "Stop Reading" : "Read Aloud",
-              onPressed: _toggleReading,
-            ),
+          // ✅ Sirf PDF Button hai, TTS button hata diya gaya
+          if (!_isLoading && _htmlContent != null)
             IconButton(
               icon: const Icon(Icons.download_for_offline),
               tooltip: "Download PDF",
               onPressed: _downloadPdf,
             ),
-          ]
         ],
       ),
       body: _isLoading
@@ -348,5 +302,11 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
                   ),
                 ),
     );
+  }
+
+  Color _getThemeColor(String mode) {
+    if (mode == 'Revision') return Colors.orange.shade700;
+    if (mode == 'Short') return Colors.red.shade700;
+    return Colors.deepPurple;
   }
 }
