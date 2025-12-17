@@ -34,6 +34,9 @@ dependencies:
   # To-Do List/Calendar
   table_calendar: ^3.1.2
   intl: ^0.20.2         
+  #pdf 
+  printing: ^5.11.0  # PDF Generate aur Print karne ke liye
+  pdf: ^3.10.0       # PDF create karne ke liye
 
   # ⬇️===== NAYE PACKAGES (Notification Ke Liye) =====⬇️
   flutter_local_notifications: ^17.2.1 # Local notifications ke liye
