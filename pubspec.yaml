@@ -37,9 +37,6 @@ dependencies:
   #pdf 
   printing: ^5.11.0  # PDF Generate aur Print karne ke liye
   pdf: ^3.10.0       # PDF create karne ke liye
-  docx_template: ^0.5.2  # Word template भरने के लिए
-  path_provider: ^2.1.1  # फाइल सेव करने की लोकेशन के लिए
-  open_file: ^3.3.2
   # ⬇️===== NAYE PACKAGES (Notification Ke Liye) =====⬇️
   flutter_local_notifications: ^17.2.1 # Local notifications ke liye
   timezone: ^0.9.4                     # Time zone setup ke liye (zaroori)
