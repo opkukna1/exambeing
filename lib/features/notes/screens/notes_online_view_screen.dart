@@ -53,7 +53,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     }
   }
 
-  // 🔥 FINAL PDF GENERATOR (Fixed Corner Header, No Overlap)
+  // 🔥 FINAL PDF GENERATOR (No Header + Watermark + Big Text)
   Future<void> _downloadPdf() async {
     if (_htmlContent == null) return;
 
@@ -68,12 +68,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     String subjectHtml = subject.isNotEmpty ? '<div class="meta-label">SUBJECT</div><div class="subject-name">$subject</div>' : '';
     String topicHtml = topic.isNotEmpty ? '<div class="meta-label">TOPIC</div><div class="topic-name">$topic</div>' : '';
 
-    // --- 1. NEW SMALL CORNER HEADER ---
-    String cornerHeaderHtml = """
-      <div class="corner-header">EXAMBEING</div>
-    """;
-
-    // --- 2. USER PROVIDED PROMO HTML (Kept as is) ---
+    // --- 1. PROMO HTML (Kept Same) ---
     String promoHtml = """
     <div class="promo-container">
       <div class="page promo-page-inner">
@@ -166,13 +161,11 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&family=Hind:wght@400;600;700&display=swap" rel="stylesheet">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
       <style>
-        /* 1. PAGE SETUP */
+        /* 1. RESET & PAGE SETUP */
         @page {
             size: A4;
-            /* Top/Bottom 15mm, Left/Right 5mm for maximum width */
-            margin: 15mm 5mm 15mm 5mm; 
+            margin: 0;
         }
-        @page:first { margin: 0; }
 
         body { 
             font-family: 'Poppins', sans-serif; 
@@ -181,20 +174,17 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
             -webkit-print-color-adjust: exact;
         }
 
-        /* 2. NEW CORNER HEADER (Saffron, Top Right, Small) */
-        .corner-header {
-            position: fixed;
-            top: -5mm; /* Sits inside the top margin area */
-            right: 0;
-            font-family: 'Poppins', sans-serif;
-            font-size: 12px;
-            font-weight: 800;
-            color: #ff4500; /* Saffron Color */
-            text-transform: uppercase;
-            z-index: 9999;
+        /* 2. WATERMARK (Added) */
+        .watermark {
+            position: fixed; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 100px; font-weight: 900; 
+            color: rgba(0, 0, 0, 0.05); /* Light Grey */
+            z-index: -10; pointer-events: none; 
+            white-space: nowrap;
         }
 
-        /* 3. COVER PAGE (Hides header with background) */
+        /* 3. COVER PAGE (Full Screen) */
         .cover-wrapper {
             position: relative; 
             width: 210mm; height: 297mm; 
@@ -202,10 +192,8 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             text-align: center; border: 15px solid #ff4500;
             box-sizing: border-box;
-            z-index: 10000; /* Higher than header */
+            z-index: 10;
             page-break-after: always;
-            /* Reset margins for full page cover */
-            margin-top: -15mm; margin-left: -5mm; margin-right: -5mm;
         }
         
         .cover-brand-big { font-size: 60px; font-weight: 900; color: #ff4500; margin-bottom: 40px; letter-spacing: 2px; }
@@ -219,25 +207,25 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         .meta-badge { font-size: 16px; font-weight: bold; background: #ffedd5; color: #c2410c; padding: 8px 20px; border-radius: 30px; margin: 10px; display: inline-block; }
         .compiled-by { margin-top: 60px; font-size: 18px; font-weight: 600; color: #334155; }
 
-        /* 4. CONTENT AREA (Padded to prevent overlap) */
+        /* 4. CONTENT AREA - SINGLE COLUMN, BIG TEXT, NO HEADER PADDING */
         .content-container {
-            /* 🔥 IMPORTANT: Padding top ensures text starts BELOW the corner header */
-            padding: 40px 25px 30px 25px; 
-            font-size: 16px;
+            /* Adjusted Padding since header is gone */
+            padding: 30px 25px 30px 25px; 
+            font-size: 16px; /* BIG TEXT */
             line-height: 1.6;
             color: #222;
         }
 
-        /* TABLE STYLING */
+        /* TABLE STYLING - BIG TEXT */
         table {
             width: 100% !important;
             border-collapse: collapse;
-            font-size: 14px !important;
+            font-size: 14px !important; /* BIG TABLE TEXT */
             margin-bottom: 15px;
             table-layout: fixed;
         }
         td, th {
-            border: 1px solid #444;
+            border: 1px solid #666;
             padding: 8px;
             vertical-align: top;
             word-wrap: break-word;
@@ -251,11 +239,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
             width: 210mm; min-height: 297mm;
             background: white;
             z-index: 10001; position: relative;
-            /* Reset margins to fill page */
-            margin-top: -15mm; margin-left: -5mm; margin-right: -5mm;
         }
-        
-        /* User's Promo CSS copy-paste */
         .promo-page-inner { width: 100%; height: 297mm; display: flex; flex-direction: column; background: #fff; box-shadow: none; margin: 0; }
         .promo-header { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color: white; padding: 30px 40px; clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%); height: 220px; }
         .brand { font-size: 32px; font-weight: 800; letter-spacing: 1px; margin-bottom: 5px; color: #fbbf24; display: flex; align-items: center; gap: 10px; }
@@ -287,7 +271,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
       <html>
       <head>$css</head>
       <body>
-          $cornerHeaderHtml
+          <div class="watermark">Exambeing</div>
 
           <div class="cover-wrapper">
               <div class="cover-brand-big">EXAMBEING</div>
