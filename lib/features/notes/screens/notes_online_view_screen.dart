@@ -163,7 +163,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     </div>
     """;
 
-    // --- CSS STYLING ---
+    // --- CSS STYLING (UPDATED TO FIX OVERLAP) ---
     String css = """
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&family=Hind:wght@400;600;700&display=swap" rel="stylesheet">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -176,7 +176,8 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
 
         body { 
             font-family: 'Poppins', sans-serif; 
-            margin: 0; 
+            margin: 0;
+            margin-top: 50px; /* FIX 1: Pushing body down */
             background: #fff;
             -webkit-print-color-adjust: exact;
         }
@@ -187,7 +188,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
             top: 0; 
             left: 0;
             width: 100%; 
-            height: 35px;
+            height: 40px; /* Increased slightly for safety */
             background: #fff;
             border-bottom: 2px solid #ff4500;
             display: flex; 
@@ -206,9 +207,12 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         /* 3. COVER PAGE - FULL SCREEN, HIDES HEADER */
         .cover-wrapper {
             position: relative; 
-            width: 210mm; 
-            height: 297mm; 
-            background: white; /* Needs background to hide header */
+            width: 100%; 
+            height: 100vh; 
+            background: white; 
+            /* FIX 2: Reset margin for cover page */
+            margin-top: -50px; 
+            padding-top: 50px;
             display: flex; 
             flex-direction: column; 
             justify-content: center; 
@@ -216,7 +220,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
             text-align: center; 
             border: 15px solid #ff4500;
             box-sizing: border-box;
-            z-index: 10000; /* Must be higher than header */
+            z-index: 10000; 
             page-break-after: always;
         }
         
@@ -233,9 +237,9 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
 
         /* 4. CONTENT AREA - SINGLE COLUMN, BIG TEXT */
         .content-container {
-            /* Top Padding = Header Height (35px) + Buffer (20px) */
-            padding: 55px 25px 30px 25px; 
-            font-size: 16px; /* BIG TEXT REQUESTED */
+            /* FIX 3: Increased Padding top to 80px */
+            padding: 80px 25px 30px 25px; 
+            font-size: 16px; 
             line-height: 1.6;
             color: #222;
         }
@@ -244,14 +248,13 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         table {
             width: 100% !important;
             border-collapse: collapse;
-            font-size: 14px !important; /* BIG TABLE TEXT REQUESTED */
+            font-size: 14px !important; 
             margin-bottom: 15px;
         }
         td, th {
             border: 1px solid #444;
             padding: 8px;
             vertical-align: top;
-            /* Ensure words break */
             word-wrap: break-word;
             word-break: break-word; 
         }
@@ -263,6 +266,8 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
             width: 210mm; min-height: 297mm;
             background: white;
             z-index: 10001; position: relative;
+            /* FIX 4: Reset margin for promo page */
+            margin-top: -50px;
         }
         
         .promo-page-inner { width: 100%; height: 297mm; display: flex; flex-direction: column; background: #fff; box-shadow: none; margin: 0; }
@@ -365,3 +370,4 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     );
   }
 }
+
