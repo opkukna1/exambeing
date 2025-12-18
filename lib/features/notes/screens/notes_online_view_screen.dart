@@ -53,7 +53,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     }
   }
 
-  // 🔥 2️⃣ PDF GENERATOR (Professional Layout - NO CUTTING)
+  // 🔥 FINAL SINGLE COLUMN PDF GENERATOR
   Future<void> _downloadPdf() async {
     if (_htmlContent == null) return;
 
@@ -64,169 +64,229 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     String mode = widget.data['mode'] ?? "";
     String lang = widget.data['lang'] ?? "";
 
-    String subjectHtml = subject.isNotEmpty ? '<span class="label-tag">SUBJECT</span><div class="subject-name">$subject</div>' : '';
-    String topicHtml = topic.isNotEmpty ? '<span class="label-tag">TOPIC</span><div class="topic-name">$topic</div>' : '';
+    // HTML Components for Cover Page
+    String subjectHtml = subject.isNotEmpty ? '<div class="meta-label">SUBJECT</div><div class="subject-name">$subject</div>' : '';
+    String topicHtml = topic.isNotEmpty ? '<div class="meta-label">TOPIC</div><div class="topic-name">$topic</div>' : '';
 
-    // --- 1. HEADER (Fixed Top) ---
+    // --- 1. USER PROVIDED HEADER ---
     String headerHtml = """
       <div class="pdf-header">
         <span class="brand-text">EXAMBEING</span>
-        <span class="page-number"></span>
       </div>
     """;
 
-    // --- 2. PROMOTION PAGE ---
+    // --- 2. USER PROVIDED PROMO HTML ---
     String promoHtml = """
     <div class="promo-container">
-      <div class="promo-inner">
+      <div class="page promo-page-inner">
         <header class="promo-header">
             <div class="brand"><i class="fa-solid fa-graduation-cap"></i> Exambeing</div>
-            <div class="tagline">Complete Learning Resource</div>
-            <div class="main-heading">Every Aspirant's Choice for<br><span style="color: #60a5fa;">Competitive Exams</span></div>
+            <div class="tagline">Not Just Coaching, A Complete Learning Resource</div>
+            <div class="main-heading">
+                Every Aspirant's Choice for<br>
+                <span style="color: #60a5fa;">Competitive Exams</span>
+            </div>
         </header>
 
         <div class="content">
             <div class="philosophy-box">
-                <p><strong>Exambeing</strong> is a technology-driven learning resource for every aspirant.</p>
+                <p class="hindi-text">
+                    <strong>Exambeing</strong> कोई कोचिंग संस्थान या कोर्स बेचने वाला प्लेटफ़ॉर्म नहीं है।<br>
+                    यह एक <strong>तकनीक से युक्त शैक्षणिक संसाधन (Learning Resource)</strong> है, जिसे हर प्रतियोगी परीक्षा की तैयारी करने वाले विद्यार्थी को अवश्य उपयोग करना चाहिए।
+                </p>
             </div>
+
             <div class="features-grid">
-                <div class="feature-card"><div class="feature-title">PYQ Test Series</div><div class="feature-desc">Unlimited attempts.</div></div>
-                <div class="feature-card"><div class="feature-title">Smart Notes</div><div class="feature-desc">Detailed, Revision, Short.</div></div>
-                <div class="feature-card"><div class="feature-title">Analysis</div><div class="feature-desc">Know Strengths & Weaknesses.</div></div>
-                <div class="feature-card"><div class="feature-title">Custom Tests</div><div class="feature-desc">Create your own tests.</div></div>
+                <div class="feature-card card-1">
+                    <div class="feature-icon c1"><i class="fa-solid fa-file-circle-check"></i></div>
+                    <div class="feature-title">PYQ-Based Test Series</div>
+                    <div class="feature-desc">Practice Mode & Test Mode available.<br>Unlimited attempts for perfection.</div>
+                </div>
+                <div class="feature-card card-2">
+                    <div class="feature-icon c2"><i class="fa-solid fa-sliders"></i></div>
+                    <div class="feature-title">Custom Test Creation</div>
+                    <div class="feature-desc">Select Subject & Topic.<br>Choose Level: Easy / Moderate / Hard.</div>
+                </div>
+                <div class="feature-card card-3">
+                    <div class="feature-icon c3"><i class="fa-solid fa-book-open"></i></div>
+                    <div class="feature-title">3-Layer Notes System</div>
+                    <div class="feature-desc">1. Detailed Notes<br>2. Revision Notes<br>3. Short Notes (Hindi & English)</div>
+                </div>
+                <div class="feature-card card-4">
+                    <div class="feature-icon c4"><i class="fa-solid fa-chart-pie"></i></div>
+                    <div class="feature-title">Performance Analysis</div>
+                    <div class="feature-desc">Deep analysis of your preparation.<br>Know your Strengths & Weaknesses.</div>
+                </div>
+            </div>
+
+            <div class="feature-card card-5" style="margin-bottom: 20px;">
+                <div class="feature-icon c5"><i class="fa-solid fa-brain"></i></div>
+                <div class="feature-title">Smart Study Tools</div>
+                <div class="feature-desc" style="display: flex; gap: 10px; margin-top: 5px;">
+                    <span style="background:#fce7f3; padding: 2px 8px; border-radius: 4px; color: #db2777;">Pomodoro</span>
+                    <span style="background:#fce7f3; padding: 2px 8px; border-radius: 4px; color: #db2777;">Scheduled Tests</span>
+                    <span style="background:#fce7f3; padding: 2px 8px; border-radius: 4px; color: #db2777;">Study Plan</span>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 25px;">
+                <p class="hindi-text" style="font-size: 16px; font-weight: 600; color: #1e3a8a;">
+                    "Exambeing केवल सामग्री नहीं, आपकी मंज़िल का मार्गदर्शक है।"
+                </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 15px; opacity: 0.1;">
+                <i class="fa-solid fa-mobile-screen-button" style="font-size: 70px; color: #000;"></i>
             </div>
         </div>
 
         <footer>
             <div class="cta-text">
                 <h2>Download Now</h2>
-                <p>Search "Exambeing" on Google Play</p>
+                <p>Take your preparation to the next level.</p>
+                <div class="steps">
+                    <div class="step-item"><i class="fa-solid fa-magnifying-glass"></i> Search "Exambeing"</div>
+                    <div class="step-item"><i class="fa-solid fa-download"></i> Install App</div>
+                </div>
+            </div>
+            <div>
+                <div class="play-store-badge">
+                    <i class="fab fa-google-play fa-lg" style="color: #000;"></i>
+                    <div style="display: flex; flex-direction: column; line-height: 1;">
+                        <span style="font-size: 9px; font-weight: normal;">GET IT ON</span>
+                        <span style="font-size: 14px;">Google Play</span>
+                    </div>
+                </div>
             </div>
         </footer>
       </div>
     </div>
     """;
 
-    // --- CSS STYLING (The Fix) ---
+    // --- CSS STYLING ---
     String css = """
-      <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Hind:wght@400;600;700&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&family=Hind:wght@400;600;700&display=swap" rel="stylesheet">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
       <style>
-        /* 1. PAGE MARGINS (Critical Fix) */
+        /* 1. RESET & PAGE SETUP */
         @page {
             size: A4;
-            /* Top padding for header, Bottom for footer, Side margins minimal (5mm) */
-            margin: 15mm 5mm 10mm 5mm; 
+            margin: 0; /* Full control via HTML/CSS */
         }
-        
-        /* Remove margin for Cover Page */
-        @page:first { margin: 0; }
 
         body { 
             font-family: 'Poppins', sans-serif; 
-            font-size: 12px; /* Increased Font Size */
-            color: #222; 
-            margin: 0;
-            padding: 0;
+            margin: 0; 
+            background: #fff;
+            -webkit-print-color-adjust: exact;
         }
 
-        /* 2. HEADER (Fixed at Top) */
+        /* 2. HEADER - FIXED TOP */
         .pdf-header {
             position: fixed;
-            top: -10mm; /* Adjusted to fit in @page margin */
-            left: 0; width: 100%;
-            height: 8mm;
-            border-bottom: 2px solid #ff4500;
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 0 5mm;
+            top: 0; 
+            left: 0;
+            width: 100%; 
+            height: 35px;
             background: #fff;
+            border-bottom: 2px solid #ff4500;
+            display: flex; 
+            align-items: center;
+            padding-left: 20px;
+            z-index: 9999;
         }
-        .brand-text { font-weight: 800; color: #ff4500; font-size: 14px; letter-spacing: 1px; }
+        .brand-text {
+            font-family: 'Poppins', sans-serif;
+            font-size: 18px; 
+            font-weight: 800;
+            color: #ff4500; 
+            text-transform: uppercase;
+        }
 
-        /* 3. COVER PAGE (Full A4) */
+        /* 3. COVER PAGE - FULL SCREEN, HIDES HEADER */
         .cover-wrapper {
             position: relative; 
-            width: 100vw; height: 100vh; /* Viewport based size */
-            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            text-align: center; border: 8px double #1e40af; 
+            width: 210mm; 
+            height: 297mm; 
+            background: white; /* Needs background to hide header */
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center;
+            text-align: center; 
+            border: 15px solid #ff4500;
             box-sizing: border-box;
-            z-index: 10;
-            background-color: white; /* Hides header on page 1 */
-            padding: 20px;
+            z-index: 10000; /* Must be higher than header */
+            page-break-after: always;
         }
         
-        .cover-icon { font-size: 70px; color: #1e40af; margin-bottom: 20px; }
-        .label-tag { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #64748b; font-weight: 700; margin-bottom: 5px; display: block; }
-        .subject-name { font-size: 26px; font-weight: 700; color: #1e3a8a; margin-bottom: 15px; text-transform: uppercase; }
-        .topic-name { font-size: 20px; font-weight: 500; color: #475569; margin-bottom: 25px; }
-        .subtopic-box { margin: 20px 0; padding: 15px; background: white; border: 2px dashed #1e40af; border-radius: 10px; width: 90%; }
-        .subtopic-name { font-size: 38px; font-weight: 900; color: #1e40af; line-height: 1.1; text-transform: uppercase; }
-        .meta-row { display: flex; gap: 10px; justify-content: center; margin-bottom: 50px; margin-top: 20px; }
-        .meta-badge { background: #f1f5f9; color: #334155; padding: 5px 15px; border-radius: 5px; font-size: 11px; font-weight: 600; border: 1px solid #cbd5e1; }
-        .compiled-by { font-size: 14px; font-weight: 600; color: #334155; margin-bottom: 10px; }
-        .copyright-warning { font-size: 9px; color: #dc2626; border-top: 1px solid #dc2626; padding-top: 5px; width: 60%; margin: 0 auto; }
+        .cover-brand-big { font-size: 60px; font-weight: 900; color: #ff4500; margin-bottom: 40px; letter-spacing: 2px; }
+        .meta-label { font-size: 12px; color: #64748b; letter-spacing: 2px; font-weight: bold; margin-bottom: 5px; margin-top: 30px; }
+        .subject-name { font-size: 30px; font-weight: 700; color: #334155; text-transform: uppercase; }
+        .topic-name { font-size: 24px; color: #475569; }
+        
+        .subtopic-box { margin: 50px 0; padding: 20px; width: 90%; border-top: 2px solid #ff4500; border-bottom: 2px solid #ff4500; }
+        .subtopic-name { font-size: 45px; font-weight: 900; color: #0f172a; line-height: 1.2; text-transform: uppercase; }
+        
+        .meta-badge { font-size: 16px; font-weight: bold; background: #ffedd5; color: #c2410c; padding: 8px 20px; border-radius: 30px; margin: 10px; display: inline-block; }
+        .compiled-by { margin-top: 60px; font-size: 18px; font-weight: 600; color: #334155; }
 
-        /* 4. MAIN CONTENT (Split View - Wide) */
-        .content-wrapper {
-            column-count: 2; 
-            column-gap: 6mm; /* Small gap to maximize text area */
-            column-rule: 1px solid #ddd;
-            text-align: justify; 
-            line-height: 1.5;
-            padding-top: 5mm;
+        /* 4. CONTENT AREA - SINGLE COLUMN, BIG TEXT */
+        .content-container {
+            /* Top Padding = Header Height (35px) + Buffer (20px) */
+            padding: 55px 25px 30px 25px; 
+            font-size: 16px; /* BIG TEXT REQUESTED */
+            line-height: 1.6;
+            color: #222;
         }
 
-        /* 🔥 TABLE FIX (The most important part) */
+        /* TABLE STYLING - BIG TEXT */
         table {
             width: 100% !important;
             border-collapse: collapse;
-            font-size: 11px !important; /* Bigger font for table */
-            margin-bottom: 10px;
-            table-layout: fixed; /* Ensures column width respects page */
+            font-size: 14px !important; /* BIG TABLE TEXT REQUESTED */
+            margin-bottom: 15px;
         }
-        
         td, th {
-            border: 1px solid #888;
-            padding: 4px; /* More padding */
+            border: 1px solid #444;
+            padding: 8px;
             vertical-align: top;
-            word-wrap: break-word; /* Wrap long words */
-            word-break: break-word; /* Don't chop letters */
-            hyphens: auto;
+            /* Ensure words break */
+            word-wrap: break-word;
+            word-break: break-word; 
         }
-        
-        /* Fix list spacing */
-        ul, ol { padding-left: 15px; margin: 5px 0; }
-        li { margin-bottom: 3px; }
+        img { max-width: 100%; height: auto; margin: 10px auto; display: block; }
 
-        img { max-width: 100% !important; height: auto; display: block; margin: 5px auto; }
-
-        /* WATERMARK */
-        .watermark {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 70px; font-weight: 900; color: rgba(0,0,0,0.04); z-index: -5; pointer-events: none; white-space: nowrap;
-        }
-
-        /* 5. PROMO PAGE (Full Sheet) */
+        /* 5. PROMO PAGE CSS COPY-PASTE */
         .promo-container {
             page-break-before: always;
-            width: 100vw; height: 100vh; /* Full viewport */
-            background: white; 
-            z-index: 20; 
-            position: relative;
-            /* Reset any padding from body */
-            margin: -15mm -5mm -10mm -5mm; 
+            width: 210mm; min-height: 297mm;
+            background: white;
+            z-index: 10001; position: relative;
         }
-        .promo-inner { display: flex; flex-direction: column; height: 100%; border: 1px solid #eee; }
-        .promo-header { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color: white; padding: 20px; text-align: center; }
-        .brand { font-size: 24px; font-weight: 800; color: #fbbf24; margin-bottom: 5px; }
-        .content { padding: 20px; flex-grow: 1; }
-        .philosophy-box { background: #eff6ff; border-left: 5px solid #2563eb; padding: 10px; margin-bottom: 20px; font-size: 11px; }
-        .features-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .feature-card { border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; background: #fff; }
-        .feature-title { font-weight: 700; font-size: 11px; color: #1e293b; }
-        .feature-desc { font-size: 10px; color: #64748b; }
-        footer { background: #0f172a; color: white; padding: 15px; text-align: center; }
+        
+        .promo-page-inner { width: 100%; height: 297mm; display: flex; flex-direction: column; background: #fff; box-shadow: none; margin: 0; }
+        .promo-header { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color: white; padding: 30px 40px; clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%); height: 220px; }
+        .brand { font-size: 32px; font-weight: 800; letter-spacing: 1px; margin-bottom: 5px; color: #fbbf24; display: flex; align-items: center; gap: 10px; }
+        .tagline { font-size: 16px; opacity: 0.9; font-weight: 300; margin-bottom: 20px; }
+        .main-heading { font-size: 28px; font-weight: 700; line-height: 1.2; }
+        .content { padding: 10px 40px; flex-grow: 1; }
+        .philosophy-box { background: #eff6ff; border-left: 5px solid #2563eb; padding: 15px 20px; border-radius: 0 8px 8px 0; margin-bottom: 25px; margin-top: 10px; }
+        .hindi-text { font-family: 'Hind', sans-serif; font-size: 14px; color: #334155; line-height: 1.5; }
+        .features-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .feature-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; background: #fff; position: relative; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .feature-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+        .card-1::before { background: #3b82f6; } .card-2::before { background: #8b5cf6; } .card-3::before { background: #f59e0b; } .card-4::before { background: #10b981; } .card-5::before { background: #ec4899; }
+        .feature-icon { font-size: 20px; margin-bottom: 8px; }
+        .c1 { color: #3b82f6; } .c2 { color: #8b5cf6; } .c3 { color: #f59e0b; } .c4 { color: #10b981; } .c5 { color: #ec4899; }
+        .feature-title { font-weight: 700; font-size: 14px; margin-bottom: 5px; color: #1e293b; }
+        .feature-desc { font-size: 11px; color: #64748b; font-family: 'Hind', sans-serif; line-height: 1.4; }
+        footer { background: #0f172a; color: white; padding: 25px 40px; display: flex; align-items: center; justify-content: space-between; height: 160px; }
+        .cta-text h2 { font-size: 24px; font-weight: 700; color: #fbbf24; margin-bottom: 5px; }
+        .cta-text p { font-size: 14px; color: #cbd5e1; margin-bottom: 15px; }
+        .steps { font-size: 12px; display: flex; gap: 15px; }
+        .step-item { display: flex; align-items: center; gap: 5px; }
+        .play-store-badge { background: white; color: black; padding: 10px 20px; border-radius: 8px; display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: bold; font-size: 16px; }
       </style>
     """;
 
@@ -236,26 +296,27 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
       <html>
       <head>$css</head>
       <body>
-          <div class="watermark">Exambeing</div>
-
           $headerHtml
 
           <div class="cover-wrapper">
-              <div class="cover-icon">📖</div>
+              <div class="cover-brand-big">EXAMBEING</div>
+              
               $subjectHtml
               $topicHtml
+
               <div class="subtopic-box">
                   <div class="subtopic-name">$subtopic</div>
               </div>
-              <div class="meta-row">
-                  <div class="meta-badge">$mode Mode</div>
-                  <div class="meta-badge">$lang</div>
+
+              <div>
+                  <span class="meta-badge">$mode Mode</span>
+                  <span class="meta-badge">$lang</span>
               </div>
+              
               <div class="compiled-by">Compiled By Exambeing App 🚀</div>
-              <div class="copyright-warning">⚠️ COPYRIGHT WARNING: All Rights Reserved.</div>
           </div>
 
-          <div class="content-wrapper">
+          <div class="content-container">
               $_htmlContent
           </div>
 
