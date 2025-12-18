@@ -1,8 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:go_router/go_router.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart'; 
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+// अपने प्रोजेक्ट के हिसाब से ये इंपोर्ट चेक कर लेना
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/features/tests/screens/test_success_screen.dart';
 
@@ -15,6 +15,8 @@ class TestGeneratorScreen extends StatefulWidget {
 
 class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
   final Map<String, int> _topicCounts = {};
+  
+  // टोटल सवाल गिनने का getter
   int get _totalQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
   
   bool _isLoading = false;
@@ -26,8 +28,10 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     _loadRewardedAd();
   }
 
+  // --- 1. ADMOB LOGIC ---
   void _loadRewardedAd() {
     RewardedAd.load(
+      // TEST ID है, पब्लिश करते समय अपनी असली ID डालना
       adUnitId: 'ca-app-pub-3940256099942544/5224354917', 
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
@@ -41,6 +45,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
+  // --- 2. FIREBASE STREAMS ---
   Stream<QuerySnapshot> _getSubjects() {
     return FirebaseFirestore.instance.collection('subjects').snapshots();
   }
@@ -52,8 +57,9 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         .snapshots();
   }
 
-  // 🔥 TRUE RANDOM + LOW READS STRATEGY
+  // --- 3. 🔥 MAIN GENERATE FUNCTION (OPTIMIZED) ---
   Future<void> _generateTest() async {
+    // अगर 0 सवाल हैं तो रोक दो
     if (_totalQuestions == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select at least one question!"))
@@ -65,71 +71,63 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
 
     try {
       List<Question> finalQuestionsList = [];
-      final Random random = Random();
+      final collectionRef = FirebaseFirestore.instance.collection('questions');
 
-      // Har Topic ke liye loop chalayenge
+      // हर सेलेक्ट किए गए टॉपिक के लिए लूप
       for (var entry in _topicCounts.entries) {
         String topicId = entry.key;
         int countNeeded = entry.value;
 
         if (countNeeded <= 0) continue;
 
-        // 🧠 Strategy: Ek baar me 10 lene ki jagah, 
-        // hum 10 alag-alag random points se 1-1 sawal uthayenge.
-        // Isse sawal repeat hone ka chance khatam ho jayega aur Reads bhi utne hi rahenge.
+        // --- SMART STRATEGY (BATCH FETCH) ---
+        
+        // A. एक रैंडम ID जनरेट करो
+        String randomAutoId = collectionRef.doc().id;
 
-        List<Future<void>> fetchTasks = [];
+        // B. रैंडम ID के बाद वाले सवाल एक साथ उठाओ (सिर्फ 1 Read में)
+        var querySnapshot = await collectionRef
+            .where('topicId', isEqualTo: topicId)
+            .orderBy(FieldPath.documentId) // ID से सॉर्ट जरूरी है
+            .startAt([randomAutoId])       // रैंडम जगह से शुरू
+            .limit(countNeeded)            // जितने चाहिए उतने एक बार में
+            .get();
 
-        for (int i = 0; i < countNeeded; i++) {
-          fetchTasks.add(Future(() async {
-            // 1. Generate Random ID
-            String randomAutoId = FirebaseFirestore.instance.collection('questions').doc().id;
+        List<DocumentSnapshot> docs = querySnapshot.docs.toList();
 
-            // 2. Try fetching 1 question AFTER random ID
-            var query = await FirebaseFirestore.instance
-                .collection('questions')
-                .where('topicId', isEqualTo: topicId)
-                .orderBy(FieldPath.documentId)
-                .startAt([randomAutoId])
-                .limit(1) // Sirf 1 sawal (1 Read)
-                .get();
-
-            if (query.docs.isNotEmpty) {
-              finalQuestionsList.add(Question.fromFirestore(query.docs.first));
-            } else {
-              // Agar Random ID sabse last me chali gayi aur kuch nahi mila,
-              // To shuruwat se 1 utha lo (Wrap around)
-              var startQuery = await FirebaseFirestore.instance
-                  .collection('questions')
-                  .where('topicId', isEqualTo: topicId)
-                  .orderBy(FieldPath.documentId)
-                  .limit(1)
-                  .get();
-              
-              if (startQuery.docs.isNotEmpty) {
-                finalQuestionsList.add(Question.fromFirestore(startQuery.docs.first));
-              }
-            }
-          }));
+        // C. अगर लिस्ट के अंत में थे और कम सवाल मिले, तो शुरू से बाकी उठा लो
+        if (docs.length < countNeeded) {
+          int remaining = countNeeded - docs.length;
+          
+          var startQuery = await collectionRef
+              .where('topicId', isEqualTo: topicId)
+              .orderBy(FieldPath.documentId)
+              .limit(remaining)
+              .get();
+          
+          docs.addAll(startQuery.docs);
         }
 
-        // Saare calls ek sath parallel me bhejo (Fast)
-        await Future.wait(fetchTasks);
+        // D. मॉडल में कन्वर्ट करो और लिस्ट में डालो
+        for (var doc in docs) {
+          finalQuestionsList.add(Question.fromFirestore(doc));
+        }
       }
 
-      // Remove Duplicates (Agar kismat se same sawal 2 baar aa gaya ho)
+      // डुप्लीकेट हटाओ (सेफ्टी के लिए)
       final uniqueIds = <String>{};
       finalQuestionsList.retainWhere((q) => uniqueIds.add(q.id));
 
       if (finalQuestionsList.isEmpty) {
-        throw "No questions found.";
+        throw "No questions found. Try selecting different topics.";
       }
 
-      // Final Shuffle
-      finalQuestionsList.shuffle(Random());
+      // लिस्ट को शफल करो ताकि मिक्स हो जाए
+      finalQuestionsList.shuffle();
 
       setState(() => _isLoading = false);
 
+      // --- ADS & NAVIGATION ---
       if (_rewardedAd != null) {
         _rewardedAd!.show(
           onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
@@ -137,7 +135,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
           }
         );
         _rewardedAd = null;
-        _loadRewardedAd(); 
+        _loadRewardedAd(); // अगली बार के लिए लोड करो
       } else {
         _navigateToSuccess(finalQuestionsList);
       }
@@ -145,6 +143,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
+        // इंडेक्स एरर हैंडलिंग
         if (e.toString().contains("requires an index")) {
            _showIndexErrorDialog();
         } else {
@@ -162,9 +161,9 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       builder: (context) => AlertDialog(
         title: const Text("⚠️ Database Setup Required"),
         content: const Text(
-          "For this random feature to work, you need an Index.\n\n"
-          "1. Check Debug Console for the link.\n"
-          "2. Click Create Index in Firebase Console."
+          "For this random feature to work, Firebase needs an Index.\n\n"
+          "1. Check the 'Run' or 'Debug' tab in your IDE.\n"
+          "2. Click the link generated by Firebase to create the index automatically."
         ),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))],
       ),
@@ -184,11 +183,13 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
+  // --- 4. COUNTER UPDATE LOGIC ---
   void _updateCount(String topicId, int delta) {
     setState(() {
       int current = _topicCounts[topicId] ?? 0;
       int newVal = max(0, current + delta);
       
+      // मैक्सिमम 100 सवाल की लिमिट
       if (delta > 0 && _totalQuestions >= 100) {
          ScaffoldMessenger.of(context).showSnackBar(
            const SnackBar(content: Text("Max limit 100 questions reached!"), duration: Duration(milliseconds: 500))
@@ -204,6 +205,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     });
   }
 
+  // --- 5. UI BUILD ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -288,7 +290,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                     IconButton(
                       icon: const Icon(Icons.remove_circle_outline),
                       color: Colors.red,
-                      onPressed: () => _updateCount(topicId, -1),
+                      onPressed: () => _updateCount(topicId, -5), // -5 किया है
                     ),
                     
                     Container(
@@ -307,7 +309,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline),
                       color: Colors.green,
-                      onPressed: () => _updateCount(topicId, 5),
+                      onPressed: () => _updateCount(topicId, 5), // +5 किया है
                     ),
                   ],
                 ),
