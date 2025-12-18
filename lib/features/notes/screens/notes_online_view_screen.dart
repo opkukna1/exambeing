@@ -33,7 +33,9 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
       final String lang = widget.data['lang'];
       final String mode = widget.data['mode'];
 
+      // Document ID generation logic
       final String docId = "${subjId}_${subSubjId}_${topicId}_${subTopId}".toLowerCase();
+      // Field name logic (e.g., theory_en, theory_hi)
       final String fieldName = "${mode.toLowerCase().split(' ')[0]}_${lang == 'Hindi' ? 'hi' : 'en'}";
 
       var doc = await FirebaseFirestore.instance.collection('notes_content').doc(docId).get();
@@ -53,11 +55,11 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     }
   }
 
-  // 🔥 FINAL SINGLE COLUMN PDF GENERATOR
+  // 🔥 FINAL PDF GENERATOR (Header Fixed + Promo Page Perfect)
   Future<void> _downloadPdf() async {
     if (_htmlContent == null) return;
 
-    // Data Extraction
+    // Data Extraction for Cover Page
     String subject = widget.data['subjectName'] ?? ""; 
     String topic = widget.data['topicName'] ?? ""; 
     String subtopic = widget.data['displayName'] ?? "NOTES"; 
@@ -68,14 +70,12 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     String subjectHtml = subject.isNotEmpty ? '<div class="meta-label">SUBJECT</div><div class="subject-name">$subject</div>' : '';
     String topicHtml = topic.isNotEmpty ? '<div class="meta-label">TOPIC</div><div class="topic-name">$topic</div>' : '';
 
-    // --- 1. USER PROVIDED HEADER ---
+    // --- 1. NEW SIMPLE HEADER (Only Text, Saffron Color) ---
     String headerHtml = """
-      <div class="pdf-header">
-        <span class="brand-text">EXAMBEING</span>
-      </div>
+      <div class="text-header">EXAMBEING</div>
     """;
 
-    // --- 2. USER PROVIDED PROMO HTML ---
+    // --- 2. PROMO HTML (Marketing Page) ---
     String promoHtml = """
     <div class="promo-container">
       <div class="page promo-page-inner">
@@ -98,34 +98,28 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
 
             <div class="features-grid">
                 <div class="feature-card card-1">
-                    <div class="feature-icon c1"><i class="fa-solid fa-file-circle-check"></i></div>
                     <div class="feature-title">PYQ-Based Test Series</div>
                     <div class="feature-desc">Practice Mode & Test Mode available.<br>Unlimited attempts for perfection.</div>
                 </div>
                 <div class="feature-card card-2">
-                    <div class="feature-icon c2"><i class="fa-solid fa-sliders"></i></div>
                     <div class="feature-title">Custom Test Creation</div>
                     <div class="feature-desc">Select Subject & Topic.<br>Choose Level: Easy / Moderate / Hard.</div>
                 </div>
                 <div class="feature-card card-3">
-                    <div class="feature-icon c3"><i class="fa-solid fa-book-open"></i></div>
                     <div class="feature-title">3-Layer Notes System</div>
                     <div class="feature-desc">1. Detailed Notes<br>2. Revision Notes<br>3. Short Notes (Hindi & English)</div>
                 </div>
                 <div class="feature-card card-4">
-                    <div class="feature-icon c4"><i class="fa-solid fa-chart-pie"></i></div>
                     <div class="feature-title">Performance Analysis</div>
                     <div class="feature-desc">Deep analysis of your preparation.<br>Know your Strengths & Weaknesses.</div>
                 </div>
             </div>
 
             <div class="feature-card card-5" style="margin-bottom: 20px;">
-                <div class="feature-icon c5"><i class="fa-solid fa-brain"></i></div>
                 <div class="feature-title">Smart Study Tools</div>
                 <div class="feature-desc" style="display: flex; gap: 10px; margin-top: 5px;">
                     <span style="background:#fce7f3; padding: 2px 8px; border-radius: 4px; color: #db2777;">Pomodoro</span>
                     <span style="background:#fce7f3; padding: 2px 8px; border-radius: 4px; color: #db2777;">Scheduled Tests</span>
-                    <span style="background:#fce7f3; padding: 2px 8px; border-radius: 4px; color: #db2777;">Study Plan</span>
                 </div>
             </div>
 
@@ -134,20 +128,12 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
                     "Exambeing केवल सामग्री नहीं, आपकी मंज़िल का मार्गदर्शक है।"
                 </p>
             </div>
-            
-            <div style="text-align: center; margin-top: 15px; opacity: 0.1;">
-                <i class="fa-solid fa-mobile-screen-button" style="font-size: 70px; color: #000;"></i>
-            </div>
         </div>
 
         <footer>
             <div class="cta-text">
                 <h2>Download Now</h2>
-                <p>Take your preparation to the next level.</p>
-                <div class="steps">
-                    <div class="step-item"><i class="fa-solid fa-magnifying-glass"></i> Search "Exambeing"</div>
-                    <div class="step-item"><i class="fa-solid fa-download"></i> Install App</div>
-                </div>
+                <p>Search "Exambeing" on Google Play.</p>
             </div>
             <div>
                 <div class="play-store-badge">
@@ -163,7 +149,7 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
     </div>
     """;
 
-    // --- CSS STYLING (UPDATED TO FIX OVERLAP) ---
+    // --- 3. CSS (MARGINS FIXED FOR ALL PAGES) ---
     String css = """
       <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&family=Hind:wght@400;600;700&display=swap" rel="stylesheet">
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -171,48 +157,41 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         /* 1. RESET & PAGE SETUP */
         @page {
             size: A4;
-            margin: 0; /* Full control via HTML/CSS */
+            margin: 0; 
         }
 
         body { 
             font-family: 'Poppins', sans-serif; 
             margin: 0;
-            margin-top: 50px; /* FIX 1: Pushing body down */
+            /* CRITICAL FIX: Main content starts 50px down so it never touches header */
+            margin-top: 50px; 
             background: #fff;
             -webkit-print-color-adjust: exact;
         }
 
-        /* 2. HEADER - FIXED TOP */
-        .pdf-header {
+        /* 2. NEW TEXT HEADER (Saffron, Top Left) */
+        .text-header {
             position: fixed;
-            top: 0; 
-            left: 0;
-            width: 100%; 
-            height: 40px; /* Increased slightly for safety */
-            background: #fff;
-            border-bottom: 2px solid #ff4500;
-            display: flex; 
-            align-items: center;
-            padding-left: 20px;
+            top: 15px;        /* 15px from top */
+            left: 25px;       /* 25px from left */
+            width: 100%;
+            font-size: 14px;
+            font-weight: 800; 
+            color: #FF5722;   /* SAFFRON COLOR */
+            text-transform: uppercase;
+            letter-spacing: 1px;
             z-index: 9999;
         }
-        .brand-text {
-            font-family: 'Poppins', sans-serif;
-            font-size: 18px; 
-            font-weight: 800;
-            color: #ff4500; 
-            text-transform: uppercase;
-        }
 
-        /* 3. COVER PAGE - FULL SCREEN, HIDES HEADER */
+        /* 3. COVER PAGE (Full Screen Fix) */
         .cover-wrapper {
             position: relative; 
             width: 100%; 
             height: 100vh; 
             background: white; 
-            /* FIX 2: Reset margin for cover page */
+            /* FIX: Pull back up by 50px to cover the body margin */
             margin-top: -50px; 
-            padding-top: 50px;
+            padding-top: 50px; /* Add internal padding to balance it */
             display: flex; 
             flex-direction: column; 
             justify-content: center; 
@@ -235,16 +214,16 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         .meta-badge { font-size: 16px; font-weight: bold; background: #ffedd5; color: #c2410c; padding: 8px 20px; border-radius: 30px; margin: 10px; display: inline-block; }
         .compiled-by { margin-top: 60px; font-size: 18px; font-weight: 600; color: #334155; }
 
-        /* 4. CONTENT AREA - SINGLE COLUMN, BIG TEXT */
+        /* 4. CONTENT AREA */
         .content-container {
-            /* FIX 3: Increased Padding top to 80px */
-            padding: 80px 25px 30px 25px; 
+            /* Standard padding, top spacing handled by body margin */
+            padding: 10px 25px 30px 25px; 
             font-size: 16px; 
             line-height: 1.6;
             color: #222;
         }
 
-        /* TABLE STYLING - BIG TEXT */
+        /* TABLE STYLING */
         table {
             width: 100% !important;
             border-collapse: collapse;
@@ -260,13 +239,13 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         }
         img { max-width: 100%; height: auto; margin: 10px auto; display: block; }
 
-        /* 5. PROMO PAGE CSS COPY-PASTE */
+        /* 5. PROMO PAGE CSS (Layout Fix) */
         .promo-container {
             page-break-before: always;
             width: 210mm; min-height: 297mm;
             background: white;
             z-index: 10001; position: relative;
-            /* FIX 4: Reset margin for promo page */
+            /* FIX: Pull promo page up to top edge */
             margin-top: -50px;
         }
         
@@ -282,15 +261,12 @@ class _NotesOnlineViewScreenState extends State<NotesOnlineViewScreen> {
         .feature-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; background: #fff; position: relative; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .feature-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
         .card-1::before { background: #3b82f6; } .card-2::before { background: #8b5cf6; } .card-3::before { background: #f59e0b; } .card-4::before { background: #10b981; } .card-5::before { background: #ec4899; }
-        .feature-icon { font-size: 20px; margin-bottom: 8px; }
-        .c1 { color: #3b82f6; } .c2 { color: #8b5cf6; } .c3 { color: #f59e0b; } .c4 { color: #10b981; } .c5 { color: #ec4899; }
         .feature-title { font-weight: 700; font-size: 14px; margin-bottom: 5px; color: #1e293b; }
         .feature-desc { font-size: 11px; color: #64748b; font-family: 'Hind', sans-serif; line-height: 1.4; }
         footer { background: #0f172a; color: white; padding: 25px 40px; display: flex; align-items: center; justify-content: space-between; height: 160px; }
         .cta-text h2 { font-size: 24px; font-weight: 700; color: #fbbf24; margin-bottom: 5px; }
         .cta-text p { font-size: 14px; color: #cbd5e1; margin-bottom: 15px; }
         .steps { font-size: 12px; display: flex; gap: 15px; }
-        .step-item { display: flex; align-items: center; gap: 5px; }
         .play-store-badge { background: white; color: black; padding: 10px 20px; border-radius: 8px; display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: bold; font-size: 16px; }
       </style>
     """;
