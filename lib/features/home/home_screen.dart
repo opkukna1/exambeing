@@ -43,9 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- TOKEN & TRIAL LOGIC (SAME AS BEFORE) ---
+  // --- TOKEN & TRIAL LOGIC ---
   Future<void> _saveDeviceToken() async {
-    /* ... (Purana code same rahega) ... */
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
@@ -63,7 +62,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _activateLuckyTrial() async {
-    /* ... (Purana lucky trial code same rahega) ... */
      final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     final prefs = await SharedPreferences.getInstance();
@@ -90,25 +88,54 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- 🤖 AI ANALYSIS LOGIC ---
+  // --- 🤖 AI ANALYSIS LOGIC (FIXED: Timeout & Crash Proof) ---
   void _onAiAnalyzePressed() async {
+    // 1. Loading Dialog Show karein (White Background taaki Black Screen na lage)
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+      barrierDismissible: false, // User click karke band na kar sake
+      builder: (c) => AlertDialog(
+        backgroundColor: Colors.white,
+        content: Row(
+          children: const [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Expanded(child: Text("AI is thinking...\n(Please wait)", style: TextStyle(fontSize: 14))),
+          ],
+        ),
+      ),
     );
 
-    final service = AiAnalysisService();
-    String result = await service.getAnalysis();
+    String result = "";
 
-    if (mounted) Navigator.pop(context);
+    try {
+      final service = AiAnalysisService();
+      
+      // 2. Data Fetch karein (WITH 15 SECOND TIMEOUT)
+      // Agar 15 second mein jawab nahi aaya, to ye error message dega
+      result = await service.getAnalysis().timeout(
+        const Duration(seconds: 15), 
+        onTimeout: () => "Error: AI took too long to respond. Please check internet.",
+      );
 
+    } catch (e) {
+      // Agar koi bhi error aaya
+      result = "Error: Something went wrong ($e)";
+    } finally {
+      // 3. FINALLY BLOCK (Ye Hamesha Chalega)
+      // Chahe success ho ya error, Dialog band hona hi chahiye
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context); 
+      }
+    }
+
+    // 4. Result Handle karein (Dialog band hone ke baad)
     if (result == "LIMIT_REACHED") {
       _showDialog("Limit Reached 🛑", "You have used your 5 free AI analysis for this month.");
     } else if (result == "NO_DATA") {
       _showDialog("No Data 📊", "Please attempt at least one test so AI can analyze your performance.");
     } else if (result.startsWith("Error")) {
-       _showDialog("Error ⚠️", "Something went wrong. Please try again later.");
+       _showDialog("Connection Error ⚠️", result);
     } else {
       _showAnalysisResult(result);
     }
@@ -271,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- EXISTING WIDGETS (Slightly Updated for Name) ---
+  // --- EXISTING WIDGETS ---
 
   Widget _buildWelcomeCard(BuildContext context) {
     return Row(
