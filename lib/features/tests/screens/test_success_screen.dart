@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart'; // Font load karne ke liye zaroori hai
+import 'package:printing/printing.dart'; 
 import 'package:exambeing/models/question_model.dart';
 
 class TestSuccessScreen extends StatefulWidget {
@@ -97,7 +97,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     }
   }
 
-  // 📝 ADMIN INPUT DIALOG (Black Text Fix)
+  // 📝 ADMIN INPUT DIALOG
   void _showExamDetailsDialog(BuildContext context) {
     const textStyle = TextStyle(color: Colors.black87);
     const hintStyle = TextStyle(color: Colors.grey);
@@ -159,14 +159,14 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     );
   }
 
-  // 🔥 CORE PDF GENERATOR (NO TEMPLATE NEEDED)
+  // 🔥 CORE PDF GENERATOR (FIXED)
   Future<void> _generateSplitPdf(BuildContext context) async {
     try {
       final pdf = pw.Document();
 
-      // 1. Load Fonts (Hindi ke liye Hind font zaroori hai)
+      // 1. Load Fonts
       final font = await PdfGoogleFonts.hindRegular();
-      final boldFont = await PdfGoogleFonts.hindSemiBold(); // Hindi Bold
+      final boldFont = await PdfGoogleFonts.hindSemiBold();
 
       // 2. Variables from Admin Input
       final examName = _examNameController.text.toUpperCase();
@@ -188,14 +188,14 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           child: pw.Transform.rotate(
             angle: -0.5,
             child: pw.Opacity(
-              opacity: 0.08, // Very light
+              opacity: 0.08,
               child: pw.Text(watermark, style: pw.TextStyle(font: boldFont, fontSize: 70, color: PdfColors.grey)),
             ),
           ),
         );
       }
 
-      // --- PAGE 1: COVER PAGE (Single Column) ---
+      // --- PAGE 1: COVER PAGE ---
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
@@ -241,7 +241,8 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                       child: pw.Row(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text("• ", style: boldFont),
+                          // 🔥 FIXED ERROR HERE: Wrapped boldFont in TextStyle
+                          pw.Text("• ", style: pw.TextStyle(font: boldFont)), 
                           pw.Expanded(child: pw.Text(inst, style: textStyle)),
                         ],
                       ),
@@ -257,11 +258,9 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         ),
       );
 
-      // --- PAGE 2+: QUESTIONS (Split Column Logic) ---
-      // Hum Page ki width calculate karke Wrap use karenge columns banane ke liye
-      
-      final double pageWidth = PdfPageFormat.a4.width - 60; // 30 margin each side
-      final double colWidth = (pageWidth - 20) / 2; // 20 gap beech me
+      // --- PAGE 2+: QUESTIONS ---
+      final double pageWidth = PdfPageFormat.a4.width - 60; 
+      final double colWidth = (pageWidth - 20) / 2;
 
       pdf.addPage(
         pw.MultiPage(
@@ -270,20 +269,18 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           build: (context) {
             return [
               pw.Wrap(
-                spacing: 20, // Gap between Left & Right Column
-                runSpacing: 15, // Gap between Question 1 & 2
+                spacing: 20, 
+                runSpacing: 15, 
                 children: List.generate(finalQuestions.length, (index) {
                   final q = finalQuestions[index];
                   return pw.Container(
-                    width: colWidth, // 🔥 Force width to half page
+                    width: colWidth,
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        // Question Text (Hindi Font ke sath)
                         pw.Text("Q${index + 1}. ${q.questionText}", style: pw.TextStyle(font: boldFont, fontSize: 10)),
                         pw.SizedBox(height: 3),
                         
-                        // Options
                         if(q.options.isNotEmpty) pw.Text("(A) ${q.options[0]}", style: textStyle),
                         if(q.options.length > 1) pw.Text("(B) ${q.options[1]}", style: textStyle),
                         if(q.options.length > 2) pw.Text("(C) ${q.options[2]}", style: textStyle),
@@ -298,7 +295,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           pageTheme: pw.PageTheme(
             pageFormat: PdfPageFormat.a4,
             margin: const pw.EdgeInsets.all(30),
-            buildBackground: (context) => buildWatermark(), // Har page par watermark
+            buildBackground: (context) => buildWatermark(),
           ),
         ),
       );
