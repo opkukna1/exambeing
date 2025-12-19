@@ -4,10 +4,11 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:intl/intl.dart';
 
 class AiAnalysisService {
-  // अपनी API Key यहाँ डालें (बेहतर होगा अगर आप इसे ENV फाइल में रखें)
-  final String _apiKey = 'AIzaSyA2RwvlhdMHLe3r9Ivi592kxYR-IkIbnpQ'; 
+  // ✅ API Key ab Environment se aayegi (GitHub Secret se inject hogi)
+  // Local run ke liye command line argument dena padega
+  final String _apiKey = const String.fromEnvironment('GEMINI_API_KEY');
   
-  // 1. LIMIT CHECK & UPDATE FUNCTION
+  // 1. LIMIT CHECK & UPDATE FUNCTION (5 Times/Month)
   Future<bool> _checkAndIncrementQuota() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return false;
@@ -20,10 +21,10 @@ class AiAnalysisService {
 
     final doc = await docRef.get();
     final now = DateTime.now();
-    final currentMonth = DateFormat('yyyy-MM').format(now);
+    final currentMonth = DateFormat('yyyy-MM').format(now); // e.g., "2025-10"
 
     if (!doc.exists) {
-      // First time user
+      // First time use: Create doc
       await docRef.set({'count': 1, 'month': currentMonth});
       return true;
     }
@@ -33,7 +34,7 @@ class AiAnalysisService {
     int count = data['count'] ?? 0;
 
     if (lastMonth != currentMonth) {
-      // New Month: Reset count
+      // New Month: Reset count to 1
       await docRef.set({'count': 1, 'month': currentMonth});
       return true;
     } else {
@@ -41,37 +42,39 @@ class AiAnalysisService {
       if (count >= 5) {
         return false; // Limit Reached
       } else {
+        // Increment count
         await docRef.update({'count': FieldValue.increment(1)});
         return true;
       }
     }
   }
 
-  // 2. FETCH USER PERFORMANCE DATA
+  // 2. FETCH USER PERFORMANCE DATA (Last 10 Tests)
   Future<String> _fetchUserStats() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return "";
 
-    // यहाँ हम पिछले 10 टेस्ट के रिजल्ट्स निकालेंगे
-    // मान रहा हूँ आपका collection 'test_results' है
+    // Assuming results are stored in 'users/{uid}/test_results'
     final query = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .collection('test_results')
         .orderBy('timestamp', descending: true)
-        .limit(20)
+        .limit(10)
         .get();
 
     if (query.docs.isEmpty) return "No test data available.";
 
-    String statsData = "Here is the student's recent performance:\n";
+    String statsData = "Student's Recent Performance History:\n";
 
     for (var doc in query.docs) {
       final data = doc.data();
-      statsData += "- Test Topic: ${data['topicName']}\n";
-      statsData += "  Score: ${data['score']}/${data['totalQuestions']}\n";
-      // अगर आपके पास Question Type का डेटा है तो वो भी जोड़ें
-      // जैसे: "  Mistakes in: Conceptual, Dates"
+      // Data safe check
+      String topic = data['topicName'] ?? 'Unknown Topic';
+      var score = data['score'] ?? 0;
+      var total = data['totalQuestions'] ?? 0;
+      
+      statsData += "- Topic: $topic | Score: $score/$total\n";
     }
     
     return statsData;
@@ -79,39 +82,58 @@ class AiAnalysisService {
 
   // 3. MAIN FUNCTION TO CALL GEMINI
   Future<String> getAnalysis() async {
-    // A. Quota Check
+    
+    // Safety Check: Agar Key load nahi hui
+    if (_apiKey.isEmpty) {
+      return "Error: API Key missing. Please run app with --dart-define.";
+    }
+
+    // A. Check Quota
     bool canUse = await _checkAndIncrementQuota();
     if (!canUse) {
       return "LIMIT_REACHED"; 
     }
 
-    // B. Data Fetching
+    // B. Fetch Data
     String userData = await _fetchUserStats();
     if (userData.contains("No test data")) return "NO_DATA";
 
-    // C. Gemini Call
+    // C. Initialize Gemini
     final model = GenerativeModel(model: 'gemini-pro', apiKey: _apiKey);
 
+    // D. The Prompt (Hindi Response ke liye)
     final prompt = """
-    You are an expert Exam Mentor for competitive exams. Analyze the student's performance data below perfectly.
+    You are an expert Exam Mentor (Coach) for competitive exams like UPSC/SSC. 
+    Analyze this student's performance data:
     
     $userData
 
-    Based on this, provide a response in HINDI (mix with English terms) covering:
-    1. **Strong Areas:** What are they good at?
-    2. **Weak Areas:** Which subjects/topics need work?
-    3. **Pattern Analysis:** Are they failing in Factual (Dates/Names) or Analytical (Logic) questions? (Infer this).
-    4. **Actionable Strategy:** Give a 3-step plan for next week.
+    Based on this data, provide a structured analysis in **HINDI (Mixed with English terms)**.
+    The response must follow this format strictly using Markdown:
+
+    ### 🟢 Strong Areas (मजबूत पक्ष)
+    [List 2-3 topics where score is high]
+
+    ### 🔴 Weak Areas (कमजोर पक्ष)
+    [List 2-3 topics where score is low]
+
+    ### 🔍 Pattern Analysis
+    [Analyze if they are making silly mistakes or lacking conceptual clarity]
+
+    ### 🚀 Action Plan for Next Week
+    1. [Step 1]
+    2. [Step 2]
+    3. [Step 3]
     
-    Keep the tone encouraging but strict like a coach. Use Bullet points.
+    Keep the tone motivating but professional.
     """;
 
     try {
       final content = [Content.text(prompt)];
       final response = await model.generateContent(content);
-      return response.text ?? "Error generating analysis.";
+      return response.text ?? "Unable to generate analysis at this moment.";
     } catch (e) {
-      return "Error: $e";
+      return "Error connecting to AI: $e";
     }
   }
 }
