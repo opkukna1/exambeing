@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 
 class AiAnalysisService {
   // अपनी API Key यहाँ डालें (बेहतर होगा अगर आप इसे ENV फाइल में रखें)
-  final String _apiKey = 'YOUR_GEMINI_API_KEY'; 
+  final String _apiKey = 'AIzaSyA2RwvlhdMHLe3r9Ivi592kxYR-IkIbnpQ'; 
   
   // 1. LIMIT CHECK & UPDATE FUNCTION
   Future<bool> _checkAndIncrementQuota() async {
@@ -59,7 +59,7 @@ class AiAnalysisService {
         .doc(user.uid)
         .collection('test_results')
         .orderBy('timestamp', descending: true)
-        .limit(10)
+        .limit(20)
         .get();
 
     if (query.docs.isEmpty) return "No test data available.";
