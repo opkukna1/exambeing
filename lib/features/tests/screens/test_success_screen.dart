@@ -32,10 +32,15 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   late List<Question> finalQuestions;
   late String finalTopicName;
 
-  // Controllers for Admin Input
+  // --- CONTROLLERS FOR ADMIN INPUT ---
   final TextEditingController _examNameController = TextEditingController(text: "MOCK TEST SERIES - 2025");
+  final TextEditingController _topicController = TextEditingController(); // New
   final TextEditingController _durationController = TextEditingController(text: "60 Mins");
   final TextEditingController _marksController = TextEditingController();
+  final TextEditingController _watermarkController = TextEditingController(text: "EXAMBEING"); // New
+  final TextEditingController _instructionsController = TextEditingController(
+    text: "1. All questions are compulsory.\n2. No negative marking unless specified.\n3. Use of calculators is prohibited.\n4. Keep your mobile phones switched off."
+  ); // New
 
   @override
   void initState() {
@@ -59,15 +64,20 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       finalQuestions = [];
       finalTopicName = "No Data";
     }
-    // Default Marks logic (e.g., 2 marks per question)
+    
+    // Auto-fill Data
+    _topicController.text = finalTopicName;
     _marksController.text = "${finalQuestions.length * 2}";
   }
 
   @override
   void dispose() {
     _examNameController.dispose();
+    _topicController.dispose();
     _durationController.dispose();
     _marksController.dispose();
+    _watermarkController.dispose();
+    _instructionsController.dispose();
     super.dispose();
   }
 
@@ -95,8 +105,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         if (actionType == 'csv') {
           await _generateAndShareCsv(context);
         } else if (actionType == 'pdf_paper') {
-          // Show Input Dialog first for Exam Details
-          _showExamDetailsDialog(context);
+          _showExamDetailsDialog(context); // Open Dialog
         } else if (actionType == 'pdf_key') {
           await _generateAnswerKeyPdf(context);
         }
@@ -125,20 +134,36 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     );
   }
 
-  // 📝 2. ADMIN INPUT DIALOG
+  // 📝 2. ADMIN INPUT DIALOG (Expanded)
   void _showExamDetailsDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("📝 Exam Details"),
+          title: const Text("📝 Set Exam Details"),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: _examNameController, decoration: const InputDecoration(labelText: "Exam Name", hintText: "e.g. UPSC Prelims Mock")),
-                TextField(controller: _durationController, decoration: const InputDecoration(labelText: "Duration", hintText: "e.g. 120 Mins")),
-                TextField(controller: _marksController, decoration: const InputDecoration(labelText: "Total Marks", hintText: "e.g. 200")),
+                TextField(controller: _examNameController, decoration: const InputDecoration(labelText: "Exam Name", hintText: "MOCK TEST 2025")),
+                TextField(controller: _topicController, decoration: const InputDecoration(labelText: "Topic Name")),
+                Row(
+                  children: [
+                    Expanded(child: TextField(controller: _durationController, decoration: const InputDecoration(labelText: "Time"))),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(controller: _marksController, decoration: const InputDecoration(labelText: "Marks"))),
+                  ],
+                ),
+                TextField(controller: _watermarkController, decoration: const InputDecoration(labelText: "Watermark Text")),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _instructionsController, 
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: "Instructions (New line for points)", 
+                    border: OutlineInputBorder()
+                  )
+                ),
               ],
             ),
           ),
@@ -147,7 +172,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                _generateQuestionPaperPdf(context); // Call PDF Generator
+                _generateQuestionPaperPdf(context); 
               },
               child: const Text("Generate PDF"),
             ),
@@ -157,23 +182,32 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     );
   }
 
-  // 📄 3. PROFESSIONAL PDF GENERATOR (Question Paper)
+  // 📄 3. PROFESSIONAL PDF GENERATOR (Hindi Supported)
   Future<void> _generateQuestionPaperPdf(BuildContext context) async {
     try {
       final pdf = pw.Document();
-      final font = await PdfGoogleFonts.poppinsRegular();
-      final boldFont = await PdfGoogleFonts.poppinsBold();
+      
+      // 🔥 LOAD HINDI FONT (Very Important)
+      // 'Hind' font supports Hindi Characters properly
+      final hindiFont = await PdfGoogleFonts.hindRegular();
+      final boldFont = await PdfGoogleFonts.poppinsBold(); // For English Headers
 
       // Get Values from Controllers
       final String examName = _examNameController.text.toUpperCase();
+      final String topicName = _topicController.text.toUpperCase();
       final String duration = _durationController.text;
       final String marks = _marksController.text;
+      final String watermarkText = _watermarkController.text.toUpperCase();
       final String date = "${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}";
+      
+      // Process Instructions (Split by new line)
+      List<String> instructionsList = _instructionsController.text.split('\n');
 
       // Styles
       final headerStyle = pw.TextStyle(font: boldFont, fontSize: 18);
-      final questionStyle = pw.TextStyle(font: boldFont, fontSize: 10);
-      final optionStyle = pw.TextStyle(font: font, fontSize: 9);
+      // 🔥 Use Hindi Font for Questions & Options
+      final contentStyle = pw.TextStyle(font: hindiFont, fontSize: 10);
+      final metaStyle = pw.TextStyle(font: hindiFont, fontSize: 10);
 
       // Watermark Helper
       pw.Widget buildWatermark() {
@@ -182,7 +216,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
             angle: -0.5,
             child: pw.Opacity(
               opacity: 0.1,
-              child: pw.Text("EXAMBEING", style: pw.TextStyle(font: boldFont, fontSize: 60, color: PdfColors.grey)),
+              child: pw.Text(watermarkText, style: pw.TextStyle(font: boldFont, fontSize: 60, color: PdfColors.grey)),
             ),
           ),
         );
@@ -202,7 +236,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                   children: [
                     pw.Center(child: pw.Text(examName, style: headerStyle, textAlign: pw.TextAlign.center)),
                     pw.SizedBox(height: 5),
-                    pw.Center(child: pw.Text("TOPIC: ${finalTopicName.toUpperCase()}", style: pw.TextStyle(font: font, fontSize: 12))),
+                    pw.Center(child: pw.Text("TOPIC: $topicName", style: pw.TextStyle(font: hindiFont, fontSize: 12))),
                     pw.Divider(thickness: 2),
                     pw.SizedBox(height: 10),
                     
@@ -210,21 +244,33 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
                         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                          pw.Text("Date: $date", style: optionStyle),
-                          pw.Text("Questions: ${finalQuestions.length}", style: optionStyle),
+                          pw.Text("Date: $date", style: metaStyle),
+                          pw.Text("Questions: ${finalQuestions.length}", style: metaStyle),
                         ]),
                         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                          pw.Text("Duration: $duration", style: optionStyle),
-                          pw.Text("Max Marks: $marks", style: optionStyle),
+                          pw.Text("Duration: $duration", style: metaStyle),
+                          pw.Text("Max Marks: $marks", style: metaStyle),
                         ]),
                       ],
                     ),
                     pw.SizedBox(height: 20),
                     pw.Text("INSTRUCTIONS:", style: pw.TextStyle(font: boldFont, decoration: pw.TextDecoration.underline)),
                     pw.SizedBox(height: 5),
-                    pw.Text("1. All questions are compulsory.\n2. No negative marking unless specified.\n3. Use of calculators is prohibited.\n4. Keep your mobile phones switched off.", style: pw.TextStyle(font: font, fontSize: 10, lineSpacing: 1.5)),
+                    
+                    // Dynamic Instructions Loop
+                    ...instructionsList.map((inst) => pw.Padding(
+                      padding: const pw.EdgeInsets.only(bottom: 2),
+                      child: pw.Row(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text("• ", style: contentStyle),
+                          pw.Expanded(child: pw.Text(inst, style: contentStyle)),
+                        ],
+                      ),
+                    )),
+
                     pw.Spacer(),
-                    pw.Center(child: pw.Text("~ Best of Luck ~", style: pw.TextStyle(font: font, fontStyle: pw.FontStyle.italic))),
+                    pw.Center(child: pw.Text("~ Best of Luck ~", style: pw.TextStyle(font: hindiFont, fontStyle: pw.FontStyle.italic))),
                   ],
                 ),
               ],
@@ -233,34 +279,33 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         ),
       );
 
-      // --- PAGE 2+: QUESTIONS (Fixed Split Column Logic) ---
-      // We calculate width for 2 columns: (PageWidth - LeftMargin - RightMargin - Spacing) / 2
-      final double pageContentWidth = PdfPageFormat.a4.width - 40; // 20 margin each side
-      final double columnWidth = (pageContentWidth - 15) / 2; // 15 spacing
+      // --- PAGE 2+: QUESTIONS (Split Columns via Wrap) ---
+      final double pageContentWidth = PdfPageFormat.a4.width - 40; 
+      final double columnWidth = (pageContentWidth - 15) / 2; 
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(20),
-          // columns: 2, // ❌ REMOVED THIS CAUSING ERROR
           build: (context) {
             return [
-              pw.Wrap( // ✅ USED WRAP TO SIMULATE 2 COLUMNS
-                spacing: 15, // Gap between columns
-                runSpacing: 15, // Gap between rows
+              pw.Wrap(
+                spacing: 15, 
+                runSpacing: 15, 
                 children: List.generate(finalQuestions.length, (index) {
                   final q = finalQuestions[index];
                   return pw.Container(
-                    width: columnWidth, // Force width to half page
+                    width: columnWidth, 
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text("Q${index + 1}. ${q.questionText}", style: questionStyle),
+                        // 🔥 Using Hindi Font here
+                        pw.Text("Q${index + 1}. ${q.questionText}", style: contentStyle),
                         pw.SizedBox(height: 4),
-                        if (q.options.isNotEmpty) pw.Text("(A) ${q.options[0]}", style: optionStyle),
-                        if (q.options.length > 1) pw.Text("(B) ${q.options[1]}", style: optionStyle),
-                        if (q.options.length > 2) pw.Text("(C) ${q.options[2]}", style: optionStyle),
-                        if (q.options.length > 3) pw.Text("(D) ${q.options[3]}", style: optionStyle),
+                        if (q.options.isNotEmpty) pw.Text("(A) ${q.options[0]}", style: contentStyle),
+                        if (q.options.length > 1) pw.Text("(B) ${q.options[1]}", style: contentStyle),
+                        if (q.options.length > 2) pw.Text("(C) ${q.options[2]}", style: contentStyle),
+                        if (q.options.length > 3) pw.Text("(D) ${q.options[3]}", style: contentStyle),
                       ],
                     ),
                   );
@@ -268,15 +313,21 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               )
             ];
           },
+          // Add Watermark to all question pages too
+          pageTheme: pw.PageTheme(
+            pageFormat: PdfPageFormat.a4,
+            margin: const pw.EdgeInsets.all(20),
+            buildBackground: (context) => buildWatermark(),
+          ),
         ),
       );
 
       // Save & Share
       final output = await pdf.save();
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/ExamBeing_Paper_${DateTime.now().millisecondsSinceEpoch}.pdf');
+      final file = File('${directory.path}/ExamPaper_${DateTime.now().millisecondsSinceEpoch}.pdf');
       await file.writeAsBytes(output);
-      await Share.shareXFiles([XFile(file.path)], text: 'Here is your Exam Paper PDF');
+      await Share.shareXFiles([XFile(file.path)], text: 'Exam Paper PDF');
 
     } catch (e) {
       debugPrint(e.toString());
@@ -288,7 +339,8 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   Future<void> _generateAnswerKeyPdf(BuildContext context) async {
     try {
       final pdf = pw.Document();
-      final font = await PdfGoogleFonts.poppinsRegular();
+      // 🔥 Hindi font needed here too
+      final hindiFont = await PdfGoogleFonts.hindRegular();
       final boldFont = await PdfGoogleFonts.poppinsBold();
 
       pdf.addPage(
@@ -296,7 +348,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           pageFormat: PdfPageFormat.a4,
           build: (context) {
             return [
-              pw.Header(level: 0, child: pw.Text("ANSWER KEY - $finalTopicName", style: pw.TextStyle(font: boldFont, fontSize: 16))),
+              pw.Header(level: 0, child: pw.Text("ANSWER KEY - $finalTopicName", style: pw.TextStyle(font: hindiFont, fontSize: 16, fontWeight: pw.FontWeight.bold))),
               pw.Table.fromTextArray(
                 headers: ['Q', 'Correct Answer', 'Explanation'],
                 data: List<List<dynamic>>.generate(finalQuestions.length, (index) {
@@ -309,7 +361,8 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                 }),
                 headerStyle: pw.TextStyle(font: boldFont, color: PdfColors.white),
                 headerDecoration: const pw.BoxDecoration(color: PdfColors.deepPurple),
-                cellStyle: pw.TextStyle(font: font, fontSize: 9),
+                // Hindi font for content
+                cellStyle: pw.TextStyle(font: hindiFont, fontSize: 9),
                 cellAlignments: {0: pw.Alignment.center, 1: pw.Alignment.centerLeft, 2: pw.Alignment.centerLeft},
               ),
             ];
@@ -319,9 +372,9 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
       final output = await pdf.save();
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/ExamBeing_Key_${DateTime.now().millisecondsSinceEpoch}.pdf');
+      final file = File('${directory.path}/AnswerKey_${DateTime.now().millisecondsSinceEpoch}.pdf');
       await file.writeAsBytes(output);
-      await Share.shareXFiles([XFile(file.path)], text: 'Here is your Answer Key PDF');
+      await Share.shareXFiles([XFile(file.path)], text: 'Answer Key PDF');
 
     } catch (e) {
       debugPrint(e.toString());
