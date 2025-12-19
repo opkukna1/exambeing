@@ -6,8 +6,7 @@ import 'package:flutter/foundation.dart'; // Debug print ke liye
 
 class AiAnalysisService {
   
-  // ⚠️ IMPORTANT: Yahan apni asli API Key paste karein.
-  // Inverted commas ' ' ke andar honi chahiye.
+  // ⚠️ IMPORTANT: Ye aapki API Key hai.
   static const String _apiKey = 'AIzaSyA2RwvlhdMHLe3r9Ivi592kxYR-IkIbnpQ'; 
 
   // 1. LIMIT CHECK & UPDATE FUNCTION (5 Times/Month)
@@ -98,7 +97,7 @@ class AiAnalysisService {
   Future<String> getAnalysis() async {
     
     // Safety Check: API Key check
-    if (_apiKey == 'PASTE_YOUR_API_KEY_HERE' || _apiKey.isEmpty) {
+    if (_apiKey.isEmpty) {
       return "Error: API Key is missing inside ai_analysis_service.dart";
     }
 
@@ -116,8 +115,9 @@ class AiAnalysisService {
       }
 
       // C. Initialize Gemini Model
+      // 🔥 FAST MODEL USE KIYA HAI (Black screen se bachne ke liye)
       final model = GenerativeModel(
-        model: 'gemini-pro', 
+        model: 'gemini-1.5-flash', 
         apiKey: _apiKey,
       );
 
