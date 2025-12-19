@@ -6,10 +6,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:csv/csv.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart'; // PDF Fonts & Layout
+import 'package:printing/printing.dart'; // Font load karne ke liye zaroori hai
 import 'package:exambeing/models/question_model.dart';
 
 class TestSuccessScreen extends StatefulWidget {
@@ -32,15 +31,15 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   late List<Question> finalQuestions;
   late String finalTopicName;
 
-  // --- CONTROLLERS FOR ADMIN INPUT ---
-  final TextEditingController _examNameController = TextEditingController(text: "MOCK TEST SERIES - 2025");
-  final TextEditingController _topicController = TextEditingController(); // New
+  // --- ADMIN INPUT CONTROLLERS ---
+  final TextEditingController _examNameController = TextEditingController(text: "MOCK TEST SERIES");
+  final TextEditingController _topicController = TextEditingController();
   final TextEditingController _durationController = TextEditingController(text: "60 Mins");
   final TextEditingController _marksController = TextEditingController();
-  final TextEditingController _watermarkController = TextEditingController(text: "EXAMBEING"); // New
+  final TextEditingController _watermarkController = TextEditingController(text: "EXAMBEING");
   final TextEditingController _instructionsController = TextEditingController(
-    text: "1. All questions are compulsory.\n2. No negative marking unless specified.\n3. Use of calculators is prohibited.\n4. Keep your mobile phones switched off."
-  ); // New
+    text: "1. All questions are compulsory.\n2. No negative marking.\n3. Calculator is prohibited."
+  );
 
   @override
   void initState() {
@@ -70,99 +69,68 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     _marksController.text = "${finalQuestions.length * 2}";
   }
 
-  @override
-  void dispose() {
-    _examNameController.dispose();
-    _topicController.dispose();
-    _durationController.dispose();
-    _marksController.dispose();
-    _watermarkController.dispose();
-    _instructionsController.dispose();
-    super.dispose();
-  }
-
-  // 🔒 1. CHECK PREMIUM & HANDLER
-  Future<void> _checkPremiumAndAction(BuildContext context, {required String actionType}) async {
+  // 🔒 CHECK PREMIUM
+  Future<void> _checkPremiumAndAction(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
-
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please login first!")));
       return;
     }
 
-    // Show Loading
     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
 
     try {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (!mounted) return;
-      Navigator.pop(context); // Hide Loading
+      Navigator.pop(context); 
 
       final data = userDoc.data();
       final String paidStatus = data != null && data.containsKey('paid_for_gold') ? data['paid_for_gold'] : 'no';
 
       if (paidStatus == 'yes') {
-        if (actionType == 'csv') {
-          await _generateAndShareCsv(context);
-        } else if (actionType == 'pdf_paper') {
-          _showExamDetailsDialog(context); // Open Dialog
-        } else if (actionType == 'pdf_key') {
-          await _generateAnswerKeyPdf(context);
-        }
+        _showExamDetailsDialog(context); // Open Input Dialog
       } else {
-        _showPremiumSnackBar(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Premium Feature! Contact Admin.")));
       }
     } catch (e) {
-      if (mounted) {
-        if (Navigator.canPop(context)) Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
-      }
+      if (mounted) Navigator.pop(context);
     }
   }
 
-  void _showPremiumSnackBar(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("Premium feature for educators.\nContact: 8005576670"),
-        backgroundColor: Colors.black87,
-        action: SnackBarAction(
-          label: 'COPY',
-          textColor: Colors.amber,
-          onPressed: () => Clipboard.setData(const ClipboardData(text: "8005576670")),
-        ),
-      ),
-    );
-  }
-
-  // 📝 2. ADMIN INPUT DIALOG (Expanded)
+  // 📝 ADMIN INPUT DIALOG (Black Text Fix)
   void _showExamDetailsDialog(BuildContext context) {
+    const textStyle = TextStyle(color: Colors.black87);
+    const hintStyle = TextStyle(color: Colors.grey);
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("📝 Set Exam Details"),
+          backgroundColor: Colors.white,
+          title: const Text("📝 PDF Details", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: _examNameController, decoration: const InputDecoration(labelText: "Exam Name", hintText: "MOCK TEST 2025")),
-                TextField(controller: _topicController, decoration: const InputDecoration(labelText: "Topic Name")),
+                _buildInput(_examNameController, "Exam Name", textStyle, hintStyle),
+                const SizedBox(height: 10),
+                _buildInput(_topicController, "Topic Name", textStyle, hintStyle),
+                const SizedBox(height: 10),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: _durationController, decoration: const InputDecoration(labelText: "Time"))),
+                    Expanded(child: _buildInput(_durationController, "Duration", textStyle, hintStyle)),
                     const SizedBox(width: 10),
-                    Expanded(child: TextField(controller: _marksController, decoration: const InputDecoration(labelText: "Marks"))),
+                    Expanded(child: _buildInput(_marksController, "Marks", textStyle, hintStyle)),
                   ],
                 ),
-                TextField(controller: _watermarkController, decoration: const InputDecoration(labelText: "Watermark Text")),
+                const SizedBox(height: 10),
+                _buildInput(_watermarkController, "Watermark Text", textStyle, hintStyle),
                 const SizedBox(height: 10),
                 TextField(
-                  controller: _instructionsController, 
+                  controller: _instructionsController,
                   maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: "Instructions (New line for points)", 
-                    border: OutlineInputBorder()
-                  )
+                  style: textStyle,
+                  decoration: InputDecoration(labelText: "Instructions", labelStyle: hintStyle, border: const OutlineInputBorder()),
                 ),
               ],
             ),
@@ -170,9 +138,10 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
               onPressed: () {
                 Navigator.pop(context);
-                _generateQuestionPaperPdf(context); 
+                _generateSplitPdf(context); // 🔥 Call the PDF Generator
               },
               child: const Text("Generate PDF"),
             ),
@@ -182,51 +151,55 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     );
   }
 
-  // 📄 3. PROFESSIONAL PDF GENERATOR (Hindi Supported)
-  Future<void> _generateQuestionPaperPdf(BuildContext context) async {
+  Widget _buildInput(TextEditingController ctrl, String label, TextStyle txt, TextStyle lbl) {
+    return TextField(
+      controller: ctrl,
+      style: txt,
+      decoration: InputDecoration(labelText: label, labelStyle: lbl, border: const OutlineInputBorder()),
+    );
+  }
+
+  // 🔥 CORE PDF GENERATOR (NO TEMPLATE NEEDED)
+  Future<void> _generateSplitPdf(BuildContext context) async {
     try {
       final pdf = pw.Document();
+
+      // 1. Load Fonts (Hindi ke liye Hind font zaroori hai)
+      final font = await PdfGoogleFonts.hindRegular();
+      final boldFont = await PdfGoogleFonts.hindSemiBold(); // Hindi Bold
+
+      // 2. Variables from Admin Input
+      final examName = _examNameController.text.toUpperCase();
+      final topicName = _topicController.text;
+      final time = _durationController.text;
+      final marks = _marksController.text;
+      final watermark = _watermarkController.text.toUpperCase();
+      final instructions = _instructionsController.text.split('\n');
+      final date = "${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}";
+
+      // 3. Styles
+      final headerStyle = pw.TextStyle(font: boldFont, fontSize: 20);
+      final subHeaderStyle = pw.TextStyle(font: font, fontSize: 12);
+      final textStyle = pw.TextStyle(font: font, fontSize: 10);
       
-      // 🔥 LOAD HINDI FONT (Very Important)
-      // 'Hind' font supports Hindi Characters properly
-      final hindiFont = await PdfGoogleFonts.hindRegular();
-      final boldFont = await PdfGoogleFonts.poppinsBold(); // For English Headers
-
-      // Get Values from Controllers
-      final String examName = _examNameController.text.toUpperCase();
-      final String topicName = _topicController.text.toUpperCase();
-      final String duration = _durationController.text;
-      final String marks = _marksController.text;
-      final String watermarkText = _watermarkController.text.toUpperCase();
-      final String date = "${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}";
-      
-      // Process Instructions (Split by new line)
-      List<String> instructionsList = _instructionsController.text.split('\n');
-
-      // Styles
-      final headerStyle = pw.TextStyle(font: boldFont, fontSize: 18);
-      // 🔥 Use Hindi Font for Questions & Options
-      final contentStyle = pw.TextStyle(font: hindiFont, fontSize: 10);
-      final metaStyle = pw.TextStyle(font: hindiFont, fontSize: 10);
-
-      // Watermark Helper
+      // Watermark Widget
       pw.Widget buildWatermark() {
         return pw.Center(
           child: pw.Transform.rotate(
             angle: -0.5,
             child: pw.Opacity(
-              opacity: 0.1,
-              child: pw.Text(watermarkText, style: pw.TextStyle(font: boldFont, fontSize: 60, color: PdfColors.grey)),
+              opacity: 0.08, // Very light
+              child: pw.Text(watermark, style: pw.TextStyle(font: boldFont, fontSize: 70, color: PdfColors.grey)),
             ),
           ),
         );
       }
 
-      // --- PAGE 1: COVER PAGE ---
+      // --- PAGE 1: COVER PAGE (Single Column) ---
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(40),
+          margin: const pw.EdgeInsets.all(30),
           build: (context) {
             return pw.Stack(
               children: [
@@ -236,41 +209,46 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                   children: [
                     pw.Center(child: pw.Text(examName, style: headerStyle, textAlign: pw.TextAlign.center)),
                     pw.SizedBox(height: 5),
-                    pw.Center(child: pw.Text("TOPIC: $topicName", style: pw.TextStyle(font: hindiFont, fontSize: 12))),
-                    pw.Divider(thickness: 2),
+                    pw.Center(child: pw.Text(topicName, style: subHeaderStyle)),
+                    pw.Divider(thickness: 1.5),
+                    pw.SizedBox(height: 15),
+                    
+                    // Meta Details Box
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(10),
+                      decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black)),
+                      child: pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                            pw.Text("Date: $date", style: textStyle),
+                            pw.Text("Total Qs: ${finalQuestions.length}", style: textStyle),
+                          ]),
+                          pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+                            pw.Text("Time: $time", style: textStyle),
+                            pw.Text("Marks: $marks", style: textStyle),
+                          ]),
+                        ],
+                      ),
+                    ),
+                    
+                    pw.SizedBox(height: 30),
+                    pw.Text("INSTRUCTIONS / निर्देश:", style: pw.TextStyle(font: boldFont, fontSize: 14, decoration: pw.TextDecoration.underline)),
                     pw.SizedBox(height: 10),
                     
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                          pw.Text("Date: $date", style: metaStyle),
-                          pw.Text("Questions: ${finalQuestions.length}", style: metaStyle),
-                        ]),
-                        pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                          pw.Text("Duration: $duration", style: metaStyle),
-                          pw.Text("Max Marks: $marks", style: metaStyle),
-                        ]),
-                      ],
-                    ),
-                    pw.SizedBox(height: 20),
-                    pw.Text("INSTRUCTIONS:", style: pw.TextStyle(font: boldFont, decoration: pw.TextDecoration.underline)),
-                    pw.SizedBox(height: 5),
-                    
-                    // Dynamic Instructions Loop
-                    ...instructionsList.map((inst) => pw.Padding(
-                      padding: const pw.EdgeInsets.only(bottom: 2),
+                    ...instructions.map((inst) => pw.Padding(
+                      padding: const pw.EdgeInsets.only(bottom: 5),
                       child: pw.Row(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text("• ", style: contentStyle),
-                          pw.Expanded(child: pw.Text(inst, style: contentStyle)),
+                          pw.Text("• ", style: boldFont),
+                          pw.Expanded(child: pw.Text(inst, style: textStyle)),
                         ],
                       ),
                     )),
 
                     pw.Spacer(),
-                    pw.Center(child: pw.Text("~ Best of Luck ~", style: pw.TextStyle(font: hindiFont, fontStyle: pw.FontStyle.italic))),
+                    pw.Center(child: pw.Text("--- Paper Starts on Next Page ---", style: pw.TextStyle(font: font, fontStyle: pw.FontStyle.italic))),
                   ],
                 ),
               ],
@@ -279,33 +257,37 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         ),
       );
 
-      // --- PAGE 2+: QUESTIONS (Split Columns via Wrap) ---
-      final double pageContentWidth = PdfPageFormat.a4.width - 40; 
-      final double columnWidth = (pageContentWidth - 15) / 2; 
+      // --- PAGE 2+: QUESTIONS (Split Column Logic) ---
+      // Hum Page ki width calculate karke Wrap use karenge columns banane ke liye
+      
+      final double pageWidth = PdfPageFormat.a4.width - 60; // 30 margin each side
+      final double colWidth = (pageWidth - 20) / 2; // 20 gap beech me
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(20),
+          margin: const pw.EdgeInsets.all(30),
           build: (context) {
             return [
               pw.Wrap(
-                spacing: 15, 
-                runSpacing: 15, 
+                spacing: 20, // Gap between Left & Right Column
+                runSpacing: 15, // Gap between Question 1 & 2
                 children: List.generate(finalQuestions.length, (index) {
                   final q = finalQuestions[index];
                   return pw.Container(
-                    width: columnWidth, 
+                    width: colWidth, // 🔥 Force width to half page
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        // 🔥 Using Hindi Font here
-                        pw.Text("Q${index + 1}. ${q.questionText}", style: contentStyle),
-                        pw.SizedBox(height: 4),
-                        if (q.options.isNotEmpty) pw.Text("(A) ${q.options[0]}", style: contentStyle),
-                        if (q.options.length > 1) pw.Text("(B) ${q.options[1]}", style: contentStyle),
-                        if (q.options.length > 2) pw.Text("(C) ${q.options[2]}", style: contentStyle),
-                        if (q.options.length > 3) pw.Text("(D) ${q.options[3]}", style: contentStyle),
+                        // Question Text (Hindi Font ke sath)
+                        pw.Text("Q${index + 1}. ${q.questionText}", style: pw.TextStyle(font: boldFont, fontSize: 10)),
+                        pw.SizedBox(height: 3),
+                        
+                        // Options
+                        if(q.options.isNotEmpty) pw.Text("(A) ${q.options[0]}", style: textStyle),
+                        if(q.options.length > 1) pw.Text("(B) ${q.options[1]}", style: textStyle),
+                        if(q.options.length > 2) pw.Text("(C) ${q.options[2]}", style: textStyle),
+                        if(q.options.length > 3) pw.Text("(D) ${q.options[3]}", style: textStyle),
                       ],
                     ),
                   );
@@ -313,95 +295,24 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               )
             ];
           },
-          // Add Watermark to all question pages too
           pageTheme: pw.PageTheme(
             pageFormat: PdfPageFormat.a4,
-            margin: const pw.EdgeInsets.all(20),
-            buildBackground: (context) => buildWatermark(),
+            margin: const pw.EdgeInsets.all(30),
+            buildBackground: (context) => buildWatermark(), // Har page par watermark
           ),
         ),
       );
 
-      // Save & Share
+      // 4. Download & Open
       final output = await pdf.save();
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/ExamPaper_${DateTime.now().millisecondsSinceEpoch}.pdf');
+      final file = File('${directory.path}/ExamPaper_Final.pdf');
       await file.writeAsBytes(output);
-      await Share.shareXFiles([XFile(file.path)], text: 'Exam Paper PDF');
+
+      await Share.shareXFiles([XFile(file.path)], text: 'Generated PDF Paper');
 
     } catch (e) {
-      debugPrint(e.toString());
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("PDF Error: $e")));
-    }
-  }
-
-  // 📄 4. ANSWER KEY PDF
-  Future<void> _generateAnswerKeyPdf(BuildContext context) async {
-    try {
-      final pdf = pw.Document();
-      // 🔥 Hindi font needed here too
-      final hindiFont = await PdfGoogleFonts.hindRegular();
-      final boldFont = await PdfGoogleFonts.poppinsBold();
-
-      pdf.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4,
-          build: (context) {
-            return [
-              pw.Header(level: 0, child: pw.Text("ANSWER KEY - $finalTopicName", style: pw.TextStyle(font: hindiFont, fontSize: 16, fontWeight: pw.FontWeight.bold))),
-              pw.Table.fromTextArray(
-                headers: ['Q', 'Correct Answer', 'Explanation'],
-                data: List<List<dynamic>>.generate(finalQuestions.length, (index) {
-                  final q = finalQuestions[index];
-                  String ans = "";
-                  if (q.options.isNotEmpty && q.correctAnswerIndex < q.options.length) {
-                    ans = "(${String.fromCharCode(65 + q.correctAnswerIndex)}) ${q.options[q.correctAnswerIndex]}";
-                  }
-                  return ['${index + 1}', ans, q.explanation];
-                }),
-                headerStyle: pw.TextStyle(font: boldFont, color: PdfColors.white),
-                headerDecoration: const pw.BoxDecoration(color: PdfColors.deepPurple),
-                // Hindi font for content
-                cellStyle: pw.TextStyle(font: hindiFont, fontSize: 9),
-                cellAlignments: {0: pw.Alignment.center, 1: pw.Alignment.centerLeft, 2: pw.Alignment.centerLeft},
-              ),
-            ];
-          },
-        ),
-      );
-
-      final output = await pdf.save();
-      final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/AnswerKey_${DateTime.now().millisecondsSinceEpoch}.pdf');
-      await file.writeAsBytes(output);
-      await Share.shareXFiles([XFile(file.path)], text: 'Answer Key PDF');
-
-    } catch (e) {
-      debugPrint(e.toString());
-    }
-  }
-
-  // 📄 5. CSV GENERATOR
-  Future<void> _generateAndShareCsv(BuildContext context) async {
-    try {
-      List<List<dynamic>> rows = [];
-      rows.add(["Question", "Option A", "Option B", "Option C", "Option D", "Correct Answer", "Explanation"]);
-
-      for (var q in finalQuestions) {
-        String correctAnswerText = "";
-        if (q.options.isNotEmpty && q.correctAnswerIndex >= 0 && q.correctAnswerIndex < q.options.length) {
-           correctAnswerText = q.options[q.correctAnswerIndex];
-        }
-        rows.add([q.questionText, q.options.length > 0 ? q.options[0] : "", q.options.length > 1 ? q.options[1] : "", q.options.length > 2 ? q.options[2] : "", q.options.length > 3 ? q.options[3] : "", correctAnswerText, q.explanation]);
-      }
-
-      String csvData = const ListToCsvConverter().convert(rows);
-      final directory = await getTemporaryDirectory();
-      final File file = File('${directory.path}/ExamBeing_Data.csv');
-      await file.writeAsString(csvData);
-      await Share.shareXFiles([XFile(file.path)], text: 'Test CSV');
-    } catch (e) {
-      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("CSV Error: $e")));
     }
   }
 
@@ -437,35 +348,14 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               const Text("Educator Tools (Premium)", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 15),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                      onPressed: () => _checkPremiumAndAction(context, actionType: 'pdf_paper'),
-                      icon: const Icon(Icons.picture_as_pdf, color: Colors.red),
-                      label: const Text("PDF Paper"),
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                      onPressed: () => _checkPremiumAndAction(context, actionType: 'pdf_key'),
-                      icon: const Icon(Icons.vpn_key, color: Colors.green),
-                      label: const Text("Answer Key"),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 15),
+              // PDF Button
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                  onPressed: () => _checkPremiumAndAction(context, actionType: 'csv'),
-                  icon: const Icon(Icons.table_chart, color: Colors.teal),
-                  label: const Text("Export as CSV (Excel)"),
+                  onPressed: () => _checkPremiumAndAction(context),
+                  icon: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                  label: const Text("Download PDF Paper"),
                 ),
               ),
             ],
