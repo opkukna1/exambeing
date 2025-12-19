@@ -233,30 +233,40 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         ),
       );
 
-      // --- PAGE 2+: QUESTIONS (Split Columns) ---
+      // --- PAGE 2+: QUESTIONS (Fixed Split Column Logic) ---
+      // We calculate width for 2 columns: (PageWidth - LeftMargin - RightMargin - Spacing) / 2
+      final double pageContentWidth = PdfPageFormat.a4.width - 40; // 20 margin each side
+      final double columnWidth = (pageContentWidth - 15) / 2; // 15 spacing
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(20),
-          columns: 2, // 🔥 Split into 2 columns
+          // columns: 2, // ❌ REMOVED THIS CAUSING ERROR
           build: (context) {
-            return List.generate(finalQuestions.length, (index) {
-              final q = finalQuestions[index];
-              return pw.Container(
-                margin: const pw.EdgeInsets.only(bottom: 12, right: 10),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text("Q${index + 1}. ${q.questionText}", style: questionStyle),
-                    pw.SizedBox(height: 4),
-                    if (q.options.isNotEmpty) pw.Text("(A) ${q.options[0]}", style: optionStyle),
-                    if (q.options.length > 1) pw.Text("(B) ${q.options[1]}", style: optionStyle),
-                    if (q.options.length > 2) pw.Text("(C) ${q.options[2]}", style: optionStyle),
-                    if (q.options.length > 3) pw.Text("(D) ${q.options[3]}", style: optionStyle),
-                  ],
-                ),
-              );
-            });
+            return [
+              pw.Wrap( // ✅ USED WRAP TO SIMULATE 2 COLUMNS
+                spacing: 15, // Gap between columns
+                runSpacing: 15, // Gap between rows
+                children: List.generate(finalQuestions.length, (index) {
+                  final q = finalQuestions[index];
+                  return pw.Container(
+                    width: columnWidth, // Force width to half page
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text("Q${index + 1}. ${q.questionText}", style: questionStyle),
+                        pw.SizedBox(height: 4),
+                        if (q.options.isNotEmpty) pw.Text("(A) ${q.options[0]}", style: optionStyle),
+                        if (q.options.length > 1) pw.Text("(B) ${q.options[1]}", style: optionStyle),
+                        if (q.options.length > 2) pw.Text("(C) ${q.options[2]}", style: optionStyle),
+                        if (q.options.length > 3) pw.Text("(D) ${q.options[3]}", style: optionStyle),
+                      ],
+                    ),
+                  );
+                }),
+              )
+            ];
           },
         ),
       );
