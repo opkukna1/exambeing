@@ -10,11 +10,12 @@ class AiAnalysisService {
   // ⚠️ Apni API Key Yahan Dalein
   static const String _apiKey = 'AIzaSyA2RwvlhdMHLe3r9Ivi592kxYR-IkIbnpQ'; 
   
-  // ✅ DIRECT REST API URL (v1 Endpoint - Stable)
+  // ✅ FIX: URL mein 'v1beta' use kiya hai taaki 404 na aaye.
+  // Model: gemini-1.5-flash (Free Tier Friendly)
   static const String _apiUrl = 
-      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-  // 1. LIMIT CHECK (Same logic)
+  // 1. LIMIT CHECK LOGIC (5 Times/Month)
   Future<bool> _checkAndIncrementQuota() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -40,16 +41,17 @@ class AiAnalysisService {
         return true;
       }
     } catch (e) {
-      return true; // Fallback
+      return true; // Fallback incase DB fails
     }
   }
 
-  // 2. FETCH DETAILED LOGS (Same Logic)
+  // 2. FETCH DETAILED LOGS (Tests + Logs Array)
   Future<String> _fetchUserStats() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return "";
 
+      // Last 15 Tests fetch karein
       final query = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -66,6 +68,8 @@ class AiAnalysisService {
       for (var doc in query.docs) {
         final data = doc.data();
         String topic = data['topicName'] ?? "General";
+        
+        // Logs Array check karein
         List<dynamic> logs = data['logs'] ?? [];
 
         if (logs.isEmpty) {
@@ -74,8 +78,9 @@ class AiAnalysisService {
           continue;
         }
 
+        // Questions Detail Read karein
         for (var log in logs) {
-          if (totalQuestionsRead >= 60) break;
+          if (totalQuestionsRead >= 60) break; // Limit context size
 
           String q = log['q'] ?? "";
           String u = log['u'] ?? ""; 
@@ -94,13 +99,14 @@ class AiAnalysisService {
       return statsData;
     } catch (e) {
       debugPrint("Fetch Error: $e");
-      return "Error fetching data.";
+      return "Error fetching data from database.";
     }
   }
 
-  // 🔥 3. NEW: CALL GEMINI VIA HTTP REST (No SDK)
+  // 🔥 3. DIRECT REST API CALL (No SDK needed)
   Future<String> _callGeminiRestApi(String prompt) async {
     try {
+      // URL mein API Key pass kar rahe hain
       final url = Uri.parse('$_apiUrl?key=$_apiKey');
       
       final response = await http.post(
@@ -115,19 +121,24 @@ class AiAnalysisService {
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
-        // Extract text from JSON response
+        // Extract text safely
         String? resultText = jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        return resultText ?? "AI returned empty response.";
+        return resultText ?? "AI analyzed the data but returned no text.";
       } else {
-        debugPrint("API Error: ${response.statusCode} - ${response.body}");
-        return "Error: Server returned ${response.statusCode}. Check Key or Quota.";
+        debugPrint("Gemini API Error: ${response.statusCode} - ${response.body}");
+        if (response.statusCode == 404) {
+          return "Error 404: Model not found. Check API URL.";
+        } else if (response.statusCode == 429) {
+          return "Error 429: Too many requests. Try again later.";
+        }
+        return "Server Error (${response.statusCode}). Please try again.";
       }
     } catch (e) {
-      return "Network Error: $e";
+      return "Network Error: Please check your internet connection. ($e)";
     }
   }
 
-  // 4. MAIN FUNCTION
+  // 4. MAIN PUBLIC FUNCTION
   Future<String> getAnalysis() async {
     if (_apiKey.isEmpty) return "Error: API Key is missing.";
 
@@ -140,7 +151,7 @@ class AiAnalysisService {
       String userData = await _fetchUserStats();
       if (userData.contains("No test data")) return "NO_DATA";
 
-      // C. The Prompt
+      // C. Prompt
       final prompt = """
       You are an elite Exam Coach. I am providing you with a log of the student's recent questions.
       
@@ -168,7 +179,7 @@ class AiAnalysisService {
       Keep it professional, motivating, and strict like a coach.
       """;
 
-      // D. Call REST API
+      // D. Call API
       return await _callGeminiRestApi(prompt);
 
     } catch (e) {
