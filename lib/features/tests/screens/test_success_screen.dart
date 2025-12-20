@@ -5,10 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart'; // Share file
+import 'package:share_plus/share_plus.dart'; // ✅ Share use kar rahe hain
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw; // PDF Widgets
-import 'package:open_file/open_file.dart'; // File Open
+// ❌ import 'package:open_file/open_file.dart'; // REMOVED THIS LINE
 import 'package:exambeing/models/question_model.dart';
 
 class TestSuccessScreen extends StatefulWidget {
@@ -71,7 +71,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   }
 
   // 🔒 CHECK PREMIUM LOGIC
-  // actionType: 1 = Question Paper, 2 = Answer Key
   Future<void> _checkPremiumAndAction(BuildContext context, int actionType) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -79,35 +78,31 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       return;
     }
 
-    // Show loading dialog
     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
 
     try {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (!mounted) return;
-      Navigator.pop(context); // Close loading
+      Navigator.pop(context); 
 
       final data = userDoc.data();
       final String paidStatus = data != null && data.containsKey('paid_for_gold') ? data['paid_for_gold'] : 'no';
 
       if (paidStatus == 'yes') {
-        // ✅ USER IS PREMIUM
         if (actionType == 1) {
-          _showExamDetailsDialog(context); // Admin Input for Paper
+          _showExamDetailsDialog(context); 
         } else {
-          _generatePdf(isAnswerKey: true); // Direct Download for Answer Key
+          _generatePdf(isAnswerKey: true); 
         }
       } else {
-        // ❌ USER IS FREE
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("🔒 Premium Feature! Contact Admin to unlock.")));
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);
-      debugPrint("Premium Check Error: $e");
     }
   }
 
-  // 📝 ADMIN INPUT DIALOG (For Question Paper)
+  // 📝 ADMIN INPUT DIALOG
   void _showExamDetailsDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -147,7 +142,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
               onPressed: () {
                 Navigator.pop(context);
-                _generatePdf(isAnswerKey: false); // 🔥 Generate Question Paper
+                _generatePdf(isAnswerKey: false); 
               },
               child: const Text("Generate PDF"),
             ),
@@ -164,25 +159,22 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     );
   }
 
-  // 🔥 CORE PDF GENERATOR (Supports Hindi & Answer Key)
+  // 🔥 CORE PDF GENERATOR
   Future<void> _generatePdf({required bool isAnswerKey}) async {
     setState(() => isGenerating = true);
 
     try {
       final pdf = pw.Document();
 
-      // 1. 🔥 LOAD LOCAL HINDI FONT
-      // Make sure 'assets/fonts/NotoSans.ttf' exists in pubspec.yaml
+      // Load Hindi Font
       final fontData = await rootBundle.load("assets/fonts/NotoSans.ttf");
       final ttf = pw.Font.ttf(fontData);
 
-      // 2. Define Theme for Hindi Support
       final theme = pw.ThemeData.withFont(
         base: ttf,
         bold: ttf, 
       );
 
-      // 3. Variables
       final examName = _examNameController.text.toUpperCase();
       final topicName = _topicController.text;
       final time = _durationController.text;
@@ -191,12 +183,10 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       final instructions = _instructionsController.text.split('\n');
       final date = "${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}";
 
-      // Styles
       final headerStyle = pw.TextStyle(font: ttf, fontSize: 20, fontWeight: pw.FontWeight.bold);
       final subHeaderStyle = pw.TextStyle(font: ttf, fontSize: 12);
       final textStyle = pw.TextStyle(font: ttf, fontSize: 10);
       
-      // Watermark Widget
       pw.Widget buildWatermark() {
         return pw.Center(
           child: pw.Transform.rotate(
@@ -210,9 +200,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       }
 
       if (isAnswerKey) {
-        // -------------------------
-        // 🟢 ANSWER KEY LAYOUT
-        // -------------------------
+        // ANSWER KEY LAYOUT
         pdf.addPage(
           pw.MultiPage(
             theme: theme,
@@ -249,11 +237,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           )
         );
       } else {
-        // -------------------------
-        // 🔵 QUESTION PAPER LAYOUT
-        // -------------------------
-        
-        // Page 1: Cover Page
+        // QUESTION PAPER LAYOUT
         pdf.addPage(
           pw.Page(
             theme: theme,
@@ -314,7 +298,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           ),
         );
 
-        // Page 2+: Questions (Split Columns)
         final double pageWidth = PdfPageFormat.a4.width - 60; 
         final double colWidth = (pageWidth - 20) / 2;
 
@@ -352,21 +335,18 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               pageFormat: PdfPageFormat.a4,
               margin: const pw.EdgeInsets.all(30),
               buildBackground: (context) => buildWatermark(),
-              theme: theme, // Apply Hindi Theme here too
+              theme: theme,
             ),
           ),
         );
       }
 
-      // 4. Save & Open
       final output = await getTemporaryDirectory();
       final String fileName = isAnswerKey ? "${topicName}_Key.pdf" : "${topicName}_Exam.pdf";
       final file = File('${output.path}/$fileName');
       await file.writeAsBytes(await pdf.save());
 
-      // Open directly or Share
       await Share.shareXFiles([XFile(file.path)], text: isAnswerKey ? 'Answer Key' : 'Exam Paper');
-      // Or use: await OpenFile.open(file.path);
 
     } catch (e) {
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("PDF Error: $e")));
@@ -382,7 +362,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       String csvData = "Question,Option A,Option B,Option C,Option D,Correct Answer\n";
 
       for (var q in finalQuestions) {
-        // Clean text to avoid CSV breakage
         String clean(String s) => s.replaceAll(",", " ").replaceAll("\n", " ").trim();
         
         String qText = clean(q.questionText);
@@ -425,7 +404,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               Text("Topic: $finalTopicName\nQuestions: ${finalQuestions.length}", style: const TextStyle(fontSize: 16, color: Colors.grey), textAlign: TextAlign.center),
               const SizedBox(height: 40),
 
-              // 1. ATTEMPT TEST BUTTON (Free)
+              // 1. ATTEMPT TEST BUTTON
               SizedBox(
                 width: double.infinity, height: 55,
                 child: ElevatedButton.icon(
@@ -445,31 +424,31 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               if (isGenerating) 
                 const CircularProgressIndicator()
               else ...[
-                // 2. DOWNLOAD QUESTION PAPER (Admin Dialog -> PDF)
+                // 2. DOWNLOAD QUESTION PAPER
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                    onPressed: () => _checkPremiumAndAction(context, 1), // 1 = Question Paper
+                    onPressed: () => _checkPremiumAndAction(context, 1),
                     icon: const Icon(Icons.picture_as_pdf, color: Colors.red),
                     label: const Text("Download Question Paper (PDF)"),
                   ),
                 ),
                 const SizedBox(height: 15),
 
-                // 3. DOWNLOAD ANSWER KEY (Direct PDF)
+                // 3. DOWNLOAD ANSWER KEY
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                    onPressed: () => _checkPremiumAndAction(context, 2), // 2 = Answer Key
+                    onPressed: () => _checkPremiumAndAction(context, 2),
                     icon: const Icon(Icons.vpn_key, color: Colors.orange),
                     label: const Text("Download Answer Key (PDF)"),
                   ),
                 ),
                 const SizedBox(height: 15),
 
-                // 4. DOWNLOAD CSV (Excel)
+                // 4. DOWNLOAD CSV
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
