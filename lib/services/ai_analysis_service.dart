@@ -7,15 +7,15 @@ import 'package:flutter/foundation.dart';
 
 class AiAnalysisService {
   
-  // ⚠️ Apni API Key Yahan Dalein
+  // ⚠️ API KEY
   static const String _apiKey = 'AIzaSyA2RwvlhdMHLe3r9Ivi592kxYR-IkIbnpQ'; 
   
-  // ✅ FIX: URL mein 'v1beta' use kiya hai taaki 404 na aaye.
-  // Model: gemini-1.5-flash (Free Tier Friendly)
+  // ✅ FINAL FIX: 'gemini-pro' use kar rahe hain jo sabse stable hai.
+  // 'v1beta' endpoint use kiya hai jo free tier support karta hai.
   static const String _apiUrl = 
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
 
-  // 1. LIMIT CHECK LOGIC (5 Times/Month)
+  // 1. LIMIT CHECK
   Future<bool> _checkAndIncrementQuota() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -41,17 +41,16 @@ class AiAnalysisService {
         return true;
       }
     } catch (e) {
-      return true; // Fallback incase DB fails
+      return true; 
     }
   }
 
-  // 2. FETCH DETAILED LOGS (Tests + Logs Array)
+  // 2. FETCH DATA
   Future<String> _fetchUserStats() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return "";
 
-      // Last 15 Tests fetch karein
       final query = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -68,8 +67,6 @@ class AiAnalysisService {
       for (var doc in query.docs) {
         final data = doc.data();
         String topic = data['topicName'] ?? "General";
-        
-        // Logs Array check karein
         List<dynamic> logs = data['logs'] ?? [];
 
         if (logs.isEmpty) {
@@ -78,10 +75,8 @@ class AiAnalysisService {
           continue;
         }
 
-        // Questions Detail Read karein
         for (var log in logs) {
-          if (totalQuestionsRead >= 60) break; // Limit context size
-
+          if (totalQuestionsRead >= 60) break; 
           String q = log['q'] ?? "";
           String u = log['u'] ?? ""; 
           String c = log['c'] ?? ""; 
@@ -98,15 +93,13 @@ class AiAnalysisService {
       }
       return statsData;
     } catch (e) {
-      debugPrint("Fetch Error: $e");
-      return "Error fetching data from database.";
+      return "Error fetching data.";
     }
   }
 
-  // 🔥 3. DIRECT REST API CALL (No SDK needed)
+  // 3. CALL GEMINI (REST API)
   Future<String> _callGeminiRestApi(String prompt) async {
     try {
-      // URL mein API Key pass kar rahe hain
       final url = Uri.parse('$_apiUrl?key=$_apiKey');
       
       final response = await http.post(
@@ -121,37 +114,28 @@ class AiAnalysisService {
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
-        // Extract text safely
         String? resultText = jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        return resultText ?? "AI analyzed the data but returned no text.";
+        return resultText ?? "AI returned empty response.";
       } else {
-        debugPrint("Gemini API Error: ${response.statusCode} - ${response.body}");
-        if (response.statusCode == 404) {
-          return "Error 404: Model not found. Check API URL.";
-        } else if (response.statusCode == 429) {
-          return "Error 429: Too many requests. Try again later.";
-        }
-        return "Server Error (${response.statusCode}). Please try again.";
+        debugPrint("API Error: ${response.statusCode} - ${response.body}");
+        return "Server Error (${response.statusCode}). Check Internet.";
       }
     } catch (e) {
-      return "Network Error: Please check your internet connection. ($e)";
+      return "Network Error: $e";
     }
   }
 
-  // 4. MAIN PUBLIC FUNCTION
+  // 4. MAIN FUNCTION
   Future<String> getAnalysis() async {
     if (_apiKey.isEmpty) return "Error: API Key is missing.";
 
     try {
-      // A. Quota Check
       bool canUse = await _checkAndIncrementQuota();
       if (!canUse) return "LIMIT_REACHED";
 
-      // B. Data Fetch
       String userData = await _fetchUserStats();
       if (userData.contains("No test data")) return "NO_DATA";
 
-      // C. Prompt
       final prompt = """
       You are an elite Exam Coach. I am providing you with a log of the student's recent questions.
       
@@ -163,7 +147,7 @@ class AiAnalysisService {
 
       ### 📊 Performance Summary
       - **Consistency:** (Check if they are improving or failing randomly)
-      - **Topics Analyzed:** (Mention subjects found in data)
+      - **Topics:** (Mention subjects found)
 
       ### 🔴 Weak Areas (कमजोर पक्ष)
       - [Identify specific topics/question types where result is FAIL]
@@ -176,10 +160,9 @@ class AiAnalysisService {
       2. [Actionable Tip 2]
       3. [Actionable Tip 3]
       
-      Keep it professional, motivating, and strict like a coach.
+      Keep it professional.
       """;
 
-      // D. Call API
       return await _callGeminiRestApi(prompt);
 
     } catch (e) {
