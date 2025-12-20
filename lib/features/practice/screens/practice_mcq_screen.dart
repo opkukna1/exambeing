@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // 🔥 Needed for Saving
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/services/revision_db.dart';
 import 'package:exambeing/services/ad_manager.dart';
@@ -83,6 +84,64 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
       }
     });
   }
+
+  // 🔥 1. NEW SMART SAVING FUNCTION FOR AI (Logs Array)
+  Future<void> _saveTestResultsForAi({
+    required int score,
+    required int correctCount,
+    required int totalQuestions,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      // A. Prepare Logs List (One Array for all questions)
+      List<Map<String, dynamic>> questionLogs = [];
+
+      for (int i = 0; i < questions.length; i++) {
+        final q = questions[i];
+        
+        // Find user answer
+        String uAns = _selectedAnswers[i] ?? "Skipped";
+        
+        // Find correct answer text
+        String cAns = "";
+        if (q.correctAnswerIndex >= 0 && q.correctAnswerIndex < q.options.length) {
+          cAns = q.options[q.correctAnswerIndex];
+        }
+
+        // Check if correct
+        bool isCorrect = (uAns == cAns);
+
+        // Add to log
+        questionLogs.add({
+          'q': q.questionText, // Question
+          'u': uAns,           // User Answer
+          'c': cAns,           // Correct Answer
+          's': isCorrect,      // Status
+          't': topicName,      // Topic Name (Optional inside array)
+        });
+      }
+
+      // B. Save to Firestore (Single Write)
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('test_results')
+          .add({
+        'topicName': topicName,
+        'score': score, // Raw Score (Correct Count)
+        'totalQuestions': totalQuestions,
+        'timestamp': FieldValue.serverTimestamp(),
+        'logs': questionLogs, // 🔥 This Array is crucial for AI
+      });
+
+      debugPrint("✅ AI Logs Saved Successfully!");
+
+    } catch (e) {
+      debugPrint("❌ Error Saving AI Logs: $e");
+    }
+  }
   
   Future<void> _submitQuiz() async {
     if (_isSubmitted) return;
@@ -122,6 +181,13 @@ class _PracticeMcqScreenState extends State<PracticeMcqScreen> {
     }
 
     if (finalScore < 0) finalScore = 0;
+
+    // 🔥 2. CALL SAVING FUNCTION HERE (Background mein save hoga)
+    _saveTestResultsForAi(
+      score: correctCount,
+      correctCount: correctCount,
+      totalQuestions: questions.length,
+    );
 
     if (mounted) {
       AdManager.showInterstitialAd(() {
