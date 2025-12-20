@@ -1,172 +1,231 @@
-import 'dart:convert'; // JSON decoding
-import 'package:http/http.dart' as http; // HTTP package
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 
 class AiAnalysisService {
   
-  // ⚠️ API KEY
-  static const String _apiKey = 'AIzaSyA2RwvlhdMHLe3r9Ivi592kxYR-IkIbnpQ'; 
-  
-  // ✅ FINAL FIX: 'gemini-pro' use kar rahe hain.
-  // Yeh Model sabse reliable hai aur 404 error nahi deta.
-  static const String _apiUrl = 
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
-
-  // 1. LIMIT CHECK
+  // 1. Quota Logic (Unlimited for local)
   Future<bool> _checkAndIncrementQuota() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return false;
-
-      final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('ai_usage').doc('stats');
-      final doc = await docRef.get();
-      final now = DateTime.now();
-      final currentMonth = DateFormat('yyyy-MM').format(now);
-
-      if (!doc.exists) {
-        await docRef.set({'count': 1, 'month': currentMonth});
-        return true;
-      }
-
-      final data = doc.data()!;
-      if (data['month'] != currentMonth) {
-        await docRef.set({'count': 1, 'month': currentMonth});
-        return true;
-      } else {
-        if ((data['count'] ?? 0) >= 5) return false;
-        await docRef.update({'count': FieldValue.increment(1)});
-        return true;
-      }
-    } catch (e) {
-      return true; 
-    }
+    return true; 
   }
 
-  // 2. FETCH DATA
-  Future<String> _fetchUserStats() async {
+  // 2. FETCH DATA & ANALYZE LOCALLY
+  Future<String> getAnalysis() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return "";
+      if (user == null) return "Error: User not logged in.";
 
+      // Name Format (Ram Kumar -> Ram)
+      String userName = user.displayName?.split(' ')[0] ?? "Aspirant";
+
+      // A. Fetch Last 25 Tests
       final query = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('test_results')
           .orderBy('timestamp', descending: true)
-          .limit(15) 
+          .limit(25) 
           .get();
 
-      if (query.docs.isEmpty) return "No test data available.";
+      if (query.docs.isEmpty) return "NO_DATA";
 
-      String statsData = "Here is the detailed log of recent questions attempted by the student:\n\n";
-      int totalQuestionsRead = 0;
+      // B. VARIABLES FOR LOGIC
+      Map<String, int> topicCorrect = {};
+      Map<String, int> topicTotal = {};
+      int totalCorrect = 0;
+      int totalQuestions = 0;
 
+      // C. Process Data (Deep Calculation)
       for (var doc in query.docs) {
         final data = doc.data();
         String topic = data['topicName'] ?? "General";
+        
         List<dynamic> logs = data['logs'] ?? [];
 
-        if (logs.isEmpty) {
-          var score = data['score'] ?? 0;
-          statsData += "- Old Test ($topic): Score $score\n";
-          continue;
-        }
-
-        for (var log in logs) {
-          if (totalQuestionsRead >= 60) break; 
-          String q = log['q'] ?? "";
-          String u = log['u'] ?? ""; 
-          String c = log['c'] ?? ""; 
-          bool s = log['s'] ?? false; 
-
-          statsData += """
-          [Topic: $topic]
-          Q: $q
-          User: $u | Correct: $c | Result: ${s ? "PASS" : "FAIL"}
-          -------------------------
-          """;
-          totalQuestionsRead++;
+        if (logs.isNotEmpty) {
+          // New Data (Logs Array)
+          for (var log in logs) {
+            bool isCorrect = log['s'] ?? false;
+            
+            topicTotal[topic] = (topicTotal[topic] ?? 0) + 1;
+            if (isCorrect) {
+              topicCorrect[topic] = (topicCorrect[topic] ?? 0) + 1;
+              totalCorrect++;
+            }
+            totalQuestions++;
+          }
+        } else {
+          // Old Data (Fallback)
+          int score = data['score'] ?? 0;
+          int total = data['totalQuestions'] ?? 0;
+          
+          topicTotal[topic] = (topicTotal[topic] ?? 0) + total;
+          topicCorrect[topic] = (topicCorrect[topic] ?? 0) + score;
+          totalCorrect += score;
+          totalQuestions += total;
         }
       }
-      return statsData;
-    } catch (e) {
-      return "Error fetching data.";
-    }
-  }
 
-  // 3. CALL GEMINI (REST API)
-  Future<String> _callGeminiRestApi(String prompt) async {
-    try {
-      final url = Uri.parse('$_apiUrl?key=$_apiKey');
-      
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "contents": [{
-            "parts": [{"text": prompt}]
-          }]
-        }),
+      if (totalQuestions == 0) return "NO_DATA";
+
+      // D. Find Weak & Strong Topics
+      String strongTopic = "None";
+      String weakTopic = "None";
+      double highestPercent = -1;
+      double lowestPercent = 101;
+
+      topicTotal.forEach((topic, total) {
+        if (total >= 5) { // Kam se kam 5 sawal attempt kiye ho tabhi judge karenge
+          int correct = topicCorrect[topic] ?? 0;
+          double percent = (correct / total) * 100;
+
+          if (percent > highestPercent) {
+            highestPercent = percent;
+            strongTopic = topic;
+          }
+          if (percent < lowestPercent) {
+            lowestPercent = percent;
+            weakTopic = topic;
+          }
+        }
+      });
+
+      double overallPercentage = (totalCorrect / totalQuestions) * 100;
+
+      // E. GENERATE SMART RESPONSE
+      return _generatePersonalizedMessage(
+        name: userName,
+        percentage: overallPercentage,
+        strong: strongTopic,
+        weak: weakTopic,
+        totalQ: totalQuestions,
       );
 
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        String? resultText = jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        return resultText ?? "AI returned empty response.";
-      } else {
-        debugPrint("API Error: ${response.statusCode} - ${response.body}");
-        return "Server Error (${response.statusCode}). Try again later.";
-      }
     } catch (e) {
-      return "Network Error: Check Internet.";
+      return "Error generating analysis: $e";
     }
   }
 
-  // 4. MAIN FUNCTION
-  Future<String> getAnalysis() async {
-    if (_apiKey.isEmpty) return "Error: API Key is missing.";
+  // 3. THE BRAIN 🧠 (6 Smart Levels)
+  String _generatePersonalizedMessage({
+    required String name,
+    required double percentage,
+    required String strong,
+    required String weak,
+    required int totalQ,
+  }) {
+    
+    // LEVEL 1: Danger Zone (0% - 35%) 🔴
+    if (percentage < 35) {
+      return """
+### 🛑 Needs Immediate Attention, $name!
+Your accuracy is currently low (${percentage.toStringAsFixed(1)}%). It seems you are rushing through tests without clearing concepts.
 
-    try {
-      bool canUse = await _checkAndIncrementQuota();
-      if (!canUse) return "LIMIT_REACHED";
+### 📊 Summary
+- **Questions Analyzed:** $totalQ
+- **Weakest Area:** **$weak** (Accuracy is critical here)
 
-      String userData = await _fetchUserStats();
-      if (userData.contains("No test data")) return "NO_DATA";
+### 💡 Smart Strategy (Don't Worry!)
+1. **Stop guessing!** Negative marking will hurt you in real exams.
+2. Go to the **'Quick Notes'** section right now.
+3. Read the theory for **$weak** specifically.
+4. Come back and attempt a small topic-wise test. You will definitely score better!
+""";
+    }
 
-      final prompt = """
-      You are an elite Exam Coach. I am providing you with a log of the student's recent questions.
-      
-      DATA:
-      $userData
+    // LEVEL 2: Struggling (35% - 50%) 🟠
+    else if (percentage < 50) {
+      return """
+### ⚠️ Focus on Basics, $name
+You are attempting questions, but many are going wrong. You need to bridge the gap between "Learning" and "Testing".
 
-      Analyze the QUESTIONS TEXT and ERRORS deeply.
-      Response should be in **HINDI (Hinglish)** and STRICTLY follow this Markdown format:
+### 📊 Summary
+- **Overall Score:** ${percentage.toStringAsFixed(1)}%
+- **Struggling Topic:** **$weak**
 
-      ### 📊 Performance Summary
-      - **Consistency:** (Check if they are improving or failing randomly)
-      - **Topics:** (Mention subjects found)
+### 🟢 Good News
+- You have started building momentum in **$strong**. Keep it up!
 
-      ### 🔴 Weak Areas (कमजोर पक्ष)
-      - [Identify specific topics/question types where result is FAIL]
+### 🚀 Action Plan
+- Before your next test, spend 15 minutes in **Quick Notes**.
+- Revise the key formulas/dates for **$weak**.
+- Then attempt the test. Your confidence will skyrocket! 🚀
+""";
+    }
 
-      ### 🟢 Strong Areas (मजबूत पक्ष)
-      - [Identify topics where result is PASS]
+    // LEVEL 3: Average / Inconsistent (50% - 65%) 🟡
+    else if (percentage < 65) {
+      return """
+### 📈 You are Improving, $name!
+You have crossed the passing mark, but consistency is missing. Some topics are good, some need polish.
 
-      ### 💡 Smart Strategy (सुधार कैसे करें)
-      1. [Actionable Tip 1 based on errors]
-      2. [Actionable Tip 2]
-      3. [Actionable Tip 3]
-      
-      Keep it professional.
-      """;
+### 📊 Summary
+- **Current Score:** ${percentage.toStringAsFixed(1)}% (Average)
+- **Strong Hold:** $strong
 
-      return await _callGeminiRestApi(prompt);
+### 🔍 Analysis
+- The topic **$weak** is pulling your average down.
+- It seems you get confused in tricky options.
 
-    } catch (e) {
-      return "Error: Unexpected issue ($e)";
+### 💡 Expert Tip
+- Don't just give tests blindly.
+- Open **Quick Notes** > Read **$weak** Summary > Then retake the test.
+- Accuracy > Speed right now.
+""";
+    }
+
+    // LEVEL 4: Good Performance (65% - 80%) 🟢
+    else if (percentage < 80) {
+      return """
+### 👏 Great Going, $name!
+You are performing well! You have a good grasp of most topics. Now we aim for excellence.
+
+### 📊 Summary
+- **Overall Score:** ${percentage.toStringAsFixed(1)}% (Good)
+- **Questions Attempted:** $totalQ
+
+### 🌟 Star Performer
+- Your performance in **$strong** is solid.
+
+### 🎯 Next Goal
+- To cross 85%, you need to fix **$weak**.
+- A quick revision from **Notes** will turn this weak topic into a strong one.
+- Keep practicing, you are on the right track!
+""";
+    }
+
+    // LEVEL 5: Excellent (80% - 90%) 🟣
+    else if (percentage < 90) {
+      return """
+### 🏆 Outstanding, $name!
+You are in the top tier of students! Your consistency is impressive.
+
+### 📊 Summary
+- **Score:** ${percentage.toStringAsFixed(1)}% (Excellent)
+- **Mastery:** You are dominating in **$strong**.
+
+### 🚀 Final Polish
+- Even at this level, **$weak** has slight scope for improvement.
+- Just a 5-minute glance at **Quick Notes** for $weak will make you unstoppable.
+- Try increasing your speed now.
+""";
+    }
+
+    // LEVEL 6: Topper Level (90%+) 🔥
+    else {
+      return """
+### 👑 Unstoppable! Take a Bow, $name!
+Your performance is phenomenal. You are exam-ready!
+
+### 📊 Summary
+- **Score:** ${percentage.toStringAsFixed(1)}% (Legendary)
+- **Accuracy:** Pin-point perfect.
+
+### 💡 Challenge for You
+- Since you have mastered **$strong** and **$weak**, try "Full Length Mock Tests".
+- Focus on time management now.
+- Teach concepts to others or revise **Quick Notes** just to stay sharp.
+""";
     }
   }
 }
