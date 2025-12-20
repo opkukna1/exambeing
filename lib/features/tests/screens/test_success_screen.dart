@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart'; 
-import 'package:printing/printing.dart'; // Printing Package
+import 'package:printing/printing.dart'; 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw; 
 import 'package:exambeing/models/question_model.dart';
@@ -38,7 +38,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   final TextEditingController _marksController = TextEditingController();
   final TextEditingController _watermarkController = TextEditingController(text: "EXAMBEING");
   final TextEditingController _instructionsController = TextEditingController(
-    text: "1. All questions are compulsory.\n2. No negative marking.\n3. Calculator is prohibited."
+    text: "1. All questions are compulsory.\n2. No negative marking.\n3. Calculator is prohibited.\n4. Read questions carefully."
   );
 
   @override
@@ -120,7 +120,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     return TextField(controller: ctrl, decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()));
   }
 
-  // 🔥 CORE FUNCTION: HTML TO PRINT (With Professional Table)
+  // 🔥 CORE FUNCTION: HTML TO PRINT (SPLIT COLUMNS & COVER PAGE)
   Future<void> _printHtml({required bool isAnswerKey}) async {
     setState(() => isGenerating = true);
 
@@ -134,7 +134,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       final instructions = _instructionsController.text.replaceAll('\n', '<br>');
 
       // ------------------------------------
-      // 1. CSS STYLING (Table Design Added)
+      // 1. CSS STYLING (Two Columns + Margins)
       // ------------------------------------
       String htmlContent = """
       <!DOCTYPE html>
@@ -142,102 +142,147 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       <head>
         <meta charset="UTF-8">
         <style>
-          body { font-family: sans-serif; padding: 20px; }
-          .header { text-align: center; font-weight: bold; font-size: 24px; margin-bottom: 5px; text-transform: uppercase; }
-          .sub-header { text-align: center; font-size: 16px; margin-bottom: 20px; border-bottom: 2px solid black; padding-bottom: 10px; }
-          .meta-box { width: 100%; border: 1px solid black; padding: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; }
-          .instructions { background-color: #f9f9f9; padding: 10px; border-left: 5px solid #333; margin-bottom: 20px; font-size: 14px; }
-          
-          .question-box { margin-bottom: 15px; page-break-inside: avoid; }
-          .q-text { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
-          .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-left: 20px; }
-          .option { font-size: 14px; }
-          
+          /* PAGE MARGINS & SETTINGS */
+          @page { size: A4; margin: 15mm; } 
+          body { font-family: sans-serif; -webkit-print-color-adjust: exact; }
+
+          /* WATERMARK (Fixed on every page) */
           .watermark {
             position: fixed; top: 50%; left: 50%;
             transform: translate(-50%, -50%) rotate(-45deg);
             font-size: 80px; color: rgba(0,0,0,0.05);
-            font-weight: bold; z-index: -1;
+            font-weight: bold; z-index: -1000;
             white-space: nowrap; pointer-events: none;
           }
 
-          /* 🔥 BEAUTIFUL TABLE STYLE FOR ANSWER KEY */
-          .ans-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 15px; }
-          .ans-table th { background-color: #4CAF50; color: white; padding: 10px; border: 1px solid #ddd; text-align: left; }
-          .ans-table td { padding: 8px; border: 1px solid #ddd; text-align: left; }
+          /* COVER PAGE STYLES */
+          .cover-page {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 90vh; /* Takes full first page */
+            text-align: center;
+            page-break-after: always; /* 🔥 Forces New Page */
+            break-after: page;
+          }
+          
+          .exam-title { font-size: 32px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; border-bottom: 3px solid #333; padding-bottom: 10px; display: inline-block;}
+          .topic-title { font-size: 22px; margin-bottom: 40px; color: #555; }
+          
+          .meta-table { width: 100%; border: 2px solid black; margin-bottom: 40px; font-size: 18px; }
+          .meta-table td { padding: 15px; border: 1px solid black; }
+
+          .instructions-box { text-align: left; width: 100%; background: #f4f4f4; padding: 20px; border: 1px dashed #333; }
+          
+          /* TWO COLUMN LAYOUT FOR QUESTIONS */
+          .questions-wrapper {
+            column-count: 2; /* 🔥 Split into 2 columns */
+            column-gap: 30px;
+            column-rule: 1px solid #ddd; /* Line between columns */
+            width: 100%;
+          }
+
+          .question-box {
+            break-inside: avoid; /* Don't split a single question */
+            page-break-inside: avoid;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dotted #ccc;
+          }
+
+          .q-text { font-weight: bold; font-size: 14px; margin-bottom: 5px; }
+          .options-list { margin-left: 15px; font-size: 13px; }
+          .option-item { margin-bottom: 2px; }
+
+          /* ANSWER KEY TABLE */
+          .ans-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+          .ans-table th { background-color: #333; color: white; padding: 8px; text-align: left; }
+          .ans-table td { padding: 6px; border: 1px solid #ddd; }
           .ans-table tr:nth-child(even) { background-color: #f2f2f2; }
-          .ans-table tr:hover { background-color: #ddd; }
+
+          /* Header on pages after cover (Optional) */
+          .page-header { font-size: 10px; text-align: center; color: grey; margin-bottom: 10px; border-bottom: 1px solid #ccc; }
         </style>
       </head>
       <body>
 
         <div class="watermark">$watermarkText</div>
 
-        <div class="header">${isAnswerKey ? "$topicName - ANSWER KEY" : examName}</div>
-        ${!isAnswerKey ? '<div class="sub-header">$topicName</div>' : ''}
-
-        ${!isAnswerKey ? """
-        <div class="meta-box">
-          <div><b>Date:</b> $date<br><b>Total Qs:</b> ${finalQuestions.length}</div>
-          <div style="text-align: right;"><b>Time:</b> $time<br><b>Marks:</b> $marks</div>
-        </div>
-        <div class="instructions"><b>INSTRUCTIONS:</b><br>$instructions</div>
-        """ : ''}
-
-        <hr>
       """;
 
       // ------------------------------------
-      // 2. CONTENT LOOP
+      // 2. CONTENT LOGIC
       // ------------------------------------
       
       if (isAnswerKey) {
-        // ✅ TABLE FORMAT FOR ANSWER KEY
+        // --- ANSWER KEY (No Cover Page needed usually, but lets keep header) ---
         htmlContent += """
-        <h3 style="text-align:center;">CORRECT ANSWERS</h3>
+        <div style="text-align:center; font-weight:bold; font-size:24px; margin-bottom:10px;">ANSWER KEY</div>
+        <div style="text-align:center; font-size:16px; margin-bottom:20px;">$topicName</div>
+        
         <table class='ans-table'>
-          <tr>
-            <th width="15%">Q.No</th>
-            <th>Correct Option & Answer</th>
-          </tr>
+          <tr><th width="10%">Q.No</th><th>Correct Answer</th></tr>
         """;
-
+        
         List<String> labels = ["(A)", "(B)", "(C)", "(D)"];
-
         for (int i = 0; i < finalQuestions.length; i++) {
           final q = finalQuestions[i];
+          String ansText = q.options.isNotEmpty ? q.options[q.correctAnswerIndex] : "-";
+          String ansLabel = (q.correctAnswerIndex < 4) ? "<b>${labels[q.correctAnswerIndex]}</b>" : "";
           
-          // Find correct label (A/B/C/D) and Text
-          String ansText = "-";
-          String ansLabel = "";
-          
-          if (q.options.isNotEmpty && q.correctAnswerIndex >= 0 && q.correctAnswerIndex < q.options.length) {
-             ansText = q.options[q.correctAnswerIndex];
-             // Label A, B, C, D calculate karo
-             if (q.correctAnswerIndex < 4) ansLabel = "<b>${labels[q.correctAnswerIndex]}</b> ";
-          }
-
-          htmlContent += """
-            <tr>
-              <td><b>Q.${i+1}</b></td>
-              <td>$ansLabel $ansText</td>
-            </tr>
-          """;
+          htmlContent += "<tr><td>${i+1}</td><td>$ansLabel $ansText</td></tr>";
         }
         htmlContent += "</table>";
 
       } else {
-        // --- QUESTION PAPER VIEW (Same as before) ---
+        // --- QUESTION PAPER (Cover Page + 2 Columns) ---
+        
+        // 1. COVER PAGE
+        htmlContent += """
+        <div class="cover-page">
+          <div class="exam-title">$examName</div>
+          <div class="topic-title">$topicName</div>
+
+          <table class="meta-table">
+            <tr>
+              <td><b>Date:</b><br>$date</td>
+              <td><b>Time:</b><br>$time</td>
+            </tr>
+            <tr>
+              <td><b>Total Questions:</b><br>${finalQuestions.length}</td>
+              <td><b>Max Marks:</b><br>$marks</td>
+            </tr>
+          </table>
+
+          <div class="instructions-box">
+            <h3>INSTRUCTIONS / निर्देश:</h3>
+            <p>$instructions</p>
+          </div>
+          
+          <br><br>
+          <div style="font-size:12px; color:grey;">- Paper starts on next page -</div>
+        </div>
+        """;
+
+        // 2. QUESTIONS PAGE (Split Columns)
+        htmlContent += """
+        <div class="page-header">$examName - $topicName</div>
+        <div class="questions-wrapper">
+        """;
+
+        List<String> labels = ["(A)", "(B)", "(C)", "(D)"];
         for (int i = 0; i < finalQuestions.length; i++) {
           final q = finalQuestions[i];
-          String optionsHtml = "<div class='options-grid'>";
-          List<String> labels = ["(A)", "(B)", "(C)", "(D)"];
+          
+          String optionsHtml = "<div class='options-list'>";
           for(int j=0; j<q.options.length; j++) {
             if(j < 4) {
-              optionsHtml += "<div class='option'><b>${labels[j]}</b> ${q.options[j]}</div>";
+              optionsHtml += "<div class='option-item'><b>${labels[j]}</b> ${q.options[j]}</div>";
             }
           }
           optionsHtml += "</div>";
+
           htmlContent += """
           <div class="question-box">
             <div class="q-text">Q${i+1}. ${q.questionText}</div>
@@ -245,6 +290,8 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           </div>
           """;
         }
+
+        htmlContent += "</div>"; // Close wrapper
       }
 
       htmlContent += "</body></html>";
@@ -329,7 +376,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                 )),
                 const SizedBox(height: 10),
                 
-                // BUTTON 2: Answer Key (Table View)
+                // BUTTON 2: Answer Key
                 SizedBox(width: double.infinity, child: OutlinedButton.icon(
                   onPressed: () => _printHtml(isAnswerKey: true), 
                   icon: const Icon(Icons.vpn_key, color: Colors.orange),
