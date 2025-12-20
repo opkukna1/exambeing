@@ -81,6 +81,7 @@ flutter:
   assets:
     - assets/logo.png
     - assets/icon/
+    - assets/fonts/NotoSans.ttf
 
 flutter_launcher_icons:
   android: true
