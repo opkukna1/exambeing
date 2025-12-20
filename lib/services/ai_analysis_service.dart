@@ -1,15 +1,20 @@
+import 'dart:convert'; // JSON decoding ke liye
+import 'package:http/http.dart' as http; // API call ke liye
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/foundation.dart'; 
+import 'package:flutter/foundation.dart';
 
 class AiAnalysisService {
   
-  // ⚠️ API KEY (Apni Key Yahan Rakhein)
+  // ⚠️ Apni API Key Yahan Dalein
   static const String _apiKey = 'AIzaSyA2RwvlhdMHLe3r9Ivi592kxYR-IkIbnpQ'; 
+  
+  // ✅ DIRECT REST API URL (v1 Endpoint - Stable)
+  static const String _apiUrl = 
+      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
 
-  // 1. LIMIT CHECK (Mahine mein 5 baar ki limit)
+  // 1. LIMIT CHECK (Same logic)
   Future<bool> _checkAndIncrementQuota() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -27,29 +32,24 @@ class AiAnalysisService {
 
       final data = doc.data()!;
       if (data['month'] != currentMonth) {
-        // New month, reset count
         await docRef.set({'count': 1, 'month': currentMonth});
         return true;
       } else {
-        // Same month, check limit
         if ((data['count'] ?? 0) >= 5) return false;
-        
         await docRef.update({'count': FieldValue.increment(1)});
         return true;
       }
     } catch (e) {
-      // Agar DB error aaye, tab bhi user ko analysis karne do (Fallback)
-      return true; 
+      return true; // Fallback
     }
   }
 
-  // 2. FETCH DETAILED LOGS (Smart Reading)
+  // 2. FETCH DETAILED LOGS (Same Logic)
   Future<String> _fetchUserStats() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return "";
 
-      // Pichhle 15 Tests uthayenge
       final query = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -66,49 +66,68 @@ class AiAnalysisService {
       for (var doc in query.docs) {
         final data = doc.data();
         String topic = data['topicName'] ?? "General";
-        
-        // 🔥 'logs' array ko dhoondho (Jo abhi naya save kar rahe hain)
         List<dynamic> logs = data['logs'] ?? [];
 
         if (logs.isEmpty) {
-          // Agar logs nahi mile (Purana data), to sirf score dikha do
           var score = data['score'] ?? 0;
           statsData += "- Old Test ($topic): Score $score\n";
           continue;
         }
 
-        // Agar Logs hain, to detail mein padho
         for (var log in logs) {
-          // AI Context Limit Bachane ke liye sirf 60 recent questions bhejein
           if (totalQuestionsRead >= 60) break;
 
           String q = log['q'] ?? "";
-          String u = log['u'] ?? ""; // User Answer
-          String c = log['c'] ?? ""; // Correct Answer
-          bool s = log['s'] ?? false; // Status (True/False)
+          String u = log['u'] ?? ""; 
+          String c = log['c'] ?? ""; 
+          bool s = log['s'] ?? false; 
 
-          // Format for AI
           statsData += """
           [Topic: $topic]
           Q: $q
           User: $u | Correct: $c | Result: ${s ? "PASS" : "FAIL"}
           -------------------------
           """;
-          
           totalQuestionsRead++;
         }
       }
-
-      debugPrint("AI fetched $totalQuestionsRead questions for analysis.");
       return statsData;
-
     } catch (e) {
       debugPrint("Fetch Error: $e");
       return "Error fetching data.";
     }
   }
 
-  // 3. MAIN FUNCTION
+  // 🔥 3. NEW: CALL GEMINI VIA HTTP REST (No SDK)
+  Future<String> _callGeminiRestApi(String prompt) async {
+    try {
+      final url = Uri.parse('$_apiUrl?key=$_apiKey');
+      
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "contents": [{
+            "parts": [{"text": prompt}]
+          }]
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        // Extract text from JSON response
+        String? resultText = jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        return resultText ?? "AI returned empty response.";
+      } else {
+        debugPrint("API Error: ${response.statusCode} - ${response.body}");
+        return "Error: Server returned ${response.statusCode}. Check Key or Quota.";
+      }
+    } catch (e) {
+      return "Network Error: $e";
+    }
+  }
+
+  // 4. MAIN FUNCTION
   Future<String> getAnalysis() async {
     if (_apiKey.isEmpty) return "Error: API Key is missing.";
 
@@ -121,15 +140,7 @@ class AiAnalysisService {
       String userData = await _fetchUserStats();
       if (userData.contains("No test data")) return "NO_DATA";
 
-      // C. Initialize Model
-      // 🔥 FIX: Using 'gemini-pro' (Most Stable & Free)
-      // Ye version error nahi dega.
-      final model = GenerativeModel(
-        model: 'gemini-pro', 
-        apiKey: _apiKey,
-      );
-
-      // D. The Prompt
+      // C. The Prompt
       final prompt = """
       You are an elite Exam Coach. I am providing you with a log of the student's recent questions.
       
@@ -145,7 +156,6 @@ class AiAnalysisService {
 
       ### 🔴 Weak Areas (कमजोर पक्ष)
       - [Identify specific topics/question types where result is FAIL]
-      - e.g., "History dates are often wrong" or "Statement questions are weak".
 
       ### 🟢 Strong Areas (मजबूत पक्ष)
       - [Identify topics where result is PASS]
@@ -158,12 +168,11 @@ class AiAnalysisService {
       Keep it professional, motivating, and strict like a coach.
       """;
 
-      final content = [Content.text(prompt)];
-      final response = await model.generateContent(content);
-      return response.text ?? "AI gave an empty response.";
+      // D. Call REST API
+      return await _callGeminiRestApi(prompt);
 
     } catch (e) {
-      return "Error: Unable to connect to AI. ($e)";
+      return "Error: Unexpected issue ($e)";
     }
   }
 }
