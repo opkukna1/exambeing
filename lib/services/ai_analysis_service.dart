@@ -9,7 +9,7 @@ class AiAnalysisService {
   // ⚠️ API KEY (Apni Key Yahan Rakhein)
   static const String _apiKey = 'AIzaSyA2RwvlhdMHLe3r9Ivi592kxYR-IkIbnpQ'; 
 
-  // 1. LIMIT CHECK (Same as before)
+  // 1. LIMIT CHECK (Mahine mein 5 baar ki limit)
   Future<bool> _checkAndIncrementQuota() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -27,31 +27,35 @@ class AiAnalysisService {
 
       final data = doc.data()!;
       if (data['month'] != currentMonth) {
+        // New month, reset count
         await docRef.set({'count': 1, 'month': currentMonth});
         return true;
       } else {
+        // Same month, check limit
         if ((data['count'] ?? 0) >= 5) return false;
+        
         await docRef.update({'count': FieldValue.increment(1)});
         return true;
       }
     } catch (e) {
-      return true; // Fallback
+      // Agar DB error aaye, tab bhi user ko analysis karne do (Fallback)
+      return true; 
     }
   }
 
-  // 2. FETCH DETAILED LOGS (Updated to read 'logs' array)
+  // 2. FETCH DETAILED LOGS (Smart Reading)
   Future<String> _fetchUserStats() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return "";
 
-      // Pichhle 20 Tests uthayenge (Agar har test mein 25 sawal hue to 500 questions ho jayenge)
+      // Pichhle 15 Tests uthayenge
       final query = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('test_results')
           .orderBy('timestamp', descending: true)
-          .limit(20) 
+          .limit(15) 
           .get();
 
       if (query.docs.isEmpty) return "No test data available.";
@@ -75,12 +79,15 @@ class AiAnalysisService {
 
         // Agar Logs hain, to detail mein padho
         for (var log in logs) {
+          // AI Context Limit Bachane ke liye sirf 60 recent questions bhejein
+          if (totalQuestionsRead >= 60) break;
+
           String q = log['q'] ?? "";
           String u = log['u'] ?? ""; // User Answer
           String c = log['c'] ?? ""; // Correct Answer
           bool s = log['s'] ?? false; // Status (True/False)
 
-          // AI ko bhejne ke liye format
+          // Format for AI
           statsData += """
           [Topic: $topic]
           Q: $q
@@ -106,15 +113,23 @@ class AiAnalysisService {
     if (_apiKey.isEmpty) return "Error: API Key is missing.";
 
     try {
+      // A. Quota Check
       bool canUse = await _checkAndIncrementQuota();
       if (!canUse) return "LIMIT_REACHED";
 
+      // B. Data Fetch
       String userData = await _fetchUserStats();
       if (userData.contains("No test data")) return "NO_DATA";
 
-      // Gemini Flash Model (Fast & Large Context)
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
+      // C. Initialize Model
+      // 🔥 FIX: Using 'gemini-pro' (Most Stable & Free)
+      // Ye version error nahi dega.
+      final model = GenerativeModel(
+        model: 'gemini-pro', 
+        apiKey: _apiKey,
+      );
 
+      // D. The Prompt
       final prompt = """
       You are an elite Exam Coach. I am providing you with a log of the student's recent questions.
       
@@ -126,7 +141,7 @@ class AiAnalysisService {
 
       ### 📊 Performance Summary
       - **Consistency:** (Check if they are improving or failing randomly)
-      - **Attempted:** (Total questions analyzed)
+      - **Topics Analyzed:** (Mention subjects found in data)
 
       ### 🔴 Weak Areas (कमजोर पक्ष)
       - [Identify specific topics/question types where result is FAIL]
@@ -140,7 +155,7 @@ class AiAnalysisService {
       2. [Actionable Tip 2]
       3. [Actionable Tip 3]
       
-      Keep it professional and strict.
+      Keep it professional, motivating, and strict like a coach.
       """;
 
       final content = [Content.text(prompt)];
