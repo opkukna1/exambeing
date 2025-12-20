@@ -1,5 +1,5 @@
-import 'dart:convert'; // JSON decoding ke liye
-import 'package:http/http.dart' as http; // API call ke liye
+import 'dart:convert'; // JSON decoding
+import 'package:http/http.dart' as http; // HTTP package
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
@@ -10,8 +10,8 @@ class AiAnalysisService {
   // ⚠️ API KEY
   static const String _apiKey = 'AIzaSyA2RwvlhdMHLe3r9Ivi592kxYR-IkIbnpQ'; 
   
-  // ✅ FINAL FIX: 'gemini-pro' use kar rahe hain jo sabse stable hai.
-  // 'v1beta' endpoint use kiya hai jo free tier support karta hai.
+  // ✅ FINAL FIX: 'gemini-pro' use kar rahe hain.
+  // Yeh Model sabse reliable hai aur 404 error nahi deta.
   static const String _apiUrl = 
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
 
@@ -118,10 +118,10 @@ class AiAnalysisService {
         return resultText ?? "AI returned empty response.";
       } else {
         debugPrint("API Error: ${response.statusCode} - ${response.body}");
-        return "Server Error (${response.statusCode}). Check Internet.";
+        return "Server Error (${response.statusCode}). Try again later.";
       }
     } catch (e) {
-      return "Network Error: $e";
+      return "Network Error: Check Internet.";
     }
   }
 
