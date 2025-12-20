@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:printing/printing.dart'; // 🔥 HTML to PDF Logic
+import 'package:printing/printing.dart'; 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw; 
 import 'package:exambeing/models/question_model.dart';
@@ -64,9 +64,9 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     _marksController.text = "${finalQuestions.length * 2}";
   }
 
-  // 🧹 CLEAN TEXT FUNCTION (Removes "(Exam : ... Year : ...)")
+  // 🧹 CLEAN TEXT FUNCTION
   String _cleanQuestionText(String text) {
-    return text.replaceAll(RegExp(r'\s*\(\s*(Exam|Year|SSC|RPSC|UPSC|IAS|RAS)\s*:.*?\)', caseSensitive: false), '').trim();
+    return text.replaceAll(RegExp(r'\s*\(\s*(Exam|Year|SSC|RPSC|UPSC)\s*:.*?\)', caseSensitive: false), '').trim();
   }
 
   // 📝 ADMIN INPUT DIALOG
@@ -101,7 +101,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
               onPressed: () {
                 Navigator.pop(context);
-                _printHtml(isAnswerKey: false); // 🔥 Generate Question Paper
+                _printHtml(isAnswerKey: false);
               },
               child: const Text("Print / Save PDF"),
             ),
@@ -115,7 +115,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     return TextField(controller: ctrl, decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()));
   }
 
-  // 🔥 CORE FUNCTION: HTML TO PDF (With Your Exact Cover Design)
+  // 🔥 CORE FUNCTION: HTML TO PDF (With Margins Fixed)
   Future<void> _printHtml({required bool isAnswerKey}) async {
     setState(() => isGenerating = true);
 
@@ -126,7 +126,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       final totalQs = finalQuestions.length;
 
       // ------------------------------------
-      // 1. CSS STYLES (Your Original Design)
+      // 1. CSS STYLES (Margin Fixed Here)
       // ------------------------------------
       String htmlContent = """
       <!DOCTYPE html>
@@ -135,13 +135,21 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         <meta charset="UTF-8">
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700;800&family=Arimo:wght@400;700&display=swap" rel="stylesheet">
         <style>
-            /* Reset & Page Setup */
-            @page { size: A4; margin: 0; } 
-            * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* 🔥 PAGE MARGINS FIXED HERE */
+            @page { 
+                size: A4; 
+                margin-top: 20mm;    /* Top Margin added */
+                margin-bottom: 15mm; 
+                margin-left: 15mm; 
+                margin-right: 15mm; 
+            }
+            
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
             body { 
                 background-color: white; 
                 font-family: 'Arimo', sans-serif; 
+                margin: 0; padding: 0;
             }
 
             .hindi-font { font-family: 'Noto Sans Devanagari', sans-serif; }
@@ -155,19 +163,17 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                 white-space: nowrap; pointer-events: none;
             }
 
-            /* --- USER'S EXACT COVER PAGE CSS --- */
+            /* --- COVER PAGE --- */
             .a4-page {
-                width: 210mm;
-                min-height: 297mm;
-                padding: 10mm 12mm;
+                width: 100%; /* Adapt to margins */
+                min-height: 90vh;
                 position: relative;
-                margin: 0 auto;
-                page-break-after: always; /* Force New Page */
+                page-break-after: always; 
             }
 
             .header-grid {
                 display: flex; justify-content: space-between; align-items: flex-start;
-                margin-top: 20px; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 10px;
+                border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 10px;
             }
             .header-left { font-size: 14px; font-weight: bold; line-height: 1.5; width: 30%; }
             .header-center { text-align: center; width: 40%; display: flex; flex-direction: column; align-items: center; }
@@ -203,7 +209,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
             .page-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 25px; font-weight: bold; }
 
             /* --- QUESTIONS PAGE CSS --- */
-            .questions-page { padding: 15mm; }
+            .questions-page { width: 100%; }
             .page-header { font-size: 10px; text-align: center; color: grey; margin-bottom: 10px; border-bottom: 1px solid #ccc; }
             .questions-wrapper { column-count: 2; column-gap: 30px; column-rule: 1px solid #ddd; width: 100%; }
             .question-box { break-inside: avoid; page-break-inside: avoid; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dotted #ccc; }
@@ -212,7 +218,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
             .option-item { margin-bottom: 2px; }
             
             /* ANSWER KEY */
-            .ans-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; margin: 15mm; }
+            .ans-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
             .ans-table th { background-color: #333; color: white; padding: 8px; text-align: left; }
             .ans-table td { padding: 6px; border: 1px solid #ddd; }
             .ans-table tr:nth-child(even) { background-color: #f2f2f2; }
@@ -227,9 +233,8 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       // ------------------------------------
       
       if (isAnswerKey) {
-        // --- ANSWER KEY VIEW ---
         htmlContent += """
-        <div style="text-align:center; font-weight:bold; font-size:24px; margin-top:20px; margin-bottom:10px;">ANSWER KEY</div>
+        <div style="text-align:center; font-weight:bold; font-size:24px; margin-bottom:10px;">ANSWER KEY</div>
         <div style="text-align:center; font-size:16px; margin-bottom:20px;">$topicName</div>
         <table class='ans-table'><tr><th width="10%">Q.No</th><th>Correct Answer</th></tr>
         """;
@@ -243,7 +248,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         htmlContent += "</table>";
 
       } else {
-        // --- COVER PAGE (User's Exact HTML Structure) ---
+        // --- COVER PAGE ---
         htmlContent += """
         <div class="a4-page">
             <div class="header-grid">
@@ -254,7 +259,9 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                 </div>
 
                 <div class="header-center">
-                    <div class="exam-name-box">$examName</div> <div class="paper-title">$topicName</div> </div>
+                    <div class="exam-name-box">$examName</div>
+                    <div class="paper-title">$topicName</div>
+                </div>
 
                 <div class="header-right">
                     <div style="height: 40px;"></div>
@@ -331,7 +338,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         </div>
         """;
 
-        // --- QUESTIONS LIST (Starts on Page 2) ---
+        // --- QUESTIONS LIST ---
         htmlContent += """
         <div class="questions-page">
         <div class="page-header">$examName - $topicName</div>
@@ -342,8 +349,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
         for (int i = 0; i < finalQuestions.length; i++) {
           final q = finalQuestions[i];
-
-          // 🔥 CLEAN TEXT Logic
           String displayQuestion = _cleanQuestionText(q.questionText);
           
           String optionsHtml = "<div class='options-list'>";
@@ -352,7 +357,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               optionsHtml += "<div class='option-item'><b>${labels[j]}</b> ${q.options[j]}</div>";
             }
           }
-          // 🔥 Option E Added
           optionsHtml += "<div class='option-item'><b>(E)</b> अनुतरित प्रश्न</div>";
           optionsHtml += "</div>";
 
@@ -368,9 +372,6 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
       htmlContent += "</body></html>";
 
-      // ------------------------------------
-      // 3. LAUNCH PRINT
-      // ------------------------------------
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => await Printing.convertHtml(
           format: format,
