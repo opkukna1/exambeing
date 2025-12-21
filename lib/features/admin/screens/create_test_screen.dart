@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -19,7 +18,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   // --- Basic Info ---
   final _testTitleController = TextEditingController();
   final _contactController = TextEditingController(); 
-  DateTime? _unlockTime;
+  DateTime? _unlockTime; // Isko hum database me 'scheduledAt' ke naam se save karenge
 
   // --- Exam Settings ---
   int _durationMinutes = 60;   
@@ -301,10 +300,13 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       // 🔥 Saving to Nested Path with correct Teacher ID
       await FirebaseFirestore.instance.collection('study_schedules').doc(widget.examId).collection('weeks').doc(widget.weekId).collection('tests').add({
         'testTitle': _testTitleController.text.trim(),
-        'unlockTime': Timestamp.fromDate(_unlockTime!),
+        
+        // 🔥🔥 CRITICAL FIX: Saved as 'scheduledAt' instead of 'unlockTime' to match List Screen
+        'scheduledAt': Timestamp.fromDate(_unlockTime!), 
+        
         'questions': _questions,
         'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': user.uid, // ✅ STAMPING TEACHER ID
+        'createdBy': user.uid, 
         'contactNumber': _contactController.text.trim(),
         'attemptedUsers': [],
         'settings': { 'positive': _positiveMark, 'negative': _negativeMark, 'skip': _skipMark, 'duration': _durationMinutes, 'totalMaxMarks': _totalMaxMarks }
