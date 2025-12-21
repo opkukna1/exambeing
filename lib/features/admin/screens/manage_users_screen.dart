@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 🔥 Auth Import
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 class ManageUsersScreen extends StatefulWidget {
   final String testId;
   final String testName;
+  // 🔥 New IDs needed for Path
+  final String examId; 
+  final String weekId;
 
   const ManageUsersScreen({
     super.key, 
     required this.testId, 
-    required this.testName
+    required this.testName,
+    required this.examId,
+    required this.weekId,
   });
 
   @override
@@ -21,15 +26,15 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   final TextEditingController _emailController = TextEditingController();
   DateTime? _selectedDate;
   bool _isLoading = false;
-  bool _isVerifying = true; // 🔥 Shuru mein verify karega
+  bool _isVerifying = true;
 
   @override
   void initState() {
     super.initState();
-    _checkOwnership(); // 🔥 Page load hote hi Security Check
+    _checkOwnership();
   }
 
-  // 🔒 SECURITY CHECK FUNCTION
+  // 🔒 SECURITY CHECK (Updated Path)
   Future<void> _checkOwnership() async {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -39,10 +44,11 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     }
 
     try {
-      // 1. Fetch Test Details
+      // 1. Fetch Test Details from Nested Path
       DocumentSnapshot testDoc = await FirebaseFirestore.instance
-          .collection('tests')
-          .doc(widget.testId)
+          .collection('study_schedules').doc(widget.examId)
+          .collection('weeks').doc(widget.weekId)
+          .collection('tests').doc(widget.testId)
           .get();
 
       if (!testDoc.exists) {
@@ -53,30 +59,22 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       Map<String, dynamic> testData = testDoc.data() as Map<String, dynamic>;
       String creatorId = testData['createdBy'] ?? '';
 
-      // 2. Check if Current User is the Creator
+      // 2. Check Ownership
       if (creatorId != user.uid) {
         _showErrorAndExit("Access Denied: You can only manage users for YOUR own tests.");
         return;
       }
 
-      // 3. Double Check Host Status (Optional but Safe)
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      
+      // 3. Check Host Status
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       String isHost = (userDoc['host'] ?? 'no').toString().toLowerCase();
+      
       if (isHost != 'yes') {
         _showErrorAndExit("Access Denied: You are not authorized as a Host.");
         return;
       }
 
-      // ✅ All Good
-      if (mounted) {
-        setState(() {
-          _isVerifying = false; // Loading hata do
-        });
-      }
+      if (mounted) setState(() => _isVerifying = false);
 
     } catch (e) {
       _showErrorAndExit("Error verifying permissions: $e");
@@ -85,10 +83,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
   void _showErrorAndExit(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red, duration: const Duration(seconds: 3))
-    );
-    Navigator.pop(context); // Screen band kar do
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+    Navigator.pop(context);
   }
 
   @override
@@ -97,7 +93,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     super.dispose();
   }
 
-  // 📅 1. DATE PICKER FUNCTION
+  // 📅 DATE PICKER
   Future<void> _pickDate() async {
     DateTime? picked = await showDatePicker(
       context: context,
@@ -111,26 +107,27 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     }
   }
 
-  // ➕ 2. ADD USER FUNCTION
+  // ➕ ADD USER (Updated Path)
   Future<void> _addUser() async {
     if (_emailController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Student ki Email ID likhein!")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Student Email required!")));
       return;
     }
     if (_selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Expiry Date select karein!")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Select Expiry Date!")));
       return;
     }
 
     setState(() => _isLoading = true);
-    
     String email = _emailController.text.trim().toLowerCase(); 
 
     try {
+      // 🔥 Save to Nested Collection
       await FirebaseFirestore.instance
-          .collection('tests')
-          .doc(widget.testId)
-          .collection('allowed_users')
+          .collection('study_schedules').doc(widget.examId)
+          .collection('weeks').doc(widget.weekId)
+          .collection('tests').doc(widget.testId)
+          .collection('allowed_users') // Sub-collection
           .doc(email)
           .set({
         'email': email,
@@ -142,33 +139,27 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       setState(() => _selectedDate = null);
       
       if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("User Successfully Added! ✅"), backgroundColor: Colors.green)
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User Added! ✅"), backgroundColor: Colors.green));
       }
-
     } catch (e) {
-      if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
-      }
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
     } finally {
       if(mounted) setState(() => _isLoading = false);
     }
   }
 
-  // 🗑️ 3. REMOVE USER FUNCTION
+  // 🗑️ REMOVE USER (Updated Path)
   Future<void> _removeUser(String email) async {
     try {
       await FirebaseFirestore.instance
-          .collection('tests')
-          .doc(widget.testId)
+          .collection('study_schedules').doc(widget.examId)
+          .collection('weeks').doc(widget.weekId)
+          .collection('tests').doc(widget.testId)
           .collection('allowed_users')
           .doc(email)
           .delete();
           
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("User removed access."), duration: Duration(seconds: 1))
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User removed."), duration: Duration(seconds: 1)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
@@ -176,14 +167,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 Loading Screen Jab tak Permission Check ho rha hai
-    if (_isVerifying) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
+    if (_isVerifying) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
       appBar: AppBar(
@@ -199,100 +183,62 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       ),
       body: Column(
         children: [
-          // ---------------------------
-          // 🟢 SECTION 1: ADD USER FORM
-          // ---------------------------
+          // 🟢 ADD USER FORM
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.deepPurple.shade50,
-              border: Border(bottom: BorderSide(color: Colors.grey.shade300))
-            ),
+            decoration: BoxDecoration(color: Colors.deepPurple.shade50, border: Border(bottom: BorderSide(color: Colors.grey.shade300))),
             child: Column(
               children: [
                 TextField(
                   controller: _emailController,
                   decoration: InputDecoration(
-                    labelText: "Student Email",
-                    hintText: "example@gmail.com",
+                    labelText: "Student Email", hintText: "example@gmail.com",
                     prefixIcon: const Icon(Icons.email, color: Colors.deepPurple),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    filled: true,
-                    fillColor: Colors.white,
+                    filled: true, fillColor: Colors.white,
                   ),
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 10),
                 
-                // Date Picker Button
                 InkWell(
                   onTap: _pickDate,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.grey.shade600),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.grey.shade600), borderRadius: BorderRadius.circular(10)),
                     child: Row(
                       children: [
                         const Icon(Icons.calendar_today, color: Colors.deepPurple),
                         const SizedBox(width: 10),
-                        Text(
-                          _selectedDate == null 
-                              ? "Select Expiry Date" 
-                              : "Valid Till: ${DateFormat('dd MMM yyyy').format(_selectedDate!)}",
-                          style: TextStyle(
-                            color: _selectedDate == null ? Colors.grey.shade700 : Colors.black,
-                            fontWeight: FontWeight.w500
-                          ),
-                        ),
+                        Text(_selectedDate == null ? "Select Expiry Date" : "Valid Till: ${DateFormat('dd MMM yyyy').format(_selectedDate!)}", style: TextStyle(color: _selectedDate == null ? Colors.grey.shade700 : Colors.black, fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 15),
 
-                // Allow Button
                 SizedBox(
-                  width: double.infinity,
-                  height: 45,
+                  width: double.infinity, height: 45,
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : _addUser,
                     icon: _isLoading ? const SizedBox() : const Icon(Icons.check_circle),
-                    label: _isLoading 
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                        : const Text("ALLOW ACCESS"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
-                    ),
+                    label: _isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text("ALLOW ACCESS"),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                   ),
                 )
               ],
             ),
           ),
           
-          // ---------------------------
-          // 🔵 SECTION 2: USERS LIST
-          // ---------------------------
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
-            child: Row(
-              children: [
-                Icon(Icons.list, size: 20, color: Colors.grey),
-                SizedBox(width: 5),
-                Text("Allowed Students List", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
-              ],
-            ),
-          ),
+          // 🔵 USERS LIST
+          const Padding(padding: EdgeInsets.fromLTRB(16, 20, 16, 10), child: Row(children: [Icon(Icons.list, size: 20, color: Colors.grey), SizedBox(width: 5), Text("Allowed Students List", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey))])),
 
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('tests')
-                  .doc(widget.testId)
+                  .collection('study_schedules').doc(widget.examId)
+                  .collection('weeks').doc(widget.weekId)
+                  .collection('tests').doc(widget.testId)
                   .collection('allowed_users')
                   .orderBy('addedAt', descending: true)
                   .snapshots(),
@@ -317,7 +263,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   itemBuilder: (context, index) {
                     var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-                    
                     DateTime expiry = (data['expiryDate'] as Timestamp).toDate();
                     bool isExpired = DateTime.now().isAfter(expiry);
 
@@ -326,27 +271,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: isExpired ? Colors.red.shade100 : Colors.green.shade100,
-                          child: Icon(
-                            isExpired ? Icons.block : Icons.check, 
-                            color: isExpired ? Colors.red : Colors.green
-                          ),
-                        ),
+                        leading: CircleAvatar(backgroundColor: isExpired ? Colors.red.shade100 : Colors.green.shade100, child: Icon(isExpired ? Icons.block : Icons.check, color: isExpired ? Colors.red : Colors.green)),
                         title: Text(data['email'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(
-                          isExpired 
-                              ? "Expired: ${DateFormat('dd MMM yyyy').format(expiry)}" 
-                              : "Valid till: ${DateFormat('dd MMM yyyy').format(expiry)}",
-                          style: TextStyle(
-                            color: isExpired ? Colors.red : Colors.green,
-                            fontWeight: FontWeight.w500
-                          ),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () => _removeUser(data['email']),
-                        ),
+                        subtitle: Text(isExpired ? "Expired: ${DateFormat('dd MMM yyyy').format(expiry)}" : "Valid till: ${DateFormat('dd MMM yyyy').format(expiry)}", style: TextStyle(color: isExpired ? Colors.red : Colors.green, fontWeight: FontWeight.w500)),
+                        trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => _removeUser(data['email'])),
                       ),
                     );
                   },
