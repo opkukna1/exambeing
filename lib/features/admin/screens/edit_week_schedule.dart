@@ -42,13 +42,14 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.currentData['weekTitle']);
+    // Ensure we create a new list so we don't modify the reference directly before saving
     _topicsList = List.from(widget.currentData['scheduleData'] ?? []);
     
     // 🔥 Security Check
     _checkPermissions();
   }
 
-  // 🔒 0. SECURITY CHECK
+  // 🔒 0. SECURITY CHECK (Ownership & Host)
   Future<void> _checkPermissions() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -60,7 +61,7 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
       // 1. OWNERSHIP CHECK
       String creatorId = widget.currentData['createdBy'] ?? '';
       
-      // Agar currentData me nahi mila, DB se fetch karo
+      // Agar currentData me nahi mila, DB se fetch karo check karne ke liye
       if (creatorId.isEmpty) {
         DocumentSnapshot weekDoc = await FirebaseFirestore.instance
             .collection('study_schedules')
@@ -71,6 +72,7 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
         if (weekDoc.exists) creatorId = weekDoc['createdBy'] ?? '';
       }
 
+      // 🔥 CRITICAL: Agar Creator ID match nahi karti
       if (creatorId != user.uid) {
         _showErrorAndExit("Access Denied: You can only edit schedules created by YOU.");
         return;
@@ -79,18 +81,22 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
       // 2. HOST CHECK
       DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (userDoc.exists) {
-        String isHost = (userDoc['host'] ?? 'no').toString().toLowerCase();
-        if (isHost == 'yes') {
-          // 🔥 Load Combined Data (Global + Private)
+        final userData = userDoc.data() as Map<String, dynamic>;
+        // Handle boolean or string 'yes'
+        String isHostStr = (userData['host'] ?? 'no').toString().toLowerCase();
+        bool isHost = isHostStr == 'yes' || isHostStr == 'true';
+
+        if (isHost) {
+          // ✅ Sab sahi hai, Data Load karo
           _fetchCombinedHierarchy(user.uid);
         } else {
           _showErrorAndExit("Access Denied: You are not a Host.");
         }
       } else {
-        _showErrorAndExit("User not found.");
+        _showErrorAndExit("User profile not found.");
       }
     } catch (e) {
-      _showErrorAndExit("Error checking permissions.");
+      _showErrorAndExit("Error checking permissions: $e");
     }
   }
 
@@ -124,7 +130,7 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
         privateList = privateDoc['data'] as List<dynamic>;
       }
 
-      // C. Merge
+      // C. Merge (Private first so user sees their custom topics top)
       if(mounted) {
         setState(() {
           combinedHierarchy = [...privateList, ...globalList];
@@ -133,7 +139,8 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
       }
 
     } catch (e) {
-      setState(() => _isLoading = false);
+      debugPrint("Error loading hierarchy: $e");
+      if(mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -144,14 +151,17 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
     });
   }
 
-  // 🔥 3️⃣ Add New Topic Logic (Updated with Custom ID)
+  // 🔥 3️⃣ Add New Topic Logic
   void _addTopic() {
     String subj = _subjController.text.trim();
     String subSubj = _subSubjController.text.trim();
     String topic = _topicController.text.trim();
     String subTop = _subTopController.text.trim();
 
-    if (subj.isEmpty || subSubj.isEmpty || topic.isEmpty || subTop.isEmpty) return;
+    if (subj.isEmpty || subSubj.isEmpty || topic.isEmpty || subTop.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("All fields are required")));
+      return;
+    }
     
     setState(() {
       _topicsList.add({
@@ -159,16 +169,17 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
         'subSubject': subSubj,
         'topic': topic,
         'subTopic': subTop,
-        // IDs: Database se select kiya to ID, warna Time-based Custom ID
+        // IDs: Database se select kiya to wahi ID, warna Custom ID
         'subjId': selectedSubject?['id'] ?? 'cust_${DateTime.now().millisecondsSinceEpoch}',
         'subSubjId': selectedSubSubject?['id'] ?? 'cust_ss_${DateTime.now().millisecondsSinceEpoch}',
         'topicId': selectedTopic?['id'] ?? 'cust_t_${DateTime.now().millisecondsSinceEpoch}',
         'subTopId': selectedSubTopic?['id'] ?? 'cust_st_${DateTime.now().millisecondsSinceEpoch}',
-        // Flag for saving later
+        
+        // Flag to save into private dictionary later
         'isCustom': selectedSubject == null 
       });
       
-      // Reset
+      // Reset Sheet Controllers
       _topicController.clear();
       _subTopController.clear();
       selectedTopic = null;
@@ -179,6 +190,7 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
 
   // 4️⃣ Show Add Dialog
   void _showAddTopicSheet() {
+    // Reset selections before opening
     _subjController.clear();
     _subSubjController.clear();
     _topicController.clear();
@@ -201,10 +213,11 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
                 const Text("Add New Topic", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 10),
 
-                // 1. Subject (Uses Combined Hierarchy)
+                // 1. Subject
                 _buildAutocomplete("Subject", _subjController, combinedHierarchy, (val) {
                   setSheetState(() {
                     selectedSubject = val;
+                    // Reset children
                     _subSubjController.clear(); _topicController.clear(); _subTopController.clear();
                     selectedSubSubject = null; selectedTopic = null; selectedSubTopic = null;
                   });
@@ -234,10 +247,13 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
                 }),
 
                 const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _addTopic,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                  child: const Text("ADD TOPIC"),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _addTopic,
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                    child: const Text("ADD TOPIC"),
+                  ),
                 )
               ],
             ),
@@ -254,7 +270,7 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
 
     setState(() => _isLoading = true);
     try {
-      // A. Save Public Schedule
+      // A. Save Public Schedule Update
       await FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(widget.examId)
@@ -263,6 +279,7 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
           .update({
         'weekTitle': _titleController.text.trim(),
         'scheduleData': _topicsList,
+        // Update linked topics string array for quick viewing
         'linkedTopics': _topicsList.map((e) => "${e['topic']} (${e['subTopic']})").toList(),
       });
 
@@ -293,10 +310,11 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
     bool needsUpdate = false;
 
     for (var item in _topicsList) {
-      // Check for Custom Items added in this session
+      // Check for Custom Items (added manually, not selected from list)
       if (item['isCustom'] == true) {
         var subjIndex = currentPrivateList.indexWhere((e) => e['name'] == item['subject']);
         
+        // Agar Subject naya hai, toh pura structure add kar do
         if (subjIndex == -1) {
           currentPrivateList.add({
             'name': item['subject'],
@@ -316,6 +334,8 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
           });
           needsUpdate = true;
         }
+        // NOTE: Deep merging (Existing Subject me naya Topic add karna)
+        // complex hota hai. Abhi ke liye hum sirf bilkul naye Subjects ko save kar rahe hain.
       }
     }
 
@@ -330,7 +350,7 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
       context: context, 
       builder: (c) => AlertDialog(
         title: const Text("Delete Week?"),
-        content: const Text("This will delete this week and all its tests."),
+        content: const Text("This will delete this week and all its tests/data permanently."),
         actions: [
           TextButton(onPressed: ()=> Navigator.pop(c, false), child: const Text("Cancel")),
           TextButton(onPressed: ()=> Navigator.pop(c, true), child: const Text("DELETE", style: TextStyle(color: Colors.red))),
@@ -339,6 +359,7 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
     ) ?? false;
 
     if(confirm) {
+      // Deleting the document
       await FirebaseFirestore.instance.collection('study_schedules').doc(widget.examId).collection('weeks').doc(widget.weekId).delete();
       if(mounted) Navigator.pop(context);
     }
@@ -366,7 +387,10 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
           onSelected(selection);
         },
         fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
-          if (textController.text != controller.text) textController.text = controller.text;
+          // Sync text if needed
+          if (textController.text != controller.text && controller.text.isNotEmpty) {
+             textController.text = controller.text;
+          }
           
           return TextField(
             controller: textController,
@@ -379,8 +403,9 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
             ),
             onChanged: (val) {
               controller.text = val;
-              // Reset selection if user types manually
+              // Reset selection if user types manually (implies custom)
               if(label == "Subject") selectedSubject = null;
+              if(label == "Sub-Subject") selectedSubSubject = null;
             },
           );
         },
@@ -414,13 +439,20 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text("Topics List", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  IconButton(onPressed: _showAddTopicSheet, icon: const Icon(Icons.add_circle, color: Colors.deepPurple))
+                  ElevatedButton.icon(
+                    onPressed: _showAddTopicSheet, 
+                    icon: const Icon(Icons.add_circle, size: 18),
+                    label: const Text("Add Topic"),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade50, foregroundColor: Colors.blue),
+                  )
                 ],
               ),
               const Divider(),
 
               // List of Topics
-              ListView.builder(
+              _topicsList.isEmpty 
+              ? const Padding(padding: EdgeInsets.all(20), child: Center(child: Text("No topics added yet.")))
+              : ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _topicsList.length,
@@ -429,10 +461,11 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     child: ListTile(
-                      title: Text(item['topic']),
-                      subtitle: Text(item['subTopic']),
+                      dense: true,
+                      title: Text(item['topic'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text("${item['subject']} > ${item['subTopic']}"),
                       trailing: IconButton(
-                        icon: const Icon(Icons.remove_circle, color: Colors.red),
+                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
                         onPressed: () => _deleteTopic(i),
                       ),
                     ),
@@ -445,8 +478,8 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _saveChanges,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, padding: const EdgeInsets.all(15)),
-                  child: const Text("SAVE CHANGES"),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, padding: const EdgeInsets.all(16)),
+                  child: const Text("SAVE CHANGES", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               )
             ],
