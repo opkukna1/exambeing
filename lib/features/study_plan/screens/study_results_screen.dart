@@ -15,6 +15,7 @@ class StudyResultsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const Scaffold(body: Center(child: Text("Please Login")));
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -27,7 +28,7 @@ class StudyResultsScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('users')
-            .doc(user!.uid)
+            .doc(user.uid)
             .collection('test_results')
             .orderBy('attemptedAt', descending: true)
             .snapshots(),
@@ -93,19 +94,19 @@ class StudyResultsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 15),
                       
-                      // 👇 UPDATED BUTTON LOGIC HERE
+                      // 👇 UPDATED BUTTON LOGIC (FIXED PARAMETERS)
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
                           onPressed: () {
-                             // Check if detailed data exists (Old results might not have it)
-                             if (data['questionsSnapshot'] != null && data['userResponse'] != null) {
+                             // Check if detailed data exists
+                             if (data['questionsSnapshot'] != null) {
                                Navigator.push(
                                  context, 
                                  MaterialPageRoute(builder: (c) => TestSolutionScreen(
-                                   testTitle: data['testTitle'] ?? "Solutions",
-                                   questions: data['questionsSnapshot'],
-                                   userAnswers: data['userResponse']
+                                   // ✅ FIX: Using correct parameters
+                                   testId: data['testId'], 
+                                   originalQuestions: data['questionsSnapshot']
                                  ))
                                );
                              } else {
