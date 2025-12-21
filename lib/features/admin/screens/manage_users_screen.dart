@@ -83,8 +83,14 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Test Permissions 🔐"),
-        subtitle: Text(widget.testName, style: const TextStyle(fontSize: 12)),
+        // 🔥 FIX: AppBar doesn't support subtitle, so we use a Column inside title
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Test Permissions 🔐"),
+            Text(widget.testName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+          ],
+        ),
       ),
       body: Column(
         children: [
