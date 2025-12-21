@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:exambeing/features/study_plan/screens/study_results_screen.dart';
+// 🔥 Ensure this import is correct based on your project structure
+import 'study_results_screen.dart'; 
 
 class AttemptTestScreen extends StatefulWidget {
   final String testId;
@@ -35,8 +36,9 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
   @override
   void initState() {
     super.initState();
-    questions = widget.testData['questions'];
-    marking = widget.testData['settings'];
+    questions = widget.testData['questions'] ?? [];
+    // Handle settings safely (Default: +4, -1)
+    marking = widget.testData['settings'] ?? {'positive': 4.0, 'negative': 1.0, 'skip': 0.0};
     _pageController = PageController(initialPage: 0);
   }
 
@@ -46,9 +48,25 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
     super.dispose();
   }
 
-  // 🔥 Result Calculation Logic
+  // 🔥 Result Calculation & Save Logic
   void _submitTest() async {
     if (_isSubmitting) return;
+    
+    // Confirm Dialog
+    bool confirm = await showDialog(
+      context: context, 
+      builder: (c) => AlertDialog(
+        title: const Text("Submit Test?"),
+        content: const Text("Are you sure you want to finish?"),
+        actions: [
+          TextButton(onPressed: ()=>Navigator.pop(c, false), child: const Text("Cancel")),
+          TextButton(onPressed: ()=>Navigator.pop(c, true), child: const Text("Submit")),
+        ],
+      )
+    ) ?? false;
+
+    if(!confirm) return;
+
     setState(() => _isSubmitting = true);
     
     try {
@@ -59,38 +77,53 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
       int skippedCount = 0;
       double totalScore = 0;
 
+      // 1. Calculate Score
       for (int i = 0; i < questions.length; i++) {
         int? userAns = _userAnswers[i];
         int correctAns = questions[i]['correctIndex'];
 
+        double pos = (marking['positive'] ?? 4.0).toDouble();
+        double neg = (marking['negative'] ?? 1.0).toDouble();
+        double skip = (marking['skip'] ?? 0.0).toDouble();
+
         if (userAns == null) {
           skippedCount++;
-          totalScore += (marking['skip'] ?? 0);
+          totalScore += skip;
         } else if (userAns == correctAns) {
           correctCount++;
-          totalScore += (marking['positive'] ?? 4);
+          totalScore += pos;
         } else {
           wrongCount++;
-          totalScore -= (marking['negative'] ?? 1); 
+          totalScore -= neg; 
         }
       }
 
-      // 1️⃣ Save Result in User's Collection
+      // 2. Prepare Answer Map for Database (Use Question ID as Key)
+      Map<String, int> answersForDb = {};
+      _userAnswers.forEach((index, optIndex) {
+        // Fallback: If ID is missing, use Question Text as ID (Older tests compatibility)
+        String qId = questions[index]['id'] ?? questions[index]['question'];
+        answersForDb[qId] = optIndex;
+      });
+
+      // 3. Save Result in User's Collection
+      // Note: We use .add() so a user can have multiple attempts history if needed later
       await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('test_results').add({
         'testId': widget.testId,
-        'testTitle': widget.testData['testTitle'],
+        'testTitle': widget.testData['testTitle'] ?? 'Test Result',
         'score': totalScore,
         'correct': correctCount,
         'wrong': wrongCount,
         'skipped': skippedCount,
         'totalQ': questions.length,
         'attemptedAt': FieldValue.serverTimestamp(),
-        // Saving details for solution view
-        'questionsSnapshot': questions,
-        'userResponse': _userAnswers.map((k, v) => MapEntry(questions[k]['id'] ?? questions[k]['question'], v)),
+        // Saving full snapshot so solution works even if teacher deletes original test
+        'questionsSnapshot': questions, 
+        'userResponse': answersForDb,
       });
 
-      // 2️⃣ Mark Test as Attempted
+      // 4. Mark Test as Attempted (Updates the main test document)
+      // This allows the "Start" button to change to "Result"
       await FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(widget.examId)
@@ -104,10 +137,10 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
 
       if (!mounted) return;
       
-      // 3️⃣ Go to Result Screen
+      // 5. Navigate to Result Screen (Replace stack so user can't go back)
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(
         examId: widget.examId,
-        examName: widget.testData['testTitle'],
+        examName: widget.testData['testTitle'] ?? "Result",
       )));
       
     } catch (e) {
@@ -130,11 +163,12 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
       ),
       body: Column(
         children: [
-          // 🔥 1. SWIPEABLE QUESTION AREA
+          // 📄 1. QUESTION AREA
           Expanded(
             child: PageView.builder(
               controller: _pageController,
               itemCount: questions.length,
+              physics: const BouncingScrollPhysics(),
               onPageChanged: (index) {
                 setState(() => _currentQuestionIndex = index);
               },
@@ -144,10 +178,10 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
             ),
           ),
 
-          // 🔥 2. NAVIGATION BUTTONS
+          // ↔️ 2. NAVIGATION BUTTONS
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.white,
+            decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.grey.shade200, blurRadius: 5)]),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -176,7 +210,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
     );
   }
 
-  // 🔥 CUSTOM WIDGET FOR QUESTION & OPTIONS
+  // 🔥 CUSTOM WIDGET FOR QUESTION PAGE
   Widget _buildQuestionPage(Map<String, dynamic> q, int qIndex) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -190,7 +224,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 🔥 CUSTOM CLICKABLE OPTIONS
+          // Options List
           ...List.generate(q['options'].length, (optIndex) {
             bool isSelected = _userAnswers[qIndex] == optIndex;
 
@@ -204,7 +238,6 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  // 🎨 Change Color on Selection
                   color: isSelected ? Colors.deepPurple.shade50 : Colors.white,
                   border: Border.all(
                     color: isSelected ? Colors.deepPurple : Colors.grey.shade300,
@@ -214,15 +247,12 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
                 ),
                 child: Row(
                   children: [
-                    // Custom Radio Circle
                     Icon(
                       isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
                       color: isSelected ? Colors.deepPurple : Colors.grey,
                       size: 20,
                     ),
                     const SizedBox(width: 12),
-                    
-                    // Option Text
                     Expanded(
                       child: Text(
                         q['options'][optIndex],
