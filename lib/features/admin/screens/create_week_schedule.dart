@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // User Auth ke liye
 import 'package:intl/intl.dart';
 
 class CreateWeekSchedule extends StatefulWidget {
@@ -11,30 +12,108 @@ class CreateWeekSchedule extends StatefulWidget {
 }
 
 class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
-  // --- Controllers for Basic Info ---
+  // --- Controllers & Basic Info ---
   final _weekTitleController = TextEditingController();
   DateTime? _examDate;
 
-  // --- Data Variables for Hierarchy ---
+  // --- Data Variables ---
   List<dynamic> fullHierarchy = [];
-  bool isLoading = true;
+  bool isLoading = true; // Overall loading state
+  String? loadingMessage = "Checking permissions..."; // Loading status text
 
-  // --- Selections (Stores Full Object from Firebase) ---
+  // --- Selections ---
   Map<String, dynamic>? selectedSubject;
   Map<String, dynamic>? selectedSubSubject;
   Map<String, dynamic>? selectedTopic;
   Map<String, dynamic>? selectedSubTopic;
 
-  // --- List to store added topics locally ---
   final List<Map<String, dynamic>> _addedTopics = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchHierarchy();
+    _checkHostPermissions(); // 🔥 Step 1: Sabse pehle permission check karo
   }
 
-  // 1️⃣ Fetch Hierarchy from Firebase (Same as NotesSelectionScreen)
+  // 🔥 1️⃣ Permission & Limit Check Function
+  Future<void> _checkHostPermissions() async {
+    final user = FirebaseAuth.instance.currentUser;
+    
+    if (user == null) {
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please login first!")));
+        Navigator.pop(context);
+      }
+      return;
+    }
+
+    try {
+      // A. User ka data fetch karo (users collection se)
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        _showErrorAndExit("User data not found!");
+        return;
+      }
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+
+      // B. Check 'host' field
+      String isHost = (userData['host'] ?? 'no').toString();
+      if (isHost.toLowerCase() != 'yes') {
+        _showErrorAndExit("Access Denied: You are not authorized as a Host.");
+        return;
+      }
+
+      // C. Check 'hostnumber' (Max limit)
+      // Parse int safely (agar string "5" hai ya number 5 hai dono handle honge)
+      int allowedLimit = int.tryParse(userData['hostnumber'].toString()) ?? 0;
+
+      // D. Count current schedules created for this Exam
+      // Note: Hum count() query use kar rahe hain jo fast aur sasti hai
+      AggregateQuerySnapshot query = await FirebaseFirestore.instance
+          .collection('study_schedules')
+          .doc(widget.examId)
+          .collection('weeks')
+          .count()
+          .get();
+      
+      int existingSchedules = query.count ?? 0;
+
+      // E. Compare Limit
+      if (existingSchedules >= allowedLimit) {
+        _showErrorAndExit("Limit Reached! You can only create $allowedLimit schedules.");
+        return;
+      }
+
+      // ✅ Sab sahi hai -> Ab Hierarchy fetch karo
+      setState(() {
+        loadingMessage = "Loading topics...";
+      });
+      _fetchHierarchy();
+
+    } catch (e) {
+      _showErrorAndExit("Error checking permissions: $e");
+    }
+  }
+
+  // Helper to show error and go back
+  void _showErrorAndExit(String message) {
+    if(!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message), 
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      )
+    );
+    Navigator.pop(context); // Screen band kar do
+  }
+
+  // 2️⃣ Fetch Hierarchy (Existing Logic)
   Future<void> _fetchHierarchy() async {
     try {
       DocumentSnapshot doc = await FirebaseFirestore.instance
@@ -45,7 +124,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
       if (doc.exists) {
         setState(() {
           fullHierarchy = doc['hierarchy'] as List<dynamic>;
-          isLoading = false;
+          isLoading = false; // Loading khatam
         });
       } else {
         setState(() => isLoading = false);
@@ -56,12 +135,11 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     }
   }
 
-  // --- Helper Getters for Dropdown Lists ---
+  // --- Helper Getters ---
   List<dynamic> getSubSubjects() => selectedSubject?['subSubjects'] ?? [];
   List<dynamic> getTopics() => selectedSubSubject?['topics'] ?? [];
   List<dynamic> getSubTopics() => selectedTopic?['subTopics'] ?? [];
 
-  // 2️⃣ Date Picker
   void _pickDate() async {
     DateTime? picked = await showDatePicker(
       context: context,
@@ -79,25 +157,19 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     }
   }
 
-  // 3️⃣ Add Selected Topic to List
   void _addTopicToList() {
     if (selectedSubTopic != null) {
       setState(() {
         _addedTopics.add({
-          // Hum names store kar rahe hain taaki user ko dikha sakein
           'subject': selectedSubject!['name'],
           'subSubject': selectedSubSubject!['name'],
           'topic': selectedTopic!['name'],
           'subTopic': selectedSubTopic!['name'],
-          
-          // IDs bhi store kar rahe hain (Future safety ke liye)
           'subjId': selectedSubject!['id'],
           'subSubjId': selectedSubSubject!['id'],
           'topicId': selectedTopic!['id'],
           'subTopId': selectedSubTopic!['id'],
         });
-
-        // Add karne ke baad last selection reset kar dete hain taaki agla add kar sakein
         selectedSubTopic = null; 
       });
     } else {
@@ -105,7 +177,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     }
   }
 
-  // 4️⃣ Save Entire Schedule to Firebase
   void _saveSchedule() async {
     if (_weekTitleController.text.isEmpty || _examDate == null || _addedTopics.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Title, Date aur kam se kam 1 Topic zaroori hai!")));
@@ -121,8 +192,8 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
         'weekTitle': _weekTitleController.text.trim(),
         'unlockTime': Timestamp.fromDate(_examDate!),
         'createdAt': FieldValue.serverTimestamp(),
-        'linkedTopics': _addedTopics.map((e) => "${e['topic']} (${e['subTopic']})").toList(), // For simple display
-        'scheduleData': _addedTopics, // Full Data for linking
+        'linkedTopics': _addedTopics.map((e) => "${e['topic']} (${e['subTopic']})").toList(),
+        'scheduleData': _addedTopics,
       });
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -135,7 +206,16 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     return Scaffold(
       appBar: AppBar(title: const Text("Create Schedule 📅")),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 20),
+                  Text(loadingMessage ?? "Loading..."), // Loading message dikhayega
+                ],
+              ),
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -147,7 +227,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
                   TextField(
                     controller: _weekTitleController,
                     decoration: const InputDecoration(
-                      labelText: "Schedule Title (e.g. Week 1 - Basics)",
+                      labelText: "Schedule Title",
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -161,11 +241,10 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
 
                   const Divider(height: 40, thickness: 2),
 
-                  // --- SECTION 2: HIERARCHY SELECTION ---
-                  const Text("Select Topics from Database", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  // --- SECTION 2: HIERARCHY ---
+                  const Text("Select Topics", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 15),
 
-                  // 1. SUBJECT
                   _buildDropdown("Subject", fullHierarchy, selectedSubject, (val) {
                     setState(() {
                       selectedSubject = val;
@@ -175,7 +254,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
                     });
                   }),
 
-                  // 2. SUB-SUBJECT
                   _buildDropdown("Sub-Subject", getSubSubjects(), selectedSubSubject, (val) {
                     setState(() {
                       selectedSubSubject = val;
@@ -184,7 +262,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
                     });
                   }),
 
-                  // 3. TOPIC
                   _buildDropdown("Topic", getTopics(), selectedTopic, (val) {
                     setState(() {
                       selectedTopic = val;
@@ -192,29 +269,23 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
                     });
                   }),
 
-                  // 4. SUB-TOPIC
                   _buildDropdown("Sub-Topic", getSubTopics(), selectedSubTopic, (val) {
                     setState(() => selectedSubTopic = val);
                   }),
 
                   const SizedBox(height: 10),
                   
-                  // ADD BUTTON
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: selectedSubTopic == null ? null : _addTopicToList,
                       icon: const Icon(Icons.add_circle),
-                      label: const Text("ADD TOPIC TO SCHEDULE"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
+                      label: const Text("ADD TOPIC"),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
                     ),
                   ),
 
-                  // --- SECTION 3: PREVIEW LIST ---
+                  // --- SECTION 3: LIST ---
                   const SizedBox(height: 20),
                   if (_addedTopics.isNotEmpty) ...[
                     const Text("Selected Topics:", style: TextStyle(fontWeight: FontWeight.bold)),
@@ -243,7 +314,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
 
                   const SizedBox(height: 30),
                   
-                  // SAVE BUTTON
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -253,7 +323,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
                         backgroundColor: Colors.deepPurple,
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text("SAVE FULL SCHEDULE", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      child: const Text("SAVE SCHEDULE", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                   )
                 ],
@@ -262,7 +332,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     );
   }
 
-  // --- Helper Widget for Dropdowns ---
   Widget _buildDropdown(String hint, List<dynamic> items, Map<String, dynamic>? value, Function(Map<String, dynamic>?) onChanged) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -276,7 +345,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
           fillColor: Colors.white,
         ),
         isExpanded: true,
-        hint: Text("Select $hint"),
         items: items.map((item) {
           return DropdownMenuItem<Map<String, dynamic>>(
             value: item,
