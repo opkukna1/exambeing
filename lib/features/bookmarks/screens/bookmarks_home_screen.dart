@@ -12,6 +12,8 @@ import 'package:exambeing/features/admin/screens/create_test_screen.dart';
 import 'package:exambeing/features/study_plan/screens/attempt_test_screen.dart';
 // 👇 NEW IMPORT FOR EDIT SCHEDULE
 import 'package:exambeing/features/admin/screens/edit_week_schedule.dart';
+// 🔥 IMPORT TEST LIST (Manage Logic Yahan Hai)
+import 'package:exambeing/features/study_plan/screens/test_list_screen.dart';
 
 class BookmarksHomeScreen extends StatefulWidget {
   const BookmarksHomeScreen({super.key});
@@ -287,7 +289,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                     label: "Notes", 
                     color: Colors.green, 
                     onTap: () {
-                      // Pass Full Schedule Data for Popup Logic
                       List<dynamic> dataToSend = selectedWeekData != null && selectedWeekData!.containsKey('scheduleData')
                           ? selectedWeekData!['scheduleData']
                           : [];
@@ -299,97 +300,57 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                     }
                   ),
 
-                  // 🟣 Button 3: Test (SMART LOGIC HERE) 🧠
+                  // 🟣 Button 3: Test (UPDATED: Connects to TestListScreen) 🔥
                   StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
-                        .collection('study_schedules')
-                        .doc(selectedExamId)
-                        .collection('weeks')
-                        .doc(selectedWeekId)
+                        .collection('study_schedules').doc(selectedExamId)
+                        .collection('weeks').doc(selectedWeekId)
                         .collection('tests')
-                        .limit(1) // Assuming 1 test per week
                         .snapshots(),
                     builder: (context, testSnapshot) {
                       
-                      String label = "Loading...";
-                      VoidCallback? onTap;
+                      String label = "Tests";
                       Color color = Colors.grey;
-                      IconData icon = Icons.hourglass_empty;
+                      IconData icon = Icons.assignment;
+                      int testCount = 0;
 
-                      if (testSnapshot.connectionState == ConnectionState.waiting) {
-                         // Waiting state
-                      } else if (testSnapshot.hasData && testSnapshot.data!.docs.isNotEmpty) {
-                        // ✅ TEST EXISTS
-                        var testDoc = testSnapshot.data!.docs.first;
-                        var testData = testDoc.data() as Map<String, dynamic>;
-                        DateTime unlockTime = (testData['unlockTime'] as Timestamp).toDate();
-                        List<dynamic> attemptedUsers = testData['attemptedUsers'] ?? [];
-                        String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? "";
+                      if (testSnapshot.hasData) {
+                        testCount = testSnapshot.data!.docs.length;
+                      }
 
-                        bool isLocked = DateTime.now().isBefore(unlockTime);
-                        bool hasAttempted = attemptedUsers.contains(currentUserId);
-
-                        if (isAdmin) {
-                          label = "Edit Test";
-                          color = Colors.deepPurple;
-                          icon = Icons.edit_note;
-                          onTap = () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("To Edit: Delete and Create new (for now).")));
-                        } else {
-                          // USER LOGIC
-                          if (hasAttempted) {
-                            label = "View Result";
-                            color = Colors.blue;
-                            icon = Icons.done_all;
-                            onTap = () {
-                               Navigator.push(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(
-                                  examId: selectedExamId!,
-                                  examName: selectedExamName ?? "Exam"
-                               )));
-                            };
-                          } else if (isLocked) {
-                            label = "Locked";
-                            color = Colors.grey;
-                            icon = Icons.lock_clock;
-                            onTap = () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Starts: ${DateFormat('dd MMM hh:mm a').format(unlockTime)}")));
-                          } else {
-                            label = "Start Test";
-                            color = Colors.deepPurple;
-                            icon = Icons.play_circle_fill;
-                            onTap = () {
-                              Navigator.push(context, MaterialPageRoute(builder: (c) => AttemptTestScreen(
-                                testId: testDoc.id,
-                                testData: testData,
-                                examId: selectedExamId!,
-                                weekId: selectedWeekId!,
-                              )));
-                            };
-                          }
-                        }
+                      if (testCount > 0) {
+                        label = "$testCount Test(s)";
+                        color = Colors.deepPurple;
+                        icon = Icons.quiz;
                       } else {
-                        // ❌ NO TEST EXISTS
-                        if (isAdmin) {
-                          label = "Create Test";
-                          color = Colors.redAccent;
-                          icon = Icons.add_task;
-                          onTap = () {
-                            Navigator.push(context, MaterialPageRoute(builder: (c) => CreateTestScreen(
-                              examId: selectedExamId!,
-                              weekId: selectedWeekId!
-                            )));
-                          };
-                        } else {
-                          label = "No Test";
-                          color = Colors.grey.shade300;
-                          icon = Icons.do_not_disturb;
-                          onTap = null;
-                        }
+                        label = "No Tests";
+                        color = Colors.grey.shade400;
+                        icon = Icons.do_not_disturb_on;
+                      }
+
+                      // Visual Cue for Admin
+                      if (isAdmin) {
+                        label = "Manage Tests";
+                        color = Colors.redAccent;
+                        icon = Icons.settings_suggest;
                       }
 
                       return _buildActionButton(
                         icon: icon, 
                         label: label, 
                         color: color, 
-                        onTap: onTap != null ? onTap : (){}
+                        onTap: () {
+                          // 🔥 NAVIGATE TO TEST LIST SCREEN (The hub for all test logic)
+                          Navigator.push(
+                            context, 
+                            MaterialPageRoute(
+                              builder: (c) => TestListScreen(
+                                examId: selectedExamId!, 
+                                weekId: selectedWeekId!
+                              )
+                            )
+                          );
+                        }
                       );
                     },
                   ),
@@ -434,7 +395,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                         children: [
                           _buildAdminButton(Icons.add_box, "Add Week", () => _addWeekSchedule(selectedExamId!)),
                           
-                          // 🔥 NEW: EDIT SCHEDULE BUTTON
                           _buildAdminButton(Icons.edit_document, "Edit Schedule", () {
                              Navigator.push(context, MaterialPageRoute(builder: (c) => EditWeekSchedule(
                                examId: selectedExamId!,
@@ -443,7 +403,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                              )));
                           }),
 
-                          // Admin Test shortcut
                           _buildAdminButton(Icons.add_task, "Add Test", () {
                              Navigator.push(context, MaterialPageRoute(builder: (c) => CreateTestScreen(
                               examId: selectedExamId!,
