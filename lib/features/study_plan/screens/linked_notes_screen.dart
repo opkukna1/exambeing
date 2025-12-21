@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-// ✅ CORRECT IMPORT
+// ✅ Make sure this file exists in your project
 import 'package:exambeing/features/notes/screens/notes_online_view_screen.dart'; 
 
 class LinkedNotesScreen extends StatelessWidget {
@@ -37,7 +37,11 @@ class LinkedNotesScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Topic: ${topicData['topic']}", style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.grey)),
+                  // Topic Name Display
+                  Text(
+                    "Topic: ${topicData['topic'] ?? 'Unknown'}", 
+                    style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.grey)
+                  ),
                   const Divider(height: 20),
                   
                   // --- MODE DROPDOWN ---
@@ -99,27 +103,32 @@ class LinkedNotesScreen extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
                   ),
                   onPressed: () {
-                    Navigator.pop(ctx); 
+                    Navigator.pop(ctx); // Close Dialog
 
-                    // 🔥 UPDATED NAVIGATION LOGIC
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (c) => NotesOnlineViewScreen( 
-                          // ✅ FIX: Sara data ab ek 'data' map me jayega
-                          data: {
-                            'subjId': topicData['subjId'],     
-                            'subSubjId': topicData['subSubjId'],
-                            'topicId': topicData['topicId'],
-                            'subTopId': topicData['subTopId'],
-                            'displayName': topicData['subTopic'], 
-                            'topicName': topicData['topic'],
-                            'mode': selectedMode,
-                            'lang': selectedLang, // Note key: 'lang' used in map
-                          }
+                    // 🔥 NAVIGATE TO NOTES VIEW
+                    // Check if IDs exist to avoid errors
+                    if (topicData['subjId'] != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (c) => NotesOnlineViewScreen( 
+                            // Passing data map as expected by next screen
+                            data: {
+                              'subjId': topicData['subjId'],     
+                              'subSubjId': topicData['subSubjId'],
+                              'topicId': topicData['topicId'],
+                              'subTopId': topicData['subTopId'],
+                              'displayName': topicData['subTopic'], 
+                              'topicName': topicData['topic'],
+                              'mode': selectedMode,
+                              'lang': selectedLang, 
+                            }
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: Topic ID missing")));
+                    }
                   },
                   child: const Text("OPEN NOTES 🚀"),
                 ),
@@ -165,7 +174,7 @@ class LinkedNotesScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6)
                           ),
                           child: Text(
-                            "${item['subject']}  •  ${item['subSubject']}",
+                            "${item['subject'] ?? 'Subject'}  •  ${item['subSubject'] ?? 'General'}",
                             style: TextStyle(fontSize: 12, color: Colors.blue.shade800, fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -173,11 +182,11 @@ class LinkedNotesScreen extends StatelessWidget {
                         const SizedBox(height: 10),
                         
                         Text(
-                          item['topic'],
+                          item['topic'] ?? "No Topic",
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          "Focus: ${item['subTopic']}",
+                          "Focus: ${item['subTopic'] ?? 'Overview'}",
                           style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                         ),
 
