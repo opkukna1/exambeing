@@ -1,8 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Clipboard ke liye
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // User Check ke liye
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-// अपने प्रोजेक्ट के हिसाब से ये इंपोर्ट चेक कर लेना
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/features/tests/screens/test_success_screen.dart';
 
@@ -22,17 +23,43 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
   bool _isLoading = false;
   RewardedAd? _rewardedAd; 
 
+  // --- PREMIUM LOGIC VARIABLES ---
+  bool _isPremium = false; // Default Free
+  int _maxQuestionsLimit = 25; // Default Limit for Free Users
+
   @override
   void initState() {
     super.initState();
+    _checkSubscriptionStatus(); // Check User Status
     _loadRewardedAd();
+  }
+
+  // --- 0. CHECK SUBSCRIPTION STATUS ---
+  Future<void> _checkSubscriptionStatus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          final data = doc.data();
+          // Check if field exists and equals 'yes'
+          if (data != null && data['paid_for_gold'] == 'yes') {
+            setState(() {
+              _isPremium = true;
+              _maxQuestionsLimit = 200; // Premium Limit
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Error checking subscription: $e");
+      }
+    }
   }
 
   // --- 1. ADMOB LOGIC ---
   void _loadRewardedAd() {
     RewardedAd.load(
-      // TEST ID है, पब्लिश करते समय अपनी असली ID डालना
-      adUnitId: 'ca-app-pub-3940256099942544/5224354917', 
+      adUnitId: 'ca-app-pub-3940256099942544/5224354917', // Test ID
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
@@ -57,14 +84,128 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         .snapshots();
   }
 
-  // --- 3. 🔥 MAIN GENERATE FUNCTION (OPTIMIZED) ---
+  // --- 3. SHOW PREMIUM POPUP ---
+  void _showPremiumDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: const Row(
+            children: [
+              Icon(Icons.workspace_premium, color: Colors.amber, size: 28),
+              SizedBox(width: 10),
+              Text("Upgrade Required"),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Free users can generate tests up to 25 questions only.",
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "To unlock 200 Questions Limit, Subscribe Now!",
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 15),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.green)
+                ),
+                child: Column(
+                  children: [
+                    const Text("Contact Exambeing Team via WhatsApp:", style: TextStyle(fontSize: 12)),
+                    const SizedBox(height: 5),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "8005576670",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.copy, color: Colors.green),
+                          onPressed: () {
+                            Clipboard.setData(const ClipboardData(text: "8005576670"));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Number Copied!"), duration: Duration(seconds: 1)),
+                            );
+                          },
+                        )
+                      ],
+                    ),
+                  ],
+                ),
+              )
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- 4. COUNTER UPDATE LOGIC (MODIFIED) ---
+  void _updateCount(String topicId, int delta) {
+    int current = _topicCounts[topicId] ?? 0;
+    
+    // अगर हम जोड़ रहे हैं (Positive Delta)
+    if (delta > 0) {
+      // चेक करो कि क्या लिमिट पार हो रही है
+      if (_totalQuestions + delta > _maxQuestionsLimit) {
+        if (!_isPremium) {
+          // अगर फ्री यूजर है और 25 से ऊपर जा रहा है -> POPUP दिखाओ
+          _showPremiumDialog();
+        } else {
+          // अगर प्रीमियम यूजर है और 200 से ऊपर जा रहा है -> SNACKBAR दिखाओ
+          ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text("Maximum limit of 200 questions reached!"))
+          );
+        }
+        return; // आगे मत बढ़ो
+      }
+    }
+
+    setState(() {
+      int newVal = max(0, current + delta);
+      if (newVal == 0) {
+        _topicCounts.remove(topicId);
+      } else {
+        _topicCounts[topicId] = newVal;
+      }
+    });
+  }
+
+  // --- 5. GENERATE FUNCTION ---
   Future<void> _generateTest() async {
-    // अगर 0 सवाल हैं तो रोक दो
     if (_totalQuestions == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select at least one question!"))
       );
       return;
+    }
+
+    // Double Check Limit (Safety)
+    if (_totalQuestions > _maxQuestionsLimit) {
+       if(!_isPremium) _showPremiumDialog();
+       return;
     }
 
     setState(() => _isLoading = true);
@@ -73,48 +214,38 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       List<Question> finalQuestionsList = [];
       final collectionRef = FirebaseFirestore.instance.collection('questions');
 
-      // हर सेलेक्ट किए गए टॉपिक के लिए लूप
       for (var entry in _topicCounts.entries) {
         String topicId = entry.key;
         int countNeeded = entry.value;
 
         if (countNeeded <= 0) continue;
 
-        // --- SMART STRATEGY (BATCH FETCH) ---
-        
-        // A. एक रैंडम ID जनरेट करो
         String randomAutoId = collectionRef.doc().id;
 
-        // B. रैंडम ID के बाद वाले सवाल एक साथ उठाओ (सिर्फ 1 Read में)
         var querySnapshot = await collectionRef
             .where('topicId', isEqualTo: topicId)
-            .orderBy(FieldPath.documentId) // ID से सॉर्ट जरूरी है
-            .startAt([randomAutoId])       // रैंडम जगह से शुरू
-            .limit(countNeeded)            // जितने चाहिए उतने एक बार में
+            .orderBy(FieldPath.documentId)
+            .startAt([randomAutoId])
+            .limit(countNeeded)
             .get();
 
         List<DocumentSnapshot> docs = querySnapshot.docs.toList();
 
-        // C. अगर लिस्ट के अंत में थे और कम सवाल मिले, तो शुरू से बाकी उठा लो
         if (docs.length < countNeeded) {
           int remaining = countNeeded - docs.length;
-          
           var startQuery = await collectionRef
               .where('topicId', isEqualTo: topicId)
               .orderBy(FieldPath.documentId)
               .limit(remaining)
               .get();
-          
           docs.addAll(startQuery.docs);
         }
 
-        // D. मॉडल में कन्वर्ट करो और लिस्ट में डालो
         for (var doc in docs) {
           finalQuestionsList.add(Question.fromFirestore(doc));
         }
       }
 
-      // डुप्लीकेट हटाओ (सेफ्टी के लिए)
       final uniqueIds = <String>{};
       finalQuestionsList.retainWhere((q) => uniqueIds.add(q.id));
 
@@ -122,12 +253,10 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         throw "No questions found. Try selecting different topics.";
       }
 
-      // लिस्ट को शफल करो ताकि मिक्स हो जाए
       finalQuestionsList.shuffle();
 
       setState(() => _isLoading = false);
 
-      // --- ADS & NAVIGATION ---
       if (_rewardedAd != null) {
         _rewardedAd!.show(
           onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
@@ -135,7 +264,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
           }
         );
         _rewardedAd = null;
-        _loadRewardedAd(); // अगली बार के लिए लोड करो
+        _loadRewardedAd();
       } else {
         _navigateToSuccess(finalQuestionsList);
       }
@@ -143,7 +272,6 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        // इंडेक्स एरर हैंडलिंग
         if (e.toString().contains("requires an index")) {
            _showIndexErrorDialog();
         } else {
@@ -160,11 +288,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("⚠️ Database Setup Required"),
-        content: const Text(
-          "For this random feature to work, Firebase needs an Index.\n\n"
-          "1. Check the 'Run' or 'Debug' tab in your IDE.\n"
-          "2. Click the link generated by Firebase to create the index automatically."
-        ),
+        content: const Text("Firebase needs an Index for random selection logic."),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))],
       ),
     );
@@ -183,44 +307,47 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
-  // --- 4. COUNTER UPDATE LOGIC ---
-  void _updateCount(String topicId, int delta) {
-    setState(() {
-      int current = _topicCounts[topicId] ?? 0;
-      int newVal = max(0, current + delta);
-      
-      // मैक्सिमम 100 सवाल की लिमिट
-      if (delta > 0 && _totalQuestions >= 100) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text("Max limit 100 questions reached!"), duration: Duration(milliseconds: 500))
-         );
-         return;
-      }
-
-      if (newVal == 0) {
-        _topicCounts.remove(topicId);
-      } else {
-        _topicCounts[topicId] = newVal;
-      }
-    });
-  }
-
-  // --- 5. UI BUILD ---
+  // --- 6. UI BUILD ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Custom Test Maker 🛠️")),
+      appBar: AppBar(
+        title: const Text("Custom Test Maker 🛠️"),
+        actions: [
+          // Premium Badge in AppBar
+          if (_isPremium)
+            const Padding(
+              padding: EdgeInsets.only(right: 16.0),
+              child: Icon(Icons.verified, color: Colors.amber),
+            )
+        ],
+      ),
       bottomNavigationBar: _buildBottomBar(),
       body: Column(
         children: [
            Container(
              padding: const EdgeInsets.all(12),
-             color: Colors.deepPurple.shade50,
-             child: const Row(
+             color: _isPremium ? Colors.amber.shade50 : Colors.deepPurple.shade50,
+             child: Row(
                children: [
-                 Icon(Icons.info_outline, size: 16, color: Colors.deepPurple),
-                 SizedBox(width: 8),
-                 Expanded(child: Text("Expand subjects and select question count for topics.", style: TextStyle(fontSize: 12))),
+                 Icon(
+                   _isPremium ? Icons.star : Icons.info_outline, 
+                   size: 16, 
+                   color: _isPremium ? Colors.amber[800] : Colors.deepPurple
+                 ),
+                 const SizedBox(width: 8),
+                 Expanded(
+                   child: Text(
+                     _isPremium 
+                       ? "Premium Unlocked! You can create tests up to 200 Questions." 
+                       : "Free Limit: 25 Questions. Upgrade for more.", 
+                     style: TextStyle(
+                       fontSize: 12, 
+                       color: _isPremium ? Colors.brown : Colors.black87,
+                       fontWeight: _isPremium ? FontWeight.bold : FontWeight.normal
+                     )
+                   )
+                 ),
                ],
              ),
            ),
@@ -238,7 +365,6 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                   itemBuilder: (context, index) {
                     final subjectDoc = subjects[index];
                     final data = subjectDoc.data() as Map<String, dynamic>;
-                    
                     final subjectName = data['subjectName'] ?? data['name'] ?? 'Subject';
 
                     return ExpansionTile(
@@ -290,9 +416,8 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                     IconButton(
                       icon: const Icon(Icons.remove_circle_outline),
                       color: Colors.red,
-                      onPressed: () => _updateCount(topicId, -5), // -5 किया है
+                      onPressed: () => _updateCount(topicId, -5),
                     ),
-                    
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
@@ -305,11 +430,10 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
                       ),
                     ),
-
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline),
                       color: Colors.green,
-                      onPressed: () => _updateCount(topicId, 5), // +5 किया है
+                      onPressed: () => _updateCount(topicId, 5),
                     ),
                   ],
                 ),
@@ -336,12 +460,13 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text("Total Qs", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                // LIMIT Display Dynamic hai ab
                 Text(
-                  "$_totalQuestions / 100", 
+                  "$_totalQuestions / $_maxQuestionsLimit", 
                   style: TextStyle(
                     fontSize: 20, 
                     fontWeight: FontWeight.bold, 
-                    color: _totalQuestions > 100 ? Colors.red : Colors.black
+                    color: _totalQuestions == _maxQuestionsLimit ? Colors.orange : Colors.black
                   )
                 ),
               ],
@@ -350,7 +475,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
             Expanded(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
+                  backgroundColor: _isPremium ? Colors.amber[800] : Colors.deepPurple,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -358,7 +483,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                 onPressed: _isLoading ? null : _generateTest,
                 child: _isLoading 
                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                   : const Text("GENERATE TEST 🚀", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                   : Text(_isPremium ? "GENERATE GOLD TEST 🏆" : "GENERATE TEST 🚀", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
