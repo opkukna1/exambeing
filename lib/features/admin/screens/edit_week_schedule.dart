@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // 🔥 Auth Import
 
 class EditWeekSchedule extends StatefulWidget {
   final String examId;
@@ -21,9 +21,9 @@ class EditWeekSchedule extends StatefulWidget {
 class _EditWeekScheduleState extends State<EditWeekSchedule> {
   late TextEditingController _titleController;
   late List<dynamic> _topicsList;
-  bool _isLoading = false;
+  bool _isLoading = true; // 🔥 Shuru mein Loading True rakhenge
 
-  // Dropdown Selections for Adding New Topic
+  // Dropdown Selections
   List<dynamic> fullHierarchy = [];
   Map<String, dynamic>? selectedSubject;
   Map<String, dynamic>? selectedSubSubject;
@@ -35,14 +35,66 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
     super.initState();
     _titleController = TextEditingController(text: widget.currentData['weekTitle']);
     _topicsList = List.from(widget.currentData['scheduleData'] ?? []);
-    _fetchHierarchy();
+    
+    // 🔥 Check Permission First
+    _checkHostPermissions();
   }
 
-  // 1️⃣ Fetch Dropdown Data (Same as Create Screen)
+  // 🔒 0. SECURITY CHECK
+  Future<void> _checkHostPermissions() async {
+    final user = FirebaseAuth.instance.currentUser;
+    
+    if (user == null) {
+      if(mounted) Navigator.pop(context);
+      return;
+    }
+
+    try {
+      // User Data Fetch
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      
+      // Check 'host' field
+      if (userDoc.exists) {
+        final data = userDoc.data() as Map<String, dynamic>;
+        String isHost = (data['host'] ?? 'no').toString().toLowerCase();
+
+        if (isHost == 'yes') {
+          // ✅ Authorized: Fetch Hierarchy
+          _fetchHierarchy();
+        } else {
+          // ❌ Unauthorized
+          _showErrorAndExit("Access Denied: You are not a Host.");
+        }
+      } else {
+        _showErrorAndExit("User not found.");
+      }
+    } catch (e) {
+      _showErrorAndExit("Error checking permissions.");
+    }
+  }
+
+  void _showErrorAndExit(String message) {
+    if(!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+    Navigator.pop(context); // Go Back
+  }
+
+  // 1️⃣ Fetch Dropdown Data
   Future<void> _fetchHierarchy() async {
-    var doc = await FirebaseFirestore.instance.collection('app_metadata').doc('notes_index').get();
-    if (doc.exists) {
-      setState(() => fullHierarchy = doc['hierarchy'] as List<dynamic>);
+    try {
+      var doc = await FirebaseFirestore.instance.collection('app_metadata').doc('notes_index').get();
+      if (doc.exists) {
+        if(mounted) {
+          setState(() {
+            fullHierarchy = doc['hierarchy'] as List<dynamic>;
+            _isLoading = false; // 🔥 Data load hone ke baad loading band
+          });
+        }
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -127,7 +179,7 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
-      setState(() => _isLoading = false);
+      if(mounted) setState(() => _isLoading = false);
     }
   }
 
