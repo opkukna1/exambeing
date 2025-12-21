@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// 🔥 Ensure this import is correct based on your project structure
 import 'study_results_screen.dart'; 
 
 class AttemptTestScreen extends StatefulWidget {
@@ -30,44 +30,74 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
   late List<dynamic> questions;
   late Map<String, dynamic> marking;
   
-  // 🔥 Controller for Swiping
+  // ⏱️ TIMER STATE
+  Timer? _timer;
+  int _remainingSeconds = 0;
+  
   late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
     questions = widget.testData['questions'] ?? [];
-    // Handle settings safely (Default: +4, -1)
-    marking = widget.testData['settings'] ?? {'positive': 4.0, 'negative': 1.0, 'skip': 0.0};
+    marking = widget.testData['settings'] ?? {'positive': 4.0, 'negative': 1.0, 'skip': 0.0, 'duration': 60};
+    
     _pageController = PageController(initialPage: 0);
+
+    // 🕒 Initialize Timer
+    int durationMinutes = marking['duration'] ?? 60;
+    _remainingSeconds = durationMinutes * 60;
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0) {
+        setState(() {
+          _remainingSeconds--;
+        });
+      } else {
+        _timer?.cancel();
+        _submitTest(autoSubmit: true); // Time Up!
+      }
+    });
+  }
+
+  String _formatTime(int seconds) {
+    int m = seconds ~/ 60;
+    int s = seconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
 
   // 🔥 Result Calculation & Save Logic
-  void _submitTest() async {
+  void _submitTest({bool autoSubmit = false}) async {
     if (_isSubmitting) return;
     
-    // Confirm Dialog
-    bool confirm = await showDialog(
-      context: context, 
-      builder: (c) => AlertDialog(
-        title: const Text("Submit Test?"),
-        content: const Text("Are you sure you want to finish?"),
-        actions: [
-          TextButton(onPressed: ()=>Navigator.pop(c, false), child: const Text("Cancel")),
-          TextButton(onPressed: ()=>Navigator.pop(c, true), child: const Text("Submit")),
-        ],
-      )
-    ) ?? false;
+    if (!autoSubmit) {
+      bool confirm = await showDialog(
+        context: context, 
+        builder: (c) => AlertDialog(
+          title: const Text("Submit Test?"),
+          content: Text("You have answered ${_userAnswers.length} out of ${questions.length} questions."),
+          actions: [
+            TextButton(onPressed: ()=>Navigator.pop(c, false), child: const Text("Cancel")),
+            TextButton(onPressed: ()=>Navigator.pop(c, true), child: const Text("Submit", style: TextStyle(fontWeight: FontWeight.bold))),
+          ],
+        )
+      ) ?? false;
 
-    if(!confirm) return;
+      if(!confirm) return;
+    }
 
     setState(() => _isSubmitting = true);
+    _timer?.cancel();
     
     try {
       final user = FirebaseAuth.instance.currentUser!;
@@ -84,11 +114,12 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
 
         double pos = (marking['positive'] ?? 4.0).toDouble();
         double neg = (marking['negative'] ?? 1.0).toDouble();
+        // Skip mark usually 0, but creating logic just in case
         double skip = (marking['skip'] ?? 0.0).toDouble();
 
         if (userAns == null) {
           skippedCount++;
-          totalScore += skip;
+          totalScore += skip; // Usually 0
         } else if (userAns == correctAns) {
           correctCount++;
           totalScore += pos;
@@ -98,32 +129,36 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
         }
       }
 
-      // 2. Prepare Answer Map for Database (Use Question ID as Key)
+      // 2. Prepare Answer Map (Using ID as Key)
       Map<String, int> answersForDb = {};
       _userAnswers.forEach((index, optIndex) {
-        // Fallback: If ID is missing, use Question Text as ID (Older tests compatibility)
-        String qId = questions[index]['id'] ?? questions[index]['question'];
+        String qId = questions[index]['id'] ?? "q_$index";
         answersForDb[qId] = optIndex;
       });
 
-      // 3. Save Result in User's Collection
-      // Note: We use .add() so a user can have multiple attempts history if needed later
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('test_results').add({
-        'testId': widget.testId,
-        'testTitle': widget.testData['testTitle'] ?? 'Test Result',
-        'score': totalScore,
-        'correct': correctCount,
-        'wrong': wrongCount,
-        'skipped': skippedCount,
-        'totalQ': questions.length,
-        'attemptedAt': FieldValue.serverTimestamp(),
-        // Saving full snapshot so solution works even if teacher deletes original test
-        'questionsSnapshot': questions, 
-        'userResponse': answersForDb,
-      });
+      // 3. Save Result
+      // 🔥 CRITICAL FIX: Using .set() with TestID instead of .add()
+      // This ensures TestListScreen can find the document by ID
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('test_results')
+          .doc(widget.testId) // <--- Fixed here
+          .set({
+            'testId': widget.testId,
+            'testTitle': widget.testData['testTitle'] ?? 'Test Result',
+            'score': totalScore,
+            'correct': correctCount,
+            'wrong': wrongCount,
+            'skipped': skippedCount,
+            'totalQ': questions.length,
+            'attemptedAt': FieldValue.serverTimestamp(),
+            'questionsSnapshot': questions, 
+            'userResponse': answersForDb,
+            'settings': marking, // Save settings to show marks distribution later
+          });
 
-      // 4. Mark Test as Attempted (Updates the main test document)
-      // This allows the "Start" button to change to "Result"
+      // 4. Mark Test as Attempted (Updates global list)
       await FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(widget.examId)
@@ -137,7 +172,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
 
       if (!mounted) return;
       
-      // 5. Navigate to Result Screen (Replace stack so user can't go back)
+      // 5. Navigate to Result Screen
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(
         examId: widget.examId,
         examName: widget.testData['testTitle'] ?? "Result",
@@ -153,10 +188,17 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Q ${_currentQuestionIndex + 1}/${questions.length}"),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Q ${_currentQuestionIndex + 1}/${questions.length}", style: const TextStyle(fontSize: 16)),
+            // ⏱️ TIMER DISPLAY
+            Text("Time Left: ${_formatTime(_remainingSeconds)}", style: const TextStyle(fontSize: 12, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ],
+        ),
         actions: [
           TextButton(
-            onPressed: _isSubmitting ? null : _submitTest,
+            onPressed: _isSubmitting ? null : () => _submitTest(),
             child: const Text("SUBMIT", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
           )
         ],
@@ -247,10 +289,14 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                      color: isSelected ? Colors.deepPurple : Colors.grey,
-                      size: 20,
+                    Container(
+                      height: 24, width: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isSelected ? Colors.deepPurple : Colors.white,
+                        border: Border.all(color: isSelected ? Colors.deepPurple : Colors.grey)
+                      ),
+                      child: isSelected ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
