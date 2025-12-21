@@ -4,11 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/test_model.dart';
 import 'attempt_test_screen.dart';
-
-// ✅ CORRECT IMPORT: Ab ye apki existing file use karega
 import 'test_solution_screen.dart'; 
 
-import '../../admin/screens/create_test_screen.dart';
+// Note: ManageUsersScreen test specific permission ke liye hai
 import '../../admin/screens/manage_users_screen.dart'; 
 
 class TestListScreen extends StatelessWidget {
@@ -53,20 +51,8 @@ class TestListScreen extends StatelessWidget {
             ],
           ),
           
-          floatingActionButton: isHost
-              ? FloatingActionButton.extended(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => CreateTestScreen(examId: examId, weekId: weekId)),
-                    );
-                  },
-                  label: const Text("Add Test"),
-                  icon: const Icon(Icons.add),
-                  backgroundColor: Colors.deepPurple,
-                )
-              : null,
-
+          // ❌ REMOVED: FloatingActionButton (Add Test) yahan se hata diya gaya hai.
+          
           body: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('study_schedules').doc(examId)
@@ -253,6 +239,7 @@ class TestListScreen extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Manage Access for THIS specific test
           IconButton(
             icon: const Icon(Icons.group_add, color: Colors.blue),
             tooltip: "Manage Students",
@@ -268,6 +255,7 @@ class TestListScreen extends StatelessWidget {
               );
             },
           ),
+          // Delete Test
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.red),
             onPressed: () async {
@@ -286,7 +274,6 @@ class TestListScreen extends StatelessWidget {
     if (isAttempted) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-        // 🔥 FIX: Using "TestSolutionScreen" class and correct file import
         onPressed: () => Navigator.push(
           context, 
           MaterialPageRoute(builder: (_) => TestSolutionScreen(
