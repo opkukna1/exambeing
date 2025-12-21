@@ -116,7 +116,7 @@ class TestListScreen extends StatelessWidget {
     return "${date.day}/${date.month} - ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 
-  // 🔥 UPDATED: Robust Logic to prevent Infinite Loading
+  // 🔥 UPDATED: Logic to fix infinite loading
   Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum) async {
     // 1. Show Loading
     showDialog(
@@ -137,15 +137,13 @@ class TestListScreen extends StatelessWidget {
           .collection('allowed_users').doc(emailKey)
           .get();
 
-      // 🔥 CRITICAL FIX: Close Loading Dialog IMMEDIATELY after fetching data
-      // This ensures the screen never stays stuck on loading
+      // 🔥 CRITICAL FIX: Close Loading Dialog IMMEDIATELY
       if (context.mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
 
-      // 3. Check if Document Exists (Permission Granted?)
+      // 3. Check if Document Exists
       if (!permDoc.exists) {
-        debugPrint("Access Denied: User not in allowed list.");
         if (context.mounted) _showPurchasePopup(context, contactNum); 
         return;
       }
@@ -173,7 +171,6 @@ class TestListScreen extends StatelessWidget {
              testData: { 
                'testTitle': test.subject,
                'questions': test.questions,
-               // 🔥 FIX: Passing correct settings (Time, Marks) from model
                'settings': test.settings 
              },
              examId: examId,
@@ -183,14 +180,10 @@ class TestListScreen extends StatelessWidget {
       }
 
     } catch (e) {
-      // Error Handling
-      debugPrint("Error in _checkAccessAndStart: $e");
-      
-      // Ensure Loading is closed if error occurred before closing it
+      // Error Handling: Close dialog if still open
       if (context.mounted && Navigator.canPop(context)) {
         Navigator.pop(context); 
       }
-      
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
       }
@@ -266,7 +259,6 @@ class TestListScreen extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Manage Access for THIS specific test
           IconButton(
             icon: const Icon(Icons.group_add, color: Colors.blue),
             tooltip: "Manage Students",
@@ -282,7 +274,6 @@ class TestListScreen extends StatelessWidget {
               );
             },
           ),
-          // Delete Test
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.red),
             onPressed: () async {
@@ -296,7 +287,7 @@ class TestListScreen extends StatelessWidget {
       );
     }
     
-    // For Host (Teacher) viewing someone else's test -> Locked
+    // For Host (Teacher) viewing someone else's test
     if (isHost && !isMyTest) return const Text("Locked", style: TextStyle(fontSize: 10, color: Colors.grey));
 
     if (isAttempted) {
