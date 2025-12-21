@@ -68,6 +68,7 @@ class TestListScreen extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final doc = testSnapshot.data!.docs[index];
                   final data = doc.data() as Map<String, dynamic>;
+                  // Safe Model Conversion
                   final test = TestModel.fromMap(data, doc.id);
                   
                   String creatorId = data['createdBy'] ?? '';
@@ -115,8 +116,9 @@ class TestListScreen extends StatelessWidget {
     return "${date.day}/${date.month} - ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 
-  // 🔥 UPDATED: Check Global Permissions (Exam Level)
+  // 🔥 UPDATED: Robust Logic & Data Conversion
   Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum) async {
+    // 1. Show Loading
     showDialog(
       context: context, 
       barrierDismissible: false, 
@@ -127,46 +129,51 @@ class TestListScreen extends StatelessWidget {
       String emailKey = user.email!.trim().toLowerCase();
       debugPrint("Checking access for: $emailKey");
 
-      // 🔥 CHANGED PATH: Checking at Exam Level
-      // study_schedules -> {examId} -> allowed_users -> {email}
+      // 2. Fetch Permission Document (Course Level)
       DocumentSnapshot permDoc = await FirebaseFirestore.instance
           .collection('study_schedules').doc(examId)
           .collection('allowed_users').doc(emailKey)
           .get();
 
+      // Close Loading Dialog
       if (context.mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
 
+      // 3. Check Access
       if (!permDoc.exists) {
         debugPrint("Access Denied: User not in course list.");
         if (context.mounted) _showPurchasePopup(context, contactNum); 
         return;
       }
 
-      // Check Expiry
+      // 4. Check Expiry
       if (permDoc.data() != null) {
         Map<String, dynamic> permData = permDoc.data() as Map<String, dynamic>;
         if (permData.containsKey('expiryDate')) {
            DateTime expiryDate = (permData['expiryDate'] as Timestamp).toDate();
            if (DateTime.now().isAfter(expiryDate)) {
              if (context.mounted) {
-               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Course Access Expired on ${_formatDate(expiryDate)}"), backgroundColor: Colors.red));
+               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Access Expired on ${_formatDate(expiryDate)}"), backgroundColor: Colors.red));
              }
              return;
            }
         }
       }
 
-      // Access Granted
+      // 5. Success! Navigate to Test
       if (context.mounted) {
+        // 🔥 CRITICAL FIX: Convert 'test.questions' (Objects) back to List<Map> 
+        // because AttemptTestScreen expects Maps.
+        List<Map<String, dynamic>> questionsAsMaps = test.questions.map((q) => q.toMap()).toList();
+
         Navigator.push(
           context, 
           MaterialPageRoute(builder: (_) => AttemptTestScreen(
              testId: test.id,
              testData: { 
                'testTitle': test.subject,
-               'questions': test.questions,
+               'questions': questionsAsMaps, // ✅ Now sending Maps, not Objects
                'settings': test.settings 
              },
              examId: examId,
@@ -176,6 +183,7 @@ class TestListScreen extends StatelessWidget {
       }
 
     } catch (e) {
+      // Error Handling
       if (context.mounted && Navigator.canPop(context)) {
         Navigator.pop(context); 
       }
@@ -254,7 +262,6 @@ class TestListScreen extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Manage Course Students (Renamed Tooltip)
           IconButton(
             icon: const Icon(Icons.group_add, color: Colors.blue),
             tooltip: "Manage Course Students",
@@ -270,7 +277,6 @@ class TestListScreen extends StatelessWidget {
               );
             },
           ),
-          // Delete Test
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.red),
             onPressed: () async {
@@ -293,7 +299,7 @@ class TestListScreen extends StatelessWidget {
           context, 
           MaterialPageRoute(builder: (_) => TestSolutionScreen(
             testId: test.id, 
-            originalQuestions: test.questions
+            originalQuestions: test.questions.map((q) => q.toMap()).toList() // ✅ Convert objects to maps here too
           ))
         ),
         child: const Text("Result"),
