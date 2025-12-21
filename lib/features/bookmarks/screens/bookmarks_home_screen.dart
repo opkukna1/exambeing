@@ -14,6 +14,8 @@ import 'package:exambeing/features/study_plan/screens/attempt_test_screen.dart';
 import 'package:exambeing/features/admin/screens/edit_week_schedule.dart';
 // 🔥 IMPORT TEST LIST (Manage Logic Yahan Hai)
 import 'package:exambeing/features/study_plan/screens/test_list_screen.dart';
+// 👥 IMPORT MANAGE STUDENTS (Naya Screen)
+import 'package:exambeing/features/admin/screens/manage_students_screen.dart';
 
 class BookmarksHomeScreen extends StatefulWidget {
   const BookmarksHomeScreen({super.key});
@@ -106,12 +108,25 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
         elevation: 0,
         foregroundColor: Colors.black,
         actions: [
-          if (isAdmin)
+          if (isAdmin) ...[
+            // 👥 MANAGE STUDENTS BUTTON (Added Here)
+            IconButton(
+              icon: const Icon(Icons.people_alt, color: Colors.deepPurple),
+              tooltip: "Manage Students",
+              onPressed: () {
+                // Navigate to Manage Students Screen
+                Navigator.push(
+                  context, 
+                  MaterialPageRoute(builder: (c) => const ManageStudentsScreen())
+                );
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.add_circle, color: Colors.deepPurple),
               onPressed: _addNewExam,
               tooltip: "Add New Exam",
             )
+          ]
         ],
       ),
       body: SingleChildScrollView(
@@ -300,7 +315,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                     }
                   ),
 
-                  // 🟣 Button 3: Test (UPDATED: Connects to TestListScreen) 🔥
+                  // 🟣 Button 3: Test
                   StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('study_schedules').doc(selectedExamId)
@@ -340,7 +355,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                         label: label, 
                         color: color, 
                         onTap: () {
-                          // 🔥 NAVIGATE TO TEST LIST SCREEN (The hub for all test logic)
+                          // 🔥 NAVIGATE TO TEST LIST SCREEN
                           Navigator.push(
                             context, 
                             MaterialPageRoute(
