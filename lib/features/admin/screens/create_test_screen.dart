@@ -25,7 +25,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   int _durationMinutes = 60;   
   double _positiveMark = 4.0;  
   double _negativeMark = 1.0;  
-  double _skipMark = 0.0;      
+  double _skipMark = 0.0;       
 
   double get _totalMaxMarks => _questions.length * _positiveMark;
 
@@ -43,18 +43,23 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     _checkPermissions(); 
   }
 
-  // 🔒 SECURITY CHECK
+  // 🔒 SECURITY CHECK (Host & Ownership)
   Future<void> _checkPermissions() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) { _showErrorAndExit("Please login first."); return; }
 
     try {
+      // 1. Check if Host
       DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (!userDoc.exists) return;
       
       String isHost = (userDoc['host'] ?? 'no').toString().toLowerCase();
-      if (isHost != 'yes') { _showErrorAndExit("Access Denied: You are not a Host."); return; }
+      if (isHost != 'yes' && isHost != 'true') { 
+        _showErrorAndExit("Access Denied: You are not a Host."); 
+        return; 
+      }
 
+      // 2. Check if Week belongs to this Host
       DocumentSnapshot weekDoc = await FirebaseFirestore.instance
           .collection('study_schedules').doc(widget.examId)
           .collection('weeks').doc(widget.weekId).get();
@@ -62,7 +67,12 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       if (!weekDoc.exists) { _showErrorAndExit("Week not found."); return; }
 
       String creatorId = weekDoc['createdBy'] ?? ''; 
-      if (creatorId != user.uid) { _showErrorAndExit("Access Denied: You can only add tests to your own schedules."); return; }
+      
+      // 🔥 CRITICAL: Sirf Week Creator hi Test add kar sakta hai
+      if (creatorId != user.uid) { 
+        _showErrorAndExit("Access Denied: You can only add tests to YOUR own schedules."); 
+        return; 
+      }
 
       if (mounted) setState(() => _isLoadingPage = false);
 
@@ -77,16 +87,8 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     Navigator.pop(context); 
   }
 
-  // 🔥 POWERFUL REGEX CLEANER
-  // Database se aane wale text se (Exam : ... Year : ...) remove karega
-  // Lekin Original Database ko update nahi karega
+  // 🔥 REGEX CLEANER
   String _cleanText(String text) {
-    // Regex Logic:
-    // \s* -> Shuru ke spaces
-    // \(  -> Bracket start
-    // .*? -> Beech ka kuch bhi content (Non-greedy)
-    // (Exam|Year|SSC|RPSC|UPSC|Govt|RAS|IAS|Bank) -> In shabdon se shuru hone wala
-    // \)  -> Bracket close
     return text.replaceAll(RegExp(r'\s*\(\s*(Exam|Year|SSC|RPSC|UPSC|Govt|RAS|IAS|Bank|Railway|Police).*?\)', caseSensitive: false), '').trim();
   }
 
@@ -140,7 +142,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                 onPressed: () {
                   if (qController.text.isNotEmpty && optA.text.isNotEmpty && optB.text.isNotEmpty) {
                     Map<String, dynamic> newQ = {
-                      'question': qController.text, // Ye Text Local hai, DB change nahi hoga
+                      'question': qController.text,
                       'options': [optA.text, optB.text, optC.text, optD.text],
                       'correctIndex': correctIndex,
                       'explanation': explController.text,
@@ -265,7 +267,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   void _processFetchedDoc(QueryDocumentSnapshot doc, List<Map<String, dynamic>> list) {
     var data = doc.data() as Map<String, dynamic>;
     
-    // 🔥 CLEANING HAPPENS HERE (No DB Change)
     String rawQ = data['questionText'] ?? data['question'] ?? 'No Question';
     String cleanedQ = _cleanText(rawQ); 
     String explanation = data['explanation'] ?? data['solution'] ?? '';
@@ -278,10 +279,9 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     if(data['option4'] != null) options.add(data['option4'].toString());
     if(options.isEmpty && data['options'] != null) options = List<String>.from(data['options']);
 
-    // Check uniqueness using Cleaned Question
     if (!_questions.any((q) => q['question'] == cleanedQ) && !list.any((q) => q['question'] == cleanedQ)) {
       list.add({ 
-        'question': cleanedQ, // Cleaned Text Added to Local List
+        'question': cleanedQ,
         'options': options, 
         'correctIndex': data['correctAnswerIndex'] ?? data['correctIndex'] ?? 0, 
         'explanation': explanation, 
@@ -298,8 +298,15 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     if (user == null) return;
 
     try {
+      // 🔥 Saving to Nested Path with correct Teacher ID
       await FirebaseFirestore.instance.collection('study_schedules').doc(widget.examId).collection('weeks').doc(widget.weekId).collection('tests').add({
-        'testTitle': _testTitleController.text.trim(), 'unlockTime': Timestamp.fromDate(_unlockTime!), 'questions': _questions, 'createdAt': FieldValue.serverTimestamp(), 'createdBy': user.uid, 'contactNumber': _contactController.text.trim(), 'attemptedUsers': [],
+        'testTitle': _testTitleController.text.trim(),
+        'unlockTime': Timestamp.fromDate(_unlockTime!),
+        'questions': _questions,
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': user.uid, // ✅ STAMPING TEACHER ID
+        'contactNumber': _contactController.text.trim(),
+        'attemptedUsers': [],
         'settings': { 'positive': _positiveMark, 'negative': _negativeMark, 'skip': _skipMark, 'duration': _durationMinutes, 'totalMaxMarks': _totalMaxMarks }
       });
       if(mounted) Navigator.pop(context);
@@ -359,16 +366,8 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                      trailing: Row(
                        mainAxisSize: MainAxisSize.min,
                        children: [
-                         // 🔥 EDIT BUTTON
-                         IconButton(
-                           icon: const Icon(Icons.edit, color: Colors.blue), 
-                           onPressed: () => _showManualQuestionDialog(existingQ: q, index: i)
-                         ),
-                         // DELETE BUTTON
-                         IconButton(
-                           icon: const Icon(Icons.delete, color: Colors.red), 
-                           onPressed: () => setState(() => _questions.removeAt(i))
-                         ),
+                         IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showManualQuestionDialog(existingQ: q, index: i)),
+                         IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => setState(() => _questions.removeAt(i))),
                        ],
                      ),
                    ),
