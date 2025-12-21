@@ -68,7 +68,6 @@ class TestListScreen extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final doc = testSnapshot.data!.docs[index];
                   final data = doc.data() as Map<String, dynamic>;
-                  // Safe Model Conversion
                   final test = TestModel.fromMap(data, doc.id);
                   
                   String creatorId = data['createdBy'] ?? '';
@@ -116,9 +115,8 @@ class TestListScreen extends StatelessWidget {
     return "${date.day}/${date.month} - ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 
-  // 🔥 UPDATED: Logic to fix infinite loading
+  // 🔥 UPDATED: Check Global Permissions (Exam Level)
   Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum) async {
-    // 1. Show Loading
     showDialog(
       context: context, 
       barrierDismissible: false, 
@@ -129,40 +127,38 @@ class TestListScreen extends StatelessWidget {
       String emailKey = user.email!.trim().toLowerCase();
       debugPrint("Checking access for: $emailKey");
 
-      // 2. Fetch Permission Document
+      // 🔥 CHANGED PATH: Checking at Exam Level
+      // study_schedules -> {examId} -> allowed_users -> {email}
       DocumentSnapshot permDoc = await FirebaseFirestore.instance
           .collection('study_schedules').doc(examId)
-          .collection('weeks').doc(weekId)
-          .collection('tests').doc(test.id)
           .collection('allowed_users').doc(emailKey)
           .get();
 
-      // 🔥 CRITICAL FIX: Close Loading Dialog IMMEDIATELY
       if (context.mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
 
-      // 3. Check if Document Exists
       if (!permDoc.exists) {
+        debugPrint("Access Denied: User not in course list.");
         if (context.mounted) _showPurchasePopup(context, contactNum); 
         return;
       }
 
-      // 4. Check Expiry Date
+      // Check Expiry
       if (permDoc.data() != null) {
         Map<String, dynamic> permData = permDoc.data() as Map<String, dynamic>;
         if (permData.containsKey('expiryDate')) {
            DateTime expiryDate = (permData['expiryDate'] as Timestamp).toDate();
            if (DateTime.now().isAfter(expiryDate)) {
              if (context.mounted) {
-               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Access Expired on ${_formatDate(expiryDate)}"), backgroundColor: Colors.red));
+               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Course Access Expired on ${_formatDate(expiryDate)}"), backgroundColor: Colors.red));
              }
              return;
            }
         }
       }
 
-      // 5. Success! Navigate to Test
+      // Access Granted
       if (context.mounted) {
         Navigator.push(
           context, 
@@ -180,7 +176,6 @@ class TestListScreen extends StatelessWidget {
       }
 
     } catch (e) {
-      // Error Handling: Close dialog if still open
       if (context.mounted && Navigator.canPop(context)) {
         Navigator.pop(context); 
       }
@@ -259,9 +254,10 @@ class TestListScreen extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Manage Course Students (Renamed Tooltip)
           IconButton(
             icon: const Icon(Icons.group_add, color: Colors.blue),
-            tooltip: "Manage Students",
+            tooltip: "Manage Course Students",
             onPressed: () {
               Navigator.push(
                 context,
@@ -274,6 +270,7 @@ class TestListScreen extends StatelessWidget {
               );
             },
           ),
+          // Delete Test
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.red),
             onPressed: () async {
@@ -287,7 +284,6 @@ class TestListScreen extends StatelessWidget {
       );
     }
     
-    // For Host (Teacher) viewing someone else's test
     if (isHost && !isMyTest) return const Text("Locked", style: TextStyle(fontSize: 10, color: Colors.grey));
 
     if (isAttempted) {
