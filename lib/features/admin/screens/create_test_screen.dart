@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // 🔥 Auth Import
 import 'package:intl/intl.dart';
 
 class CreateTestScreen extends StatefulWidget {
@@ -18,25 +20,91 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   final _testTitleController = TextEditingController();
   DateTime? _unlockTime;
 
-  // --- ⚙️ Exam Settings (Marking & Time) ---
+  // --- ⚙️ Exam Settings ---
   int _durationMinutes = 60;   
   double _positiveMark = 4.0;  
   double _negativeMark = 1.0;  
   double _skipMark = 0.0;      
 
-  // Total Marks Calculation
   double get _totalMaxMarks => _questions.length * _positiveMark;
 
-  // --- Questions Data ---
   List<Map<String, dynamic>> _questions = [];
   bool _isGenerating = false; 
+  bool _isLoadingPage = true; // 🔥 Page Loading State for Security Check
 
   // --- Auto Generator State ---
   final Map<String, int> _topicCounts = {}; 
   int get _totalSelectedQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
 
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissions(); // 🔥 Security Check Start
+  }
+
+  // 🔒 SECURITY CHECK FUNCTION
+  Future<void> _checkPermissions() async {
+    User? user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      _showErrorAndExit("Please login first.");
+      return;
+    }
+
+    try {
+      // 1. Check if User is HOST
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (!userDoc.exists) {
+        _showErrorAndExit("User data not found.");
+        return;
+      }
+      
+      Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+      String isHost = (userData['host'] ?? 'no').toString().toLowerCase();
+
+      if (isHost != 'yes') {
+        _showErrorAndExit("Access Denied: You are not a Host.");
+        return;
+      }
+
+      // 2. Check if Schedule was CREATED BY this user
+      DocumentSnapshot scheduleDoc = await FirebaseFirestore.instance.collection('study_schedules').doc(widget.examId).get();
+      
+      if (!scheduleDoc.exists) {
+        _showErrorAndExit("Schedule not found.");
+        return;
+      }
+
+      Map<String, dynamic> scheduleData = scheduleDoc.data() as Map<String, dynamic>;
+      
+      // 🔥 'createdBy' field check (Make sure you save this when creating schedule)
+      String creatorId = scheduleData['createdBy'] ?? ''; 
+      
+      if (creatorId != user.uid) {
+        _showErrorAndExit("Access Denied: You can only add tests to your own schedules.");
+        return;
+      }
+
+      // ✅ All Checks Passed
+      if (mounted) {
+        setState(() {
+          _isLoadingPage = false;
+        });
+      }
+
+    } catch (e) {
+      _showErrorAndExit("Error checking permissions: $e");
+    }
+  }
+
+  void _showErrorAndExit(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+    Navigator.pop(context); // Go Back
+  }
+
   // ---------------------------------------------------
-  // 1️⃣ UI HELPERS
+  // UI HELPERS (Unchanged)
   // ---------------------------------------------------
 
   void _pickDate() async {
@@ -123,9 +191,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     );
   }
 
-  // ---------------------------------------------------
-  // ⚙️ 2️⃣ SETTINGS CARD
-  // ---------------------------------------------------
   Widget _buildSettingsCard() {
     return Card(
       elevation: 2,
@@ -138,7 +203,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
           children: [
             const Text("⚙️ Exam Settings & Marking", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
             const SizedBox(height: 15),
-            
             Row(
               children: [
                 Expanded(
@@ -165,7 +229,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
               ],
             ),
             const SizedBox(height: 15),
-            
             Row(
               children: [
                 Expanded(child: TextFormField(initialValue: _positiveMark.toString(), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Right (+)", filled: true, fillColor: Colors.white, border: OutlineInputBorder()), onChanged: (v) => setState(() => _positiveMark = double.tryParse(v) ?? 4.0))),
@@ -182,7 +245,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   }
 
   // ---------------------------------------------------
-  // 🤖 3️⃣ AUTO GENERATOR LOGIC
+  // 🤖 AUTO GENERATOR LOGIC
   // ---------------------------------------------------
 
   void _openAutoGeneratorSheet() {
@@ -223,8 +286,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                           itemBuilder: (context, index) {
                             var subDoc = subjects[index];
                             var data = subDoc.data() as Map<String, dynamic>;
-                            
-                            // 🔥 SHOW SUBJECT NAME FROM CSV FIELD
                             String subjectName = data['subjectName'] ?? data['name'] ?? 'Unnamed Subject';
                             
                             return ExpansionTile(
@@ -272,8 +333,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
           children: topics.map((topicDoc) {
             var tData = topicDoc.data() as Map<String, dynamic>;
             int count = _topicCounts[topicDoc.id] ?? 0;
-            
-            // 🔥 SHOW TOPIC NAME FROM CSV FIELD
             String topicName = tData['topicName'] ?? tData['name'] ?? 'Unnamed Topic';
 
             return Container(
@@ -284,7 +343,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // ➖ MINUS BUTTON (Decrease by 1)
                     IconButton(
                       icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
                       onPressed: () => setSheetState(() {
@@ -295,11 +353,9 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                       }),
                     ),
                     Text("$count", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    
-                    // ➕ PLUS BUTTON (Increase by 5)
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-                      onPressed: () => setSheetState(() => _topicCounts[topicDoc.id] = count + 5), // 🔥 ADDS 5
+                      onPressed: () => setSheetState(() => _topicCounts[topicDoc.id] = count + 5), 
                     ),
                   ],
                 ),
@@ -349,11 +405,8 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
 
   void _processFetchedDoc(QueryDocumentSnapshot doc, List<Map<String, dynamic>> list) {
     var data = doc.data() as Map<String, dynamic>;
-    
-    // 🔥 PARSE QUESTION USING CSV FIELD NAMES
     String questionText = data['questionText'] ?? data['question'] ?? 'No Question';
     
-    // Parse Options from option0, option1 etc.
     List<String> options = [];
     if(data['option0'] != null) options.add(data['option0'].toString());
     if(data['option1'] != null) options.add(data['option1'].toString());
@@ -361,7 +414,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     if(data['option3'] != null) options.add(data['option3'].toString());
     if(data['option4'] != null) options.add(data['option4'].toString());
 
-    // Fallback if options are stored as array
     if(options.isEmpty && data['options'] != null) {
       options = List<String>.from(data['options']);
     }
@@ -378,15 +430,15 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     }
   }
 
-  // ---------------------------------------------------
-  // 4️⃣ SAVE TEST
-  // ---------------------------------------------------
-
   void _saveTest() async {
     if (_testTitleController.text.isEmpty || _unlockTime == null || _questions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Missing Title, Time or Questions!")));
       return;
     }
+
+    // 🔒 Double Check before saving (Just in case)
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
     try {
       await FirebaseFirestore.instance
@@ -400,6 +452,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         'unlockTime': Timestamp.fromDate(_unlockTime!),
         'questions': _questions,
         'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': user.uid, // 🔥 Saving Creator ID for future checks
         'attemptedUsers': [],
         'settings': {
           'positive': _positiveMark,
@@ -417,6 +470,22 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 Show Loading until Permissions are checked
+    if (_isLoadingPage) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 10),
+              Text("Verifying Permissions..."),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text("Create Test 📝")),
       body: SingleChildScrollView(
