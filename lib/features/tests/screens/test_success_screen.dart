@@ -1,9 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Required for Clipboard
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart'; 
@@ -67,148 +64,19 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     _marksController.text = "${finalQuestions.length * 2}";
   }
 
-  // 🧹 CLEAN TEXT FUNCTION
+  // ðŸ§¹ CLEAN TEXT FUNCTION
   String _cleanQuestionText(String text) {
     return text.replaceAll(RegExp(r'\s*\(\s*(Exam|Year|SSC|RPSC|UPSC)\s*:.*?\)', caseSensitive: false), '').trim();
   }
 
-  // 🔒 PREMIUM CHECK LOGIC (NEW FEATURE)
-  Future<void> _checkPremiumAndProceed(VoidCallback onSuccess) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please login first!")));
-      return;
-    }
-
-    // 1. Show Loading Dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (c) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      // 2. Fetch User Data
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      
-      // Close Loading Dialog SAFELY
-      if (mounted) Navigator.pop(context);
-
-      // 3. Check 'paid_for_gold' field
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        String status = (data['paid_for_gold'] ?? 'no').toString().toLowerCase();
-
-        if (status == 'yes') {
-          // ✅ User is Premium -> Call Success Function
-          // Using Future.delayed to ensure dialog is fully closed before opening next UI
-          await Future.delayed(const Duration(milliseconds: 100));
-          if (mounted) onSuccess(); 
-        } else {
-          // ❌ User is Free -> Show Contact Dialog
-          if (mounted) _showPremiumLockedDialog();
-        }
-      } else {
-        if (mounted) _showPremiumLockedDialog();
-      }
-    } catch (e) {
-      // Error handling: Close dialog if open
-      if (mounted && Navigator.canPop(context)) Navigator.pop(context); 
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
-    }
-  }
-
-  // 🔒 SHOW PREMIUM LOCKED DIALOG (BEAUTIFUL POPUP)
-  void _showPremiumLockedDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.workspace_premium, color: Colors.amber, size: 30),
-              SizedBox(width: 10),
-              Text("Premium Feature", style: TextStyle(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "PDF और Excel डाउनलोड करने के लिए आपको Premium Package लेना होगा।",
-                style: TextStyle(fontSize: 15, color: Colors.black87),
-              ),
-              const SizedBox(height: 20),
-              const Text("संपर्क करें (Subscribe Now):", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-              const SizedBox(height: 8),
-              
-              // Contact Box
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50, 
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.shade200)
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("WhatsApp", style: TextStyle(fontSize: 12, color: Colors.green)),
-                        Text("8005576670", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-                      ],
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.green),
-                      tooltip: "Copy Number",
-                      onPressed: () {
-                        Clipboard.setData(const ClipboardData(text: "8005576670"));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Number Copied!"), 
-                            duration: Duration(seconds: 2),
-                            backgroundColor: Colors.green,
-                          )
-                        );
-                      },
-                    )
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context), 
-              child: const Text("Close", style: TextStyle(color: Colors.grey))
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
-              ),
-              onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // 📝 ADMIN INPUT DIALOG
+  // ðŸ“ ADMIN INPUT DIALOG
   void _showExamDetailsDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: Colors.white,
-          title: const Text("📝 Paper Details"),
+          title: const Text("ðŸ“ Paper Details"),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -247,7 +115,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     return TextField(controller: ctrl, decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()));
   }
 
-  // 🔥 CORE FUNCTION: HTML TO PDF (With Margins Fixed)
+  // ðŸ”¥ CORE FUNCTION: HTML TO PDF (With Margins Fixed)
   Future<void> _printHtml({required bool isAnswerKey}) async {
     setState(() => isGenerating = true);
 
@@ -267,10 +135,10 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         <meta charset="UTF-8">
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700;800&family=Arimo:wght@400;700&display=swap" rel="stylesheet">
         <style>
-            /* 🔥 PAGE MARGINS FIXED HERE */
+            /* ðŸ”¥ PAGE MARGINS FIXED HERE */
             @page { 
                 size: A4; 
-                margin-top: 20mm;    
+                margin-top: 20mm;    /* Top Margin added */
                 margin-bottom: 15mm; 
                 margin-left: 15mm; 
                 margin-right: 15mm; 
@@ -297,7 +165,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
             /* --- COVER PAGE --- */
             .a4-page {
-                width: 100%; 
+                width: 100%; /* Adapt to margins */
                 min-height: 90vh;
                 position: relative;
                 page-break-after: always; 
@@ -385,7 +253,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         <div class="a4-page">
             <div class="header-grid">
                 <div class="header-left hindi-font">
-                    पुस्तिका में प्रश्नों की संख्या : $totalQs<br>
+                    à¤ªà¥à¤¸à¥à¤¤à¤¿à¤•à¤¾ à¤®à¥‡à¤‚ à¤ªà¥à¤°à¤¶à¥à¤¨à¥‹à¤‚ à¤•à¥€ à¤¸à¤‚à¤–à¥à¤¯à¤¾ : $totalQs<br>
                     No. of Questions in Booklet : $totalQs<br>
                     <div style="margin-top: 15px; font-size: 16px;">Paper Code : <b>01</b></div>
                 </div>
@@ -398,19 +266,19 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                 <div class="header-right">
                     <div style="height: 40px;"></div>
                     <div class="hindi-font" style="font-size: 10px; margin-top: 25px; text-align: right;">
-                        प्रश्न पुस्तिका संख्या व बारकोड /<br>
+                        à¤ªà¥à¤°à¤¶à¥à¤¨ à¤ªà¥à¤¸à¥à¤¤à¤¿à¤•à¤¾ à¤¸à¤‚à¤–à¥à¤¯à¤¾ à¤µ à¤¬à¤¾à¤°à¤•à¥‹à¤¡ /<br>
                         Question Booklet No. & Barcode
                     </div>
                 </div>
             </div>
 
             <div class="warning-box hindi-font">
-                प्रश्न पुस्तिका के पेपर की सील/पॉलिथिन बैग को खोलने पर प्रश्न पत्र हल करने से पूर्व परीक्षार्थी यह सुनिश्चित कर लें कि :-
+                à¤ªà¥à¤°à¤¶à¥à¤¨ à¤ªà¥à¤¸à¥à¤¤à¤¿à¤•à¤¾ à¤•à¥‡ à¤ªà¥‡à¤ªà¤° à¤•à¥€ à¤¸à¥€à¤²/à¤ªà¥‰à¤²à¤¿à¤¥à¤¿à¤¨ à¤¬à¥ˆà¤— à¤•à¥‹ à¤–à¥‹à¤²à¤¨à¥‡ à¤ªà¤° à¤ªà¥à¤°à¤¶à¥à¤¨ à¤ªà¤¤à¥à¤° à¤¹à¤² à¤•à¤°à¤¨à¥‡ à¤¸à¥‡ à¤ªà¥‚à¤°à¥à¤µ à¤ªà¤°à¥€à¤•à¥à¤·à¤¾à¤°à¥à¤¥à¥€ à¤¯à¤¹ à¤¸à¥à¤¨à¤¿à¤¶à¥à¤šà¤¿à¤¤ à¤•à¤° à¤²à¥‡à¤‚ à¤•à¤¿ :-
                 <ul style="padding-left: 20px; margin: 4px 0;">
-                    <li>प्रश्न पुस्तिका संख्या तथा ओ.एम.आर. उत्तर-पत्रक पर अंकित बारकोड संख्या समान है।</li>
-                    <li>सभी $totalQs प्रश्न सही मुद्रित हैं।</li>
+                    <li>à¤ªà¥à¤°à¤¶à¥à¤¨ à¤ªà¥à¤¸à¥à¤¤à¤¿à¤•à¤¾ à¤¸à¤‚à¤–à¥à¤¯à¤¾ à¤¤à¤¥à¤¾ à¤“.à¤à¤®.à¤†à¤°. à¤‰à¤¤à¥à¤¤à¤°-à¤ªà¤¤à¥à¤°à¤• à¤ªà¤° à¤…à¤‚à¤•à¤¿à¤¤ à¤¬à¤¾à¤°à¤•à¥‹à¤¡ à¤¸à¤‚à¤–à¥à¤¯à¤¾ à¤¸à¤®à¤¾à¤¨ à¤¹à¥ˆà¥¤</li>
+                    <li>à¤¸à¤­à¥€ $totalQs à¤ªà¥à¤°à¤¶à¥à¤¨ à¤¸à¤¹à¥€ à¤®à¥à¤¦à¥à¤°à¤¿à¤¤ à¤¹à¥ˆà¤‚à¥¤</li>
                 </ul>
-                किसी भी प्रकार की विसंगति या दोषपूर्ण होने पर परीक्षार्थी वीक्षक से दूसरी प्रश्न पुस्तिका प्राप्त कर लें। यह सुनिश्चित करने की जिम्मेदारी अभ्यर्थी की होगी।<br>
+                à¤•à¤¿à¤¸à¥€ à¤­à¥€ à¤ªà¥à¤°à¤•à¤¾à¤° à¤•à¥€ à¤µà¤¿à¤¸à¤‚à¤—à¤¤à¤¿ à¤¯à¤¾ à¤¦à¥‹à¤·à¤ªà¥‚à¤°à¥à¤£ à¤¹à¥‹à¤¨à¥‡ à¤ªà¤° à¤ªà¤°à¥€à¤•à¥à¤·à¤¾à¤°à¥à¤¥à¥€ à¤µà¥€à¤•à¥à¤·à¤• à¤¸à¥‡ à¤¦à¥‚à¤¸à¤°à¥€ à¤ªà¥à¤°à¤¶à¥à¤¨ à¤ªà¥à¤¸à¥à¤¤à¤¿à¤•à¤¾ à¤ªà¥à¤°à¤¾à¤ªà¥à¤¤ à¤•à¤° à¤²à¥‡à¤‚à¥¤ à¤¯à¤¹ à¤¸à¥à¤¨à¤¿à¤¶à¥à¤šà¤¿à¤¤ à¤•à¤°à¤¨à¥‡ à¤•à¥€ à¤œà¤¿à¤®à¥à¤®à¥‡à¤¦à¤¾à¤°à¥€ à¤…à¤­à¥à¤¯à¤°à¥à¤¥à¥€ à¤•à¥€ à¤¹à¥‹à¤—à¥€à¥¤<br>
                 <span style="font-family: 'Arimo', sans-serif; display: block; margin-top: 8px;">
                 On opening the paper seal/polythene bag of the Question Booklet before attempting the question paper the candidate should ensure that:-
                 <ul style="padding-left: 20px; margin: 4px 0;">
@@ -423,18 +291,18 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
             <div class="instructions-container">
                 <div class="col col-left hindi-font">
-                    <div class="col-header">परीक्षार्थियों के लिए निर्देश</div>
+                    <div class="col-header">à¤ªà¤°à¥€à¤•à¥à¤·à¤¾à¤°à¥à¤¥à¤¿à¤¯à¥‹à¤‚ à¤•à¥‡ à¤²à¤¿à¤ à¤¨à¤¿à¤°à¥à¤¦à¥‡à¤¶</div>
                     <ol class="instruction-list">
-                        <li>प्रत्येक प्रश्न के लिये एक विकल्प भरना अनिवार्य है।</li>
-                        <li>सभी प्रश्नों के अंक समान हैं।</li>
-                        <li>एक से अधिक उत्तर देने की दशा में प्रश्न के उत्तर को गलत माना जाएगा।</li>
-                        <li><b>OMR उत्तर-पत्रक</b> में केवल <b>नीले बॉल पॉइंट पेन</b> से विवरण भरें।</li>
-                        <li>कृपया अपना रोल नम्बर ओ.एम.आर. उत्तर-पत्रक पर सावधानीपूर्वक सही भरें।</li>
-                        <li>ओ.एम.आर. उत्तर-पत्रक में करेक्शन पेन/व्हाइटनर/ब्लेड का उपयोग निषिद्ध है।</li>
-                        <li><b>प्रत्येक गलत उत्तर के लिए प्रश्न अंक का 1/3 भाग काटा जायेगा।</b></li>
-                        <li>प्रत्येक प्रश्न के पाँच विकल्प दिए गये हैं (A, B, C, D, E)।</li>
-                        <li><b>यदि आप प्रश्न का उत्तर नहीं देना चाहते हैं, तो उत्तर-पत्रक में पांचवें (E) विकल्प को गहरा करें।</b> यदि पांच में से कोई भी गोला गहरा नहीं किया जाता है, तो <b>1/3 भाग काटा जायेगा।</b></li>
-                        <li>मोबाइल फोन अथवा इलेक्ट्रॉनिक यंत्र का परीक्षा हॉल में प्रयोग पूर्णतया वर्जित है।</li>
+                        <li>à¤ªà¥à¤°à¤¤à¥à¤¯à¥‡à¤• à¤ªà¥à¤°à¤¶à¥à¤¨ à¤•à¥‡ à¤²à¤¿à¤¯à¥‡ à¤à¤• à¤µà¤¿à¤•à¤²à¥à¤ª à¤­à¤°à¤¨à¤¾ à¤…à¤¨à¤¿à¤µà¤¾à¤°à¥à¤¯ à¤¹à¥ˆà¥¤</li>
+                        <li>à¤¸à¤­à¥€ à¤ªà¥à¤°à¤¶à¥à¤¨à¥‹à¤‚ à¤•à¥‡ à¤…à¤‚à¤• à¤¸à¤®à¤¾à¤¨ à¤¹à¥ˆà¤‚à¥¤</li>
+                        <li>à¤à¤• à¤¸à¥‡ à¤…à¤§à¤¿à¤• à¤‰à¤¤à¥à¤¤à¤° à¤¦à¥‡à¤¨à¥‡ à¤•à¥€ à¤¦à¤¶à¤¾ à¤®à¥‡à¤‚ à¤ªà¥à¤°à¤¶à¥à¤¨ à¤•à¥‡ à¤‰à¤¤à¥à¤¤à¤° à¤•à¥‹ à¤—à¤²à¤¤ à¤®à¤¾à¤¨à¤¾ à¤œà¤¾à¤à¤—à¤¾à¥¤</li>
+                        <li><b>OMR à¤‰à¤¤à¥à¤¤à¤°-à¤ªà¤¤à¥à¤°à¤•</b> à¤®à¥‡à¤‚ à¤•à¥‡à¤µà¤² <b>à¤¨à¥€à¤²à¥‡ à¤¬à¥‰à¤² à¤ªà¥‰à¤‡à¤‚à¤Ÿ à¤ªà¥‡à¤¨</b> à¤¸à¥‡ à¤µà¤¿à¤µà¤°à¤£ à¤­à¤°à¥‡à¤‚à¥¤</li>
+                        <li>à¤•à¥ƒà¤ªà¤¯à¤¾ à¤…à¤ªà¤¨à¤¾ à¤°à¥‹à¤² à¤¨à¤®à¥à¤¬à¤° à¤“.à¤à¤®.à¤†à¤°. à¤‰à¤¤à¥à¤¤à¤°-à¤ªà¤¤à¥à¤°à¤• à¤ªà¤° à¤¸à¤¾à¤µà¤§à¤¾à¤¨à¥€à¤ªà¥‚à¤°à¥à¤µà¤• à¤¸à¤¹à¥€ à¤­à¤°à¥‡à¤‚à¥¤</li>
+                        <li>à¤“.à¤à¤®.à¤†à¤°. à¤‰à¤¤à¥à¤¤à¤°-à¤ªà¤¤à¥à¤°à¤• à¤®à¥‡à¤‚ à¤•à¤°à¥‡à¤•à¥à¤¶à¤¨ à¤ªà¥‡à¤¨/à¤µà¥à¤¹à¤¾à¤‡à¤Ÿà¤¨à¤°/à¤¬à¥à¤²à¥‡à¤¡ à¤•à¤¾ à¤‰à¤ªà¤¯à¥‹à¤— à¤¨à¤¿à¤·à¤¿à¤¦à¥à¤§ à¤¹à¥ˆà¥¤</li>
+                        <li><b>à¤ªà¥à¤°à¤¤à¥à¤¯à¥‡à¤• à¤—à¤²à¤¤ à¤‰à¤¤à¥à¤¤à¤° à¤•à¥‡ à¤²à¤¿à¤ à¤ªà¥à¤°à¤¶à¥à¤¨ à¤…à¤‚à¤• à¤•à¤¾ 1/3 à¤­à¤¾à¤— à¤•à¤¾à¤Ÿà¤¾ à¤œà¤¾à¤¯à¥‡à¤—à¤¾à¥¤</b></li>
+                        <li>à¤ªà¥à¤°à¤¤à¥à¤¯à¥‡à¤• à¤ªà¥à¤°à¤¶à¥à¤¨ à¤•à¥‡ à¤ªà¤¾à¤à¤š à¤µà¤¿à¤•à¤²à¥à¤ª à¤¦à¤¿à¤ à¤—à¤¯à¥‡ à¤¹à¥ˆà¤‚ (A, B, C, D, E)à¥¤</li>
+                        <li><b>à¤¯à¤¦à¤¿ à¤†à¤ª à¤ªà¥à¤°à¤¶à¥à¤¨ à¤•à¤¾ à¤‰à¤¤à¥à¤¤à¤° à¤¨à¤¹à¥€à¤‚ à¤¦à¥‡à¤¨à¤¾ à¤šà¤¾à¤¹à¤¤à¥‡ à¤¹à¥ˆà¤‚, à¤¤à¥‹ à¤‰à¤¤à¥à¤¤à¤°-à¤ªà¤¤à¥à¤°à¤• à¤®à¥‡à¤‚ à¤ªà¤¾à¤‚à¤šà¤µà¥‡à¤‚ (E) à¤µà¤¿à¤•à¤²à¥à¤ª à¤•à¥‹ à¤—à¤¹à¤°à¤¾ à¤•à¤°à¥‡à¤‚à¥¤</b> à¤¯à¤¦à¤¿ à¤ªà¤¾à¤‚à¤š à¤®à¥‡à¤‚ à¤¸à¥‡ à¤•à¥‹à¤ˆ à¤­à¥€ à¤—à¥‹à¤²à¤¾ à¤—à¤¹à¤°à¤¾ à¤¨à¤¹à¥€à¤‚ à¤•à¤¿à¤¯à¤¾ à¤œà¤¾à¤¤à¤¾ à¤¹à¥ˆ, à¤¤à¥‹ <b>1/3 à¤­à¤¾à¤— à¤•à¤¾à¤Ÿà¤¾ à¤œà¤¾à¤¯à¥‡à¤—à¤¾à¥¤</b></li>
+                        <li>à¤®à¥‹à¤¬à¤¾à¤‡à¤² à¤«à¥‹à¤¨ à¤…à¤¥à¤µà¤¾ à¤‡à¤²à¥‡à¤•à¥à¤Ÿà¥à¤°à¥‰à¤¨à¤¿à¤• à¤¯à¤‚à¤¤à¥à¤° à¤•à¤¾ à¤ªà¤°à¥€à¤•à¥à¤·à¤¾ à¤¹à¥‰à¤² à¤®à¥‡à¤‚ à¤ªà¥à¤°à¤¯à¥‹à¤— à¤ªà¥‚à¤°à¥à¤£à¤¤à¤¯à¤¾ à¤µà¤°à¥à¤œà¤¿à¤¤ à¤¹à¥ˆà¥¤</li>
                     </ol>
                 </div>
 
@@ -460,11 +328,11 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
             </div>
 
             <div class="bottom-text">
-                उत्तर-पत्रक में दो प्रतियां हैं - मूल प्रति और कार्बन प्रति। परीक्षा समाप्ति पर परीक्षा कक्ष छोड़ने से पूर्व परीक्षार्थी उत्तर-पत्रक की दोनों प्रतियां वीक्षक को सौंपेंगे।
+                à¤‰à¤¤à¥à¤¤à¤°-à¤ªà¤¤à¥à¤°à¤• à¤®à¥‡à¤‚ à¤¦à¥‹ à¤ªà¥à¤°à¤¤à¤¿à¤¯à¤¾à¤‚ à¤¹à¥ˆà¤‚ - à¤®à¥‚à¤² à¤ªà¥à¤°à¤¤à¤¿ à¤”à¤° à¤•à¤¾à¤°à¥à¤¬à¤¨ à¤ªà¥à¤°à¤¤à¤¿à¥¤ à¤ªà¤°à¥€à¤•à¥à¤·à¤¾ à¤¸à¤®à¤¾à¤ªà¥à¤¤à¤¿ à¤ªà¤° à¤ªà¤°à¥€à¤•à¥à¤·à¤¾ à¤•à¤•à¥à¤· à¤›à¥‹à¤¡à¤¼à¤¨à¥‡ à¤¸à¥‡ à¤ªà¥‚à¤°à¥à¤µ à¤ªà¤°à¥€à¤•à¥à¤·à¤¾à¤°à¥à¤¥à¥€ à¤‰à¤¤à¥à¤¤à¤°-à¤ªà¤¤à¥à¤°à¤• à¤•à¥€ à¤¦à¥‹à¤¨à¥‹à¤‚ à¤ªà¥à¤°à¤¤à¤¿à¤¯à¤¾à¤‚ à¤µà¥€à¤•à¥à¤·à¤• à¤•à¥‹ à¤¸à¥Œà¤‚à¤ªà¥‡à¤‚à¤—à¥‡à¥¤
             </div>
 
             <div class="page-footer">
-                <div style="font-size: 24px;">00 - 🌑</div>
+                <div style="font-size: 24px;">00 - ðŸŒ‘</div>
                 <div>[ QR CODE ]</div>
             </div>
         </div>
@@ -489,7 +357,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               optionsHtml += "<div class='option-item'><b>${labels[j]}</b> ${q.options[j]}</div>";
             }
           }
-          optionsHtml += "<div class='option-item'><b>(E)</b> अनुतरित प्रश्न</div>";
+          optionsHtml += "<div class='option-item'><b>(E)</b> à¤…à¤¨à¥à¤¤à¤°à¤¿à¤¤ à¤ªà¥à¤°à¤¶à¥à¤¨</div>";
           optionsHtml += "</div>";
 
           htmlContent += """
@@ -520,7 +388,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     }
   }
 
-  // 🛠️ CSV GENERATOR
+  // ðŸ› ï¸ CSV GENERATOR
   Future<void> _generateCsv() async {
     setState(() => isGenerating = true);
     try {
@@ -558,7 +426,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               Text("Topic: $finalTopicName\nQuestions: ${finalQuestions.length}", textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 40),
 
-              // ATTEMPT BUTTON (Always Available)
+              // ATTEMPT BUTTON
               SizedBox(
                 width: double.infinity, height: 50,
                 child: ElevatedButton(
@@ -569,30 +437,30 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               ),
               const SizedBox(height: 20), const Divider(), const SizedBox(height: 10),
               
-              const Text("Downloads (Premium)", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("Downloads", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 15),
 
               if (isGenerating) const CircularProgressIndicator() else ...[
                 
-                // BUTTON 1: Question Paper (LOCKED)
+                // BUTTON 1: Question Paper
                 SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: () => _checkPremiumAndProceed(() => _showExamDetailsDialog(context)), 
+                  onPressed: () => _showExamDetailsDialog(context), 
                   icon: const Icon(Icons.print, color: Colors.blue),
                   label: const Text("Print Question Paper (PDF)"),
                 )),
                 const SizedBox(height: 10),
                 
-                // BUTTON 2: Answer Key (LOCKED)
+                // BUTTON 2: Answer Key
                 SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: () => _checkPremiumAndProceed(() => _printHtml(isAnswerKey: true)), 
+                  onPressed: () => _printHtml(isAnswerKey: true), 
                   icon: const Icon(Icons.vpn_key, color: Colors.orange),
                   label: const Text("Print Answer Key (Table PDF)"),
                 )),
                 const SizedBox(height: 10),
 
-                // BUTTON 3: CSV (LOCKED)
+                // BUTTON 3: CSV
                 SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: () => _checkPremiumAndProceed(() => _generateCsv()),
+                  onPressed: _generateCsv,
                   icon: const Icon(Icons.table_chart, color: Colors.green),
                   label: const Text("Download Excel (CSV)"),
                 )),
