@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // 🔥 REQUIRED FOR FULL SCREEN
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'study_results_screen.dart'; 
@@ -39,6 +40,10 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // 🔥 1. ENABLE FULL SCREEN (IMMERSIVE MODE)
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
     questions = widget.testData['questions'] ?? [];
     marking = widget.testData['settings'] ?? {'positive': 4.0, 'negative': 1.0, 'skip': 0.0, 'duration': 60};
     
@@ -48,6 +53,16 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
     int durationMinutes = marking['duration'] ?? 60;
     _remainingSeconds = durationMinutes * 60;
     _startTimer();
+  }
+
+  @override
+  void dispose() {
+    // 🔥 2. DISABLE FULL SCREEN (Bring back Status Bar when leaving)
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
+    
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
   }
 
   void _startTimer() {
@@ -67,13 +82,6 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
     int m = seconds ~/ 60;
     int s = seconds % 60;
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _pageController.dispose();
-    super.dispose();
   }
 
   // 🔥 Result Calculation & Save Logic
@@ -114,12 +122,11 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
 
         double pos = (marking['positive'] ?? 4.0).toDouble();
         double neg = (marking['negative'] ?? 1.0).toDouble();
-        // Skip mark usually 0, but creating logic just in case
         double skip = (marking['skip'] ?? 0.0).toDouble();
 
         if (userAns == null) {
           skippedCount++;
-          totalScore += skip; // Usually 0
+          totalScore += skip; 
         } else if (userAns == correctAns) {
           correctCount++;
           totalScore += pos;
@@ -137,13 +144,11 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
       });
 
       // 3. Save Result
-      // 🔥 CRITICAL FIX: Using .set() with TestID instead of .add()
-      // This ensures TestListScreen can find the document by ID
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('test_results')
-          .doc(widget.testId) // <--- Fixed here
+          .doc(widget.testId)
           .set({
             'testId': widget.testId,
             'testTitle': widget.testData['testTitle'] ?? 'Test Result',
@@ -155,10 +160,10 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
             'attemptedAt': FieldValue.serverTimestamp(),
             'questionsSnapshot': questions, 
             'userResponse': answersForDb,
-            'settings': marking, // Save settings to show marks distribution later
+            'settings': marking,
           });
 
-      // 4. Mark Test as Attempted (Updates global list)
+      // 4. Mark Test as Attempted
       await FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(widget.examId)
@@ -172,7 +177,10 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
 
       if (!mounted) return;
       
-      // 5. Navigate to Result Screen
+      // 🔥 Restore System UI before navigating
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
+
+      // 5. Navigate to Result Screen (This screen has the "View Solution" button)
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(
         examId: widget.examId,
         examName: widget.testData['testTitle'] ?? "Result",
@@ -180,74 +188,91 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
       
     } catch (e) {
       setState(() => _isSubmitting = false);
+      // If error, restore UI so user isn't stuck
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Q ${_currentQuestionIndex + 1}/${questions.length}", style: const TextStyle(fontSize: 16)),
-            // ⏱️ TIMER DISPLAY
-            Text("Time Left: ${_formatTime(_remainingSeconds)}", style: const TextStyle(fontSize: 12, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+    // 🔥 PopScope PREVENTS ACCIDENTAL BACK PRESS
+    return PopScope(
+      canPop: false, 
+      onPopInvoked: (didPop) {
+         if (didPop) return;
+         // Optional: Show toast "Please submit test to exit"
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          automaticallyImplyLeading: false, // Hide back button
+          backgroundColor: Colors.white,
+          elevation: 1,
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Q ${_currentQuestionIndex + 1}/${questions.length}", style: const TextStyle(fontSize: 16, color: Colors.black)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(20)),
+                child: Text("⏳ ${_formatTime(_remainingSeconds)}", style: const TextStyle(fontSize: 14, color: Colors.red, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isSubmitting ? null : () => _submitTest(),
+              child: const Text("SUBMIT", style: TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold)),
+            )
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: _isSubmitting ? null : () => _submitTest(),
-            child: const Text("SUBMIT", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-          )
-        ],
-      ),
-      body: Column(
-        children: [
-          // 📄 1. QUESTION AREA
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: questions.length,
-              physics: const BouncingScrollPhysics(),
-              onPageChanged: (index) {
-                setState(() => _currentQuestionIndex = index);
-              },
-              itemBuilder: (context, index) {
-                return _buildQuestionPage(questions[index], index);
-              },
+        body: Column(
+          children: [
+            // 📄 1. QUESTION AREA
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: questions.length,
+                physics: const BouncingScrollPhysics(),
+                onPageChanged: (index) {
+                  setState(() => _currentQuestionIndex = index);
+                },
+                itemBuilder: (context, index) {
+                  return _buildQuestionPage(questions[index], index);
+                },
+              ),
             ),
-          ),
 
-          // ↔️ 2. NAVIGATION BUTTONS
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.grey.shade200, blurRadius: 5)]),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                ElevatedButton(
-                  onPressed: _currentQuestionIndex == 0 
-                    ? null 
-                    : () {
-                        _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-                      },
-                  child: const Text("Previous"),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
-                  onPressed: _currentQuestionIndex == questions.length - 1 
+            // ↔️ 2. NAVIGATION BUTTONS
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.grey.shade200, blurRadius: 5)]),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ElevatedButton(
+                    onPressed: _currentQuestionIndex == 0 
                       ? null 
                       : () {
-                          _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                          _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
                         },
-                  child: const Text("Next"),
-                ),
-              ],
-            ),
-          )
-        ],
+                    child: const Text("Previous"),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
+                    onPressed: _currentQuestionIndex == questions.length - 1 
+                        ? null 
+                        : () {
+                            _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                          },
+                    child: const Text("Next"),
+                  ),
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
@@ -262,9 +287,9 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
           // Question Text
           Text(
             q['question'], 
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, height: 1.4)
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 25),
 
           // Options List
           ...List.generate(q['options'].length, (optIndex) {
@@ -278,7 +303,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
               },
               child: Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 decoration: BoxDecoration(
                   color: isSelected ? Colors.deepPurple.shade50 : Colors.white,
                   border: Border.all(
@@ -294,11 +319,11 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isSelected ? Colors.deepPurple : Colors.white,
-                        border: Border.all(color: isSelected ? Colors.deepPurple : Colors.grey)
+                        border: Border.all(color: isSelected ? Colors.deepPurple : Colors.grey.shade400)
                       ),
                       child: isSelected ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 15),
                     Expanded(
                       child: Text(
                         q['options'][optIndex],
