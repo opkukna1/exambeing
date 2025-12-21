@@ -21,7 +21,7 @@ class EditWeekSchedule extends StatefulWidget {
 class _EditWeekScheduleState extends State<EditWeekSchedule> {
   late TextEditingController _titleController;
   late List<dynamic> _topicsList;
-  bool _isLoading = true; // 🔥 Shuru mein Loading True rakhenge
+  bool _isLoading = true; // 🔥 Loading ON by default
 
   // Dropdown Selections
   List<dynamic> fullHierarchy = [];
@@ -36,47 +36,72 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
     _titleController = TextEditingController(text: widget.currentData['weekTitle']);
     _topicsList = List.from(widget.currentData['scheduleData'] ?? []);
     
-    // 🔥 Check Permission First
-    _checkHostPermissions();
+    // 🔥 Security Check: Host + Ownership
+    _checkPermissions();
   }
 
-  // 🔒 0. SECURITY CHECK
-  Future<void> _checkHostPermissions() async {
+  // 🔒 0. SECURITY CHECK FUNCTION
+  Future<void> _checkPermissions() async {
     final user = FirebaseAuth.instance.currentUser;
     
+    // 1. Login Check
     if (user == null) {
       if(mounted) Navigator.pop(context);
       return;
     }
 
     try {
-      // User Data Fetch
+      // 2. OWNERSHIP CHECK (Sabse Pehle)
+      // Check karte hain ki currentData me createdBy hai ya nahi
+      String creatorId = widget.currentData['createdBy'] ?? '';
+
+      // Agar currentData me nahi mila, to database se fresh fetch karo (Safety ke liye)
+      if (creatorId.isEmpty) {
+        DocumentSnapshot weekDoc = await FirebaseFirestore.instance
+            .collection('study_schedules')
+            .doc(widget.examId)
+            .collection('weeks')
+            .doc(widget.weekId)
+            .get();
+        
+        if (weekDoc.exists) {
+          creatorId = weekDoc['createdBy'] ?? '';
+        }
+      }
+
+      // Agar Creator ID match nahi karti -> ERROR
+      if (creatorId != user.uid) {
+        _showErrorAndExit("Access Denied: You can only edit schedules created by YOU.");
+        return;
+      }
+
+      // 3. HOST CHECK
       DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      
-      // Check 'host' field
       if (userDoc.exists) {
         final data = userDoc.data() as Map<String, dynamic>;
         String isHost = (data['host'] ?? 'no').toString().toLowerCase();
 
         if (isHost == 'yes') {
-          // ✅ Authorized: Fetch Hierarchy
+          // ✅ Sab Sahi Hai -> Data Load karo
           _fetchHierarchy();
         } else {
-          // ❌ Unauthorized
-          _showErrorAndExit("Access Denied: You are not a Host.");
+          _showErrorAndExit("Access Denied: You are not authorized as a Host.");
         }
       } else {
-        _showErrorAndExit("User not found.");
+        _showErrorAndExit("User data not found.");
       }
+
     } catch (e) {
-      _showErrorAndExit("Error checking permissions.");
+      _showErrorAndExit("Error verifying permissions.");
     }
   }
 
   void _showErrorAndExit(String message) {
     if(!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
-    Navigator.pop(context); // Go Back
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red, duration: const Duration(seconds: 3))
+    );
+    Navigator.pop(context); // Screen band kar do
   }
 
   // 1️⃣ Fetch Dropdown Data
@@ -87,7 +112,7 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
         if(mounted) {
           setState(() {
             fullHierarchy = doc['hierarchy'] as List<dynamic>;
-            _isLoading = false; // 🔥 Data load hone ke baad loading band
+            _isLoading = false; // 🔥 Loading OFF
           });
         }
       } else {
