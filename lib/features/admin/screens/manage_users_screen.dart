@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 class ManageUsersScreen extends StatefulWidget {
   final String testId;
   final String testName;
-  // 🔥 New IDs needed for Path
+  // 🔥 Ye IDs zaroori hain taki sahi jagah data save ho
   final String examId; 
   final String weekId;
 
@@ -26,15 +26,15 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   final TextEditingController _emailController = TextEditingController();
   DateTime? _selectedDate;
   bool _isLoading = false;
-  bool _isVerifying = true;
+  bool _isVerifying = true; // Security check loading
 
   @override
   void initState() {
     super.initState();
-    _checkOwnership();
+    _checkOwnership(); // 🔥 Page khulte hi permission check
   }
 
-  // 🔒 SECURITY CHECK (Updated Path)
+  // 🔒 SECURITY CHECK (Teacher Verify)
   Future<void> _checkOwnership() async {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -59,7 +59,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       Map<String, dynamic> testData = testDoc.data() as Map<String, dynamic>;
       String creatorId = testData['createdBy'] ?? '';
 
-      // 2. Check Ownership
+      // 2. Check Ownership (Kya ye teacher ka khud ka test hai?)
       if (creatorId != user.uid) {
         _showErrorAndExit("Access Denied: You can only manage users for YOUR own tests.");
         return;
@@ -74,6 +74,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         return;
       }
 
+      // ✅ Sab sahi hai
       if (mounted) setState(() => _isVerifying = false);
 
     } catch (e) {
@@ -84,7 +85,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   void _showErrorAndExit(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
-    Navigator.pop(context);
+    Navigator.pop(context); // Screen band kar do
   }
 
   @override
@@ -97,17 +98,18 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   Future<void> _pickDate() async {
     DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().add(const Duration(days: 7)),
+      initialDate: DateTime.now().add(const Duration(days: 7)), // Default 7 days validity
       firstDate: DateTime.now(),
       lastDate: DateTime(2030),
     );
     if (picked != null) {
+      // Set time to end of the day (23:59:59)
       DateTime endOfDay = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
       setState(() => _selectedDate = endOfDay);
     }
   }
 
-  // ➕ ADD USER (Updated Path)
+  // ➕ ADD USER (Allow Student)
   Future<void> _addUser() async {
     if (_emailController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Student Email required!")));
@@ -122,12 +124,12 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     String email = _emailController.text.trim().toLowerCase(); 
 
     try {
-      // 🔥 Save to Nested Collection
+      // 🔥 Save to Nested Collection (Allowed Users List)
       await FirebaseFirestore.instance
           .collection('study_schedules').doc(widget.examId)
           .collection('weeks').doc(widget.weekId)
           .collection('tests').doc(widget.testId)
-          .collection('allowed_users') // Sub-collection
+          .collection('allowed_users')
           .doc(email)
           .set({
         'email': email,
@@ -139,7 +141,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
       setState(() => _selectedDate = null);
       
       if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User Added! ✅"), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Student Allowed! ✅"), backgroundColor: Colors.green));
       }
     } catch (e) {
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
@@ -148,7 +150,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     }
   }
 
-  // 🗑️ REMOVE USER (Updated Path)
+  // 🗑️ REMOVE USER (Revoke Access)
   Future<void> _removeUser(String email) async {
     try {
       await FirebaseFirestore.instance
@@ -159,7 +161,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
           .doc(email)
           .delete();
           
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User removed."), duration: Duration(seconds: 1)));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User access revoked."), duration: Duration(seconds: 1)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
@@ -174,10 +176,21 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Manage Users 👥", style: TextStyle(fontSize: 18)),
+            const Text("Manage Access 👥", style: TextStyle(fontSize: 18)),
             Text(widget.testName, style: const TextStyle(fontSize: 12, color: Colors.white70)),
           ],
         ),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16.0),
+            child: Center(
+              child: Text(
+                "TEACHER MODE", 
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, backgroundColor: Colors.red)
+              )
+            ),
+          )
+        ],
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
       ),
@@ -192,7 +205,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                 TextField(
                   controller: _emailController,
                   decoration: InputDecoration(
-                    labelText: "Student Email", hintText: "example@gmail.com",
+                    labelText: "Student Email", hintText: "student@gmail.com",
                     prefixIcon: const Icon(Icons.email, color: Colors.deepPurple),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     filled: true, fillColor: Colors.white,
@@ -210,7 +223,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       children: [
                         const Icon(Icons.calendar_today, color: Colors.deepPurple),
                         const SizedBox(width: 10),
-                        Text(_selectedDate == null ? "Select Expiry Date" : "Valid Till: ${DateFormat('dd MMM yyyy').format(_selectedDate!)}", style: TextStyle(color: _selectedDate == null ? Colors.grey.shade700 : Colors.black, fontWeight: FontWeight.w500)),
+                        Text(_selectedDate == null ? "Select Validity Date" : "Valid Till: ${DateFormat('dd MMM yyyy').format(_selectedDate!)}", style: TextStyle(color: _selectedDate == null ? Colors.grey.shade700 : Colors.black, fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ),
@@ -230,9 +243,10 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
             ),
           ),
           
-          // 🔵 USERS LIST
+          // 🔵 USERS LIST TITLE
           const Padding(padding: EdgeInsets.fromLTRB(16, 20, 16, 10), child: Row(children: [Icon(Icons.list, size: 20, color: Colors.grey), SizedBox(width: 5), Text("Allowed Students List", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey))])),
 
+          // 🔵 LIST BUILDER
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
