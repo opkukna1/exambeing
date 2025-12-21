@@ -3,9 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class ManageUsersScreen extends StatefulWidget {
-  final String testId;
-  final String testName;
-  final String examId;
+  final String testId;   // Ab ye sirf reference ke liye hai
+  final String testName; // UI ke liye
+  final String examId;   // 🔥 MAIN: Permission yahan save hogi
   final String weekId;
 
   const ManageUsersScreen({
@@ -24,7 +24,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   final TextEditingController _emailController = TextEditingController();
   bool _isLoading = false;
 
-  // 🔥 GRANT ACCESS (Add User to Test)
+  // 🔥 GRANT ACCESS (One Time for Whole Exam)
   Future<void> _grantAccess() async {
     if (_emailController.text.isEmpty) return;
     
@@ -32,25 +32,22 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     String emailKey = _emailController.text.trim().toLowerCase();
 
     try {
-      // Save to specific path: study_schedules -> exam -> weeks -> week -> tests -> test -> allowed_users
+      // 🔥 CHANGE: Ab hum permission 'exam' level par save kar rahe hain
+      // Path: study_schedules -> {examId} -> allowed_users -> {email}
       await FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(widget.examId)
-          .collection('weeks')
-          .doc(widget.weekId)
-          .collection('tests')
-          .doc(widget.testId)
-          .collection('allowed_users')
-          .doc(emailKey) // 🔥 Document ID is the Email itself (Duplicate nahi hoga)
+          .collection('allowed_users') // <-- Changed Path
+          .doc(emailKey)
           .set({
         'email': emailKey,
         'grantedAt': FieldValue.serverTimestamp(),
-        // Default 1 Year Validity
+        // Default 1 Year Validity for the whole Course
         'expiryDate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 365))), 
       });
 
       _emailController.clear();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Access Granted!")));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Student Allowed for Full Course! ✅")));
 
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -59,21 +56,17 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     }
   }
 
-  // 🚫 REVOKE ACCESS (Delete User from Test)
+  // 🚫 REVOKE ACCESS (Remove from Whole Exam)
   Future<void> _revokeAccess(String emailDocId) async {
     try {
       await FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(widget.examId)
-          .collection('weeks')
-          .doc(widget.weekId)
-          .collection('tests')
-          .doc(widget.testId)
-          .collection('allowed_users')
+          .collection('allowed_users') // <-- Changed Path
           .doc(emailDocId)
           .delete();
           
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Access Revoked.")));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Access Revoked for Course.")));
     } catch (e) {
       // Error handling
     }
@@ -83,12 +76,11 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // 🔥 FIX: AppBar doesn't support subtitle, so we use a Column inside title
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Test Permissions 🔐"),
-            Text(widget.testName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+            const Text("Course Permissions 🔐"),
+            const Text("Allow once, access all tests", style: TextStyle(fontSize: 10, fontWeight: FontWeight.normal)),
           ],
         ),
       ),
@@ -101,7 +93,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Grant Access to Student", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+                const Text("Add Student to Course", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple)),
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -128,7 +120,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                   ],
                 ),
                 const SizedBox(height: 5),
-                const Text("Note: Email must match user's login email exactly.", style: TextStyle(fontSize: 10, color: Colors.grey)),
+                const Text("Note: This grants access to ALL tests in this Exam/Schedule.", style: TextStyle(fontSize: 10, color: Colors.grey)),
               ],
             ),
           ),
@@ -141,11 +133,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
               stream: FirebaseFirestore.instance
                   .collection('study_schedules')
                   .doc(widget.examId)
-                  .collection('weeks')
-                  .doc(widget.weekId)
-                  .collection('tests')
-                  .doc(widget.testId)
-                  .collection('allowed_users')
+                  .collection('allowed_users') // <-- Changed Path (Fetching from Exam Level)
                   .orderBy('grantedAt', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
@@ -158,7 +146,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                       children: [
                         Icon(Icons.lock_open, size: 50, color: Colors.grey),
                         SizedBox(height: 10),
-                        Text("No students added yet.\nEveryone else will see 'Locked'.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                        Text("No students in this course yet.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
                       ],
                     ),
                   );
