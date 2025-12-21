@@ -41,7 +41,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
   void initState() {
     super.initState();
     
-    // 🔥 1. ENABLE FULL SCREEN (IMMERSIVE MODE)
+    // 🔥 1. ENABLE FULL SCREEN
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     questions = widget.testData['questions'] ?? [];
@@ -57,9 +57,8 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
 
   @override
   void dispose() {
-    // 🔥 2. DISABLE FULL SCREEN (Bring back Status Bar when leaving)
+    // 🔥 2. DISABLE FULL SCREEN
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
-    
     _timer?.cancel();
     _pageController.dispose();
     super.dispose();
@@ -68,9 +67,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
-        setState(() {
-          _remainingSeconds--;
-        });
+        setState(() => _remainingSeconds--);
       } else {
         _timer?.cancel();
         _submitTest(autoSubmit: true); // Time Up!
@@ -82,6 +79,26 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
     int m = seconds ~/ 60;
     int s = seconds % 60;
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  // 🔥 SAFETY HELPER: Handles both Map AND Question Object to prevent crashes
+  Map<String, dynamic> _normalizeQuestion(dynamic q) {
+    if (q is Map<String, dynamic> || q is Map) {
+      return Map<String, dynamic>.from(q as Map);
+    } else {
+      // If it's an Object, convert manually
+      try {
+        return q.toMap(); 
+      } catch (e) {
+        return {
+          'id': q.id,
+          'question': q.questionText,
+          'options': q.options,
+          'correctIndex': q.correctIndex,
+          'explanation': q.explanation
+        };
+      }
+    }
   }
 
   // 🔥 Result Calculation & Save Logic
@@ -115,10 +132,19 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
       int skippedCount = 0;
       double totalScore = 0;
 
+      // 🔥 Need to save data in a clean list for DB
+      List<Map<String, dynamic>> finalQuestionsData = [];
+
       // 1. Calculate Score
       for (int i = 0; i < questions.length; i++) {
+        // Safe Data Access
+        var qData = _normalizeQuestion(questions[i]);
+        finalQuestionsData.add(qData);
+
         int? userAns = _userAnswers[i];
-        int correctAns = questions[i]['correctIndex'];
+        
+        // Handle varying key names
+        int correctAns = qData['correctIndex'] ?? qData['correctAnswerIndex'] ?? 0;
 
         double pos = (marking['positive'] ?? 4.0).toDouble();
         double neg = (marking['negative'] ?? 1.0).toDouble();
@@ -136,11 +162,12 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
         }
       }
 
-      // 2. Prepare Answer Map (Using ID as Key)
+      // 2. Prepare Answer Map
       Map<String, int> answersForDb = {};
       _userAnswers.forEach((index, optIndex) {
-        String qId = questions[index]['id'] ?? "q_$index";
-        answersForDb[qId] = optIndex;
+         var qData = _normalizeQuestion(questions[index]);
+         String qId = qData['id'] ?? "q_$index";
+         answersForDb[qId] = optIndex;
       });
 
       // 3. Save Result
@@ -158,7 +185,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
             'skipped': skippedCount,
             'totalQ': questions.length,
             'attemptedAt': FieldValue.serverTimestamp(),
-            'questionsSnapshot': questions, 
+            'questionsSnapshot': finalQuestionsData, // Saving Safe Data
             'userResponse': answersForDb,
             'settings': marking,
           });
@@ -180,7 +207,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
       // 🔥 Restore System UI before navigating
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
 
-      // 5. Navigate to Result Screen (This screen has the "View Solution" button)
+      // 5. Navigate to Result Screen
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(
         examId: widget.examId,
         examName: widget.testData['testTitle'] ?? "Result",
@@ -188,7 +215,6 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
       
     } catch (e) {
       setState(() => _isSubmitting = false);
-      // If error, restore UI so user isn't stuck
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
@@ -196,13 +222,8 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 PopScope PREVENTS ACCIDENTAL BACK PRESS
     return PopScope(
       canPop: false, 
-      onPopInvoked: (didPop) {
-         if (didPop) return;
-         // Optional: Show toast "Please submit test to exit"
-      },
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -239,7 +260,8 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
                   setState(() => _currentQuestionIndex = index);
                 },
                 itemBuilder: (context, index) {
-                  return _buildQuestionPage(questions[index], index);
+                  // 🔥 Pass Safe Data
+                  return _buildQuestionPage(_normalizeQuestion(questions[index]), index);
                 },
               ),
             ),
@@ -279,6 +301,19 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
 
   // 🔥 CUSTOM WIDGET FOR QUESTION PAGE
   Widget _buildQuestionPage(Map<String, dynamic> q, int qIndex) {
+    // 🔥 SAFEGUARD: Agar options null/empty hain, to unhe manually dhoondo
+    List<dynamic> options = [];
+    if (q['options'] != null && (q['options'] as List).isNotEmpty) {
+      options = q['options'];
+    } else {
+      // Fallback: option0, option1 keys check karo
+      for(int i=0; i<6; i++) {
+        if(q.containsKey('option$i')) options.add(q['option$i']);
+      }
+    }
+
+    String questionText = q['question'] ?? q['questionText'] ?? 'Loading Question...';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -286,13 +321,16 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
         children: [
           // Question Text
           Text(
-            q['question'], 
+            questionText, 
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, height: 1.4)
           ),
           const SizedBox(height: 25),
 
+          if (options.isEmpty)
+             const Center(child: Text("No options found. Contact Admin.", style: TextStyle(color: Colors.red))),
+
           // Options List
-          ...List.generate(q['options'].length, (optIndex) {
+          ...List.generate(options.length, (optIndex) {
             bool isSelected = _userAnswers[qIndex] == optIndex;
 
             return GestureDetector(
@@ -326,7 +364,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
                     const SizedBox(width: 15),
                     Expanded(
                       child: Text(
-                        q['options'][optIndex],
+                        options[optIndex].toString(),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
