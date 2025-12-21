@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Clipboard ke liye
+import 'package:flutter/services.dart'; // Required for Clipboard
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -75,7 +75,10 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   // 🔒 PREMIUM CHECK LOGIC (NEW FEATURE)
   Future<void> _checkPremiumAndProceed(VoidCallback onSuccess) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please login first!")));
+      return;
+    }
 
     // 1. Show Loading Dialog
     showDialog(
@@ -88,18 +91,19 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       // 2. Fetch User Data
       final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       
-      // Close Loading
+      // Close Loading Dialog SAFELY
       if (mounted) Navigator.pop(context);
 
       // 3. Check 'paid_for_gold' field
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        // Check exact string 'yes' (case sensitive handle karne ke liye lower case check kar sakte hain)
         String status = (data['paid_for_gold'] ?? 'no').toString().toLowerCase();
 
         if (status == 'yes') {
-          // ✅ User is Premium -> Execute Function
-          onSuccess();
+          // ✅ User is Premium -> Call Success Function
+          // Using Future.delayed to ensure dialog is fully closed before opening next UI
+          await Future.delayed(const Duration(milliseconds: 100));
+          if (mounted) onSuccess(); 
         } else {
           // ❌ User is Free -> Show Contact Dialog
           if (mounted) _showPremiumLockedDialog();
@@ -108,23 +112,24 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         if (mounted) _showPremiumLockedDialog();
       }
     } catch (e) {
-      if (mounted) Navigator.pop(context); // Close loading if error
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error checking subscription: $e")));
+      // Error handling: Close dialog if open
+      if (mounted && Navigator.canPop(context)) Navigator.pop(context); 
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
-  // 🔒 SHOW PREMIUM LOCKED DIALOG
+  // 🔒 SHOW PREMIUM LOCKED DIALOG (BEAUTIFUL POPUP)
   void _showPremiumLockedDialog() {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Row(
             children: [
-              Icon(Icons.lock, color: Colors.red),
+              Icon(Icons.workspace_premium, color: Colors.amber, size: 30),
               SizedBox(width: 10),
-              Text("Premium Feature"),
+              Text("Premium Feature", style: TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
           content: Column(
@@ -133,52 +138,61 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
             children: [
               const Text(
                 "PDF और Excel डाउनलोड करने के लिए आपको Premium Package लेना होगा।",
-                style: TextStyle(fontSize: 14),
+                style: TextStyle(fontSize: 15, color: Colors.black87),
               ),
-              const SizedBox(height: 15),
-              const Text("संपर्क करें (Contact Team):", style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 5),
+              const SizedBox(height: 20),
+              const Text("संपर्क करें (Subscribe Now):", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+              const SizedBox(height: 8),
+              
+              // Contact Box
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade400)
+                  color: Colors.green.shade50, 
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.shade200)
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      "8005576670",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("WhatsApp", style: TextStyle(fontSize: 12, color: Colors.green)),
+                        Text("8005576670", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+                      ],
                     ),
                     IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.blue),
+                      icon: const Icon(Icons.copy, color: Colors.green),
+                      tooltip: "Copy Number",
                       onPressed: () {
                         Clipboard.setData(const ClipboardData(text: "8005576670"));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Number Copied!"), duration: Duration(seconds: 1)),
+                          const SnackBar(
+                            content: Text("Number Copied!"), 
+                            duration: Duration(seconds: 2),
+                            backgroundColor: Colors.green,
+                          )
                         );
                       },
                     )
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text("WhatsApp पर संपर्क करें।", style: TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Close", style: TextStyle(color: Colors.black)),
+              onPressed: () => Navigator.pop(context), 
+              child: const Text("Close", style: TextStyle(color: Colors.grey))
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-              onPressed: () {
-                // Optional: Direct WhatsApp Launch Logic here if needed
-                Navigator.pop(context);
-              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+              ),
+              onPressed: () => Navigator.pop(context),
               child: const Text("OK"),
             ),
           ],
@@ -544,7 +558,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               Text("Topic: $finalTopicName\nQuestions: ${finalQuestions.length}", textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 40),
 
-              // ATTEMPT BUTTON (Free)
+              // ATTEMPT BUTTON (Always Available)
               SizedBox(
                 width: double.infinity, height: 50,
                 child: ElevatedButton(
@@ -562,9 +576,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                 
                 // BUTTON 1: Question Paper (LOCKED)
                 SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: () => _checkPremiumAndProceed(() {
-                    _showExamDetailsDialog(context);
-                  }), 
+                  onPressed: () => _checkPremiumAndProceed(() => _showExamDetailsDialog(context)), 
                   icon: const Icon(Icons.print, color: Colors.blue),
                   label: const Text("Print Question Paper (PDF)"),
                 )),
@@ -572,9 +584,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                 
                 // BUTTON 2: Answer Key (LOCKED)
                 SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: () => _checkPremiumAndProceed(() {
-                    _printHtml(isAnswerKey: true);
-                  }), 
+                  onPressed: () => _checkPremiumAndProceed(() => _printHtml(isAnswerKey: true)), 
                   icon: const Icon(Icons.vpn_key, color: Colors.orange),
                   label: const Text("Print Answer Key (Table PDF)"),
                 )),
@@ -582,9 +592,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
                 // BUTTON 3: CSV (LOCKED)
                 SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: () => _checkPremiumAndProceed(() {
-                    _generateCsv();
-                  }),
+                  onPressed: () => _checkPremiumAndProceed(() => _generateCsv()),
                   icon: const Icon(Icons.table_chart, color: Colors.green),
                   label: const Text("Download Excel (CSV)"),
                 )),
