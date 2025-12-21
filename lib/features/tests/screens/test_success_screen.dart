@@ -1,6 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Clipboard ke liye
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart'; 
@@ -67,6 +70,121 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   // 🧹 CLEAN TEXT FUNCTION
   String _cleanQuestionText(String text) {
     return text.replaceAll(RegExp(r'\s*\(\s*(Exam|Year|SSC|RPSC|UPSC)\s*:.*?\)', caseSensitive: false), '').trim();
+  }
+
+  // 🔒 PREMIUM CHECK LOGIC (NEW FEATURE)
+  Future<void> _checkPremiumAndProceed(VoidCallback onSuccess) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // 1. Show Loading Dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // 2. Fetch User Data
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      
+      // Close Loading
+      if (mounted) Navigator.pop(context);
+
+      // 3. Check 'paid_for_gold' field
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        // Check exact string 'yes' (case sensitive handle karne ke liye lower case check kar sakte hain)
+        String status = (data['paid_for_gold'] ?? 'no').toString().toLowerCase();
+
+        if (status == 'yes') {
+          // ✅ User is Premium -> Execute Function
+          onSuccess();
+        } else {
+          // ❌ User is Free -> Show Contact Dialog
+          if (mounted) _showPremiumLockedDialog();
+        }
+      } else {
+        if (mounted) _showPremiumLockedDialog();
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // Close loading if error
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error checking subscription: $e")));
+    }
+  }
+
+  // 🔒 SHOW PREMIUM LOCKED DIALOG
+  void _showPremiumLockedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: const Row(
+            children: [
+              Icon(Icons.lock, color: Colors.red),
+              SizedBox(width: 10),
+              Text("Premium Feature"),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "PDF और Excel डाउनलोड करने के लिए आपको Premium Package लेना होगा।",
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 15),
+              const Text("संपर्क करें (Contact Team):", style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade400)
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "8005576670",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, color: Colors.blue),
+                      onPressed: () {
+                        Clipboard.setData(const ClipboardData(text: "8005576670"));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Number Copied!"), duration: Duration(seconds: 1)),
+                        );
+                      },
+                    )
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text("WhatsApp पर संपर्क करें।", style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close", style: TextStyle(color: Colors.black)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+              onPressed: () {
+                // Optional: Direct WhatsApp Launch Logic here if needed
+                Navigator.pop(context);
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // 📝 ADMIN INPUT DIALOG
@@ -138,7 +256,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
             /* 🔥 PAGE MARGINS FIXED HERE */
             @page { 
                 size: A4; 
-                margin-top: 20mm;    /* Top Margin added */
+                margin-top: 20mm;    
                 margin-bottom: 15mm; 
                 margin-left: 15mm; 
                 margin-right: 15mm; 
@@ -165,7 +283,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
             /* --- COVER PAGE --- */
             .a4-page {
-                width: 100%; /* Adapt to margins */
+                width: 100%; 
                 min-height: 90vh;
                 position: relative;
                 page-break-after: always; 
@@ -426,7 +544,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               Text("Topic: $finalTopicName\nQuestions: ${finalQuestions.length}", textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 40),
 
-              // ATTEMPT BUTTON
+              // ATTEMPT BUTTON (Free)
               SizedBox(
                 width: double.infinity, height: 50,
                 child: ElevatedButton(
@@ -437,30 +555,36 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               ),
               const SizedBox(height: 20), const Divider(), const SizedBox(height: 10),
               
-              const Text("Downloads", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("Downloads (Premium)", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 15),
 
               if (isGenerating) const CircularProgressIndicator() else ...[
                 
-                // BUTTON 1: Question Paper
+                // BUTTON 1: Question Paper (LOCKED)
                 SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: () => _showExamDetailsDialog(context), 
+                  onPressed: () => _checkPremiumAndProceed(() {
+                    _showExamDetailsDialog(context);
+                  }), 
                   icon: const Icon(Icons.print, color: Colors.blue),
                   label: const Text("Print Question Paper (PDF)"),
                 )),
                 const SizedBox(height: 10),
                 
-                // BUTTON 2: Answer Key
+                // BUTTON 2: Answer Key (LOCKED)
                 SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: () => _printHtml(isAnswerKey: true), 
+                  onPressed: () => _checkPremiumAndProceed(() {
+                    _printHtml(isAnswerKey: true);
+                  }), 
                   icon: const Icon(Icons.vpn_key, color: Colors.orange),
                   label: const Text("Print Answer Key (Table PDF)"),
                 )),
                 const SizedBox(height: 10),
 
-                // BUTTON 3: CSV
+                // BUTTON 3: CSV (LOCKED)
                 SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: _generateCsv,
+                  onPressed: () => _checkPremiumAndProceed(() {
+                    _generateCsv();
+                  }),
                   icon: const Icon(Icons.table_chart, color: Colors.green),
                   label: const Text("Download Excel (CSV)"),
                 )),
