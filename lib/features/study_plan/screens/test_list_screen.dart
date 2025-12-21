@@ -5,8 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/test_model.dart';
 import 'attempt_test_screen.dart';
 import 'test_solution_screen.dart'; 
-
-// Note: ManageUsersScreen test specific permission ke liye hai
 import '../../admin/screens/manage_users_screen.dart'; 
 
 class TestListScreen extends StatelessWidget {
@@ -14,10 +12,10 @@ class TestListScreen extends StatelessWidget {
   final String weekId;
 
   const TestListScreen({
-    Key? key, 
+    super.key, 
     required this.examId, 
     required this.weekId
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -51,8 +49,6 @@ class TestListScreen extends StatelessWidget {
             ],
           ),
           
-          // ❌ REMOVED: FloatingActionButton (Add Test) yahan se hata diya gaya hai.
-          
           body: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('study_schedules').doc(examId)
@@ -72,6 +68,7 @@ class TestListScreen extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final doc = testSnapshot.data!.docs[index];
                   final data = doc.data() as Map<String, dynamic>;
+                  // Safe Model Conversion
                   final test = TestModel.fromMap(data, doc.id);
                   
                   String creatorId = data['createdBy'] ?? '';
@@ -119,12 +116,20 @@ class TestListScreen extends StatelessWidget {
     return "${date.day}/${date.month} - ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 
+  // 🔥 UPDATED: Robust Logic to prevent Infinite Loading
   Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum) async {
-    showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
+    // 1. Show Loading
+    showDialog(
+      context: context, 
+      barrierDismissible: false, 
+      builder: (c) => const Center(child: CircularProgressIndicator())
+    );
 
     try {
       String emailKey = user.email!.trim().toLowerCase();
-      
+      debugPrint("Checking access for: $emailKey");
+
+      // 2. Fetch Permission Document
       DocumentSnapshot permDoc = await FirebaseFirestore.instance
           .collection('study_schedules').doc(examId)
           .collection('weeks').doc(weekId)
@@ -132,21 +137,35 @@ class TestListScreen extends StatelessWidget {
           .collection('allowed_users').doc(emailKey)
           .get();
 
+      // 🔥 CRITICAL FIX: Close Loading Dialog IMMEDIATELY after fetching data
+      // This ensures the screen never stays stuck on loading
+      if (context.mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+      // 3. Check if Document Exists (Permission Granted?)
       if (!permDoc.exists) {
-        if (context.mounted) {
-          Navigator.pop(context); 
-          _showPurchasePopup(context, contactNum); 
-        }
+        debugPrint("Access Denied: User not in allowed list.");
+        if (context.mounted) _showPurchasePopup(context, contactNum); 
         return;
       }
 
-      DateTime expiryDate = (permDoc['expiryDate'] as Timestamp).toDate();
-      if (DateTime.now().isAfter(expiryDate)) {
-        throw "Access Expired on ${_formatDate(expiryDate)}.";
+      // 4. Check Expiry Date
+      if (permDoc.data() != null) {
+        Map<String, dynamic> permData = permDoc.data() as Map<String, dynamic>;
+        if (permData.containsKey('expiryDate')) {
+           DateTime expiryDate = (permData['expiryDate'] as Timestamp).toDate();
+           if (DateTime.now().isAfter(expiryDate)) {
+             if (context.mounted) {
+               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Access Expired on ${_formatDate(expiryDate)}"), backgroundColor: Colors.red));
+             }
+             return;
+           }
+        }
       }
 
+      // 5. Success! Navigate to Test
       if (context.mounted) {
-        Navigator.pop(context);
         Navigator.push(
           context, 
           MaterialPageRoute(builder: (_) => AttemptTestScreen(
@@ -154,7 +173,8 @@ class TestListScreen extends StatelessWidget {
              testData: { 
                'testTitle': test.subject,
                'questions': test.questions,
-               'settings': {} 
+               // 🔥 FIX: Passing correct settings (Time, Marks) from model
+               'settings': test.settings 
              },
              examId: examId,
              weekId: weekId,
@@ -163,9 +183,16 @@ class TestListScreen extends StatelessWidget {
       }
 
     } catch (e) {
-      if (context.mounted) {
+      // Error Handling
+      debugPrint("Error in _checkAccessAndStart: $e");
+      
+      // Ensure Loading is closed if error occurred before closing it
+      if (context.mounted && Navigator.canPop(context)) {
         Navigator.pop(context); 
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+      }
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
       }
     }
   }
@@ -269,6 +296,7 @@ class TestListScreen extends StatelessWidget {
       );
     }
     
+    // For Host (Teacher) viewing someone else's test -> Locked
     if (isHost && !isMyTest) return const Text("Locked", style: TextStyle(fontSize: 10, color: Colors.grey));
 
     if (isAttempted) {
