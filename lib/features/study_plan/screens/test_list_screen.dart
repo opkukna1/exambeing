@@ -5,14 +5,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/test_model.dart';
 import 'attempt_test_screen.dart';
 
-// ✅ FIXED IMPORT: Apki file ka sahi naam yahan use kiya hai
+// ✅ CORRECT IMPORT: Ab ye apki existing file use karega
 import 'test_solution_screen.dart'; 
 
 import '../../admin/screens/create_test_screen.dart';
 import '../../admin/screens/manage_users_screen.dart'; 
 
 class TestListScreen extends StatelessWidget {
-  // 🔥 IDs required for Nested Path
   final String examId;
   final String weekId;
 
@@ -27,7 +26,6 @@ class TestListScreen extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return const Scaffold(body: Center(child: Text("Please Login")));
 
-    // 1. User Role Check Stream
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
       builder: (context, userSnapshot) {
@@ -55,7 +53,6 @@ class TestListScreen extends StatelessWidget {
             ],
           ),
           
-          // 🔥 Add Test Button (Only for Host)
           floatingActionButton: isHost
               ? FloatingActionButton.extended(
                   onPressed: () {
@@ -70,7 +67,6 @@ class TestListScreen extends StatelessWidget {
                 )
               : null,
 
-          // 🔥 LOAD TESTS (From Nested Path)
           body: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('study_schedules').doc(examId)
@@ -92,12 +88,10 @@ class TestListScreen extends StatelessWidget {
                   final data = doc.data() as Map<String, dynamic>;
                   final test = TestModel.fromMap(data, doc.id);
                   
-                  // Logic Variables
                   String creatorId = data['createdBy'] ?? '';
                   String contactNum = data['contactNumber'] ?? '8005576670';
                   bool isMyTest = (user.uid == creatorId);
 
-                  // Check Attempt Status
                   return StreamBuilder<DocumentSnapshot>(
                     stream: FirebaseFirestore.instance.collection('users').doc(user.uid).collection('test_results').doc(test.id).snapshots(),
                     builder: (context, resultSnapshot) {
@@ -112,15 +106,14 @@ class TestListScreen extends StatelessWidget {
                           subtitle: Text("Starts: ${_formatDate(test.scheduledAt)}"),
                           isThreeLine: true,
                           
-                          // 🔥 Decide Buttons (Teacher vs Student)
                           trailing: _buildActionButtons(
                             context: context, 
                             test: test, 
-                            data: data,
+                            data: data, 
                             isAttempted: isAttempted, 
                             isHost: isHost, 
                             isMyTest: isMyTest, 
-                            user: user,
+                            user: user, 
                             contactNum: contactNum
                           ),
                         ),
@@ -140,7 +133,6 @@ class TestListScreen extends StatelessWidget {
     return "${date.day}/${date.month} - ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 
-  // 🛡️ SECURITY CHECK FOR STUDENTS
   Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum) async {
     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
 
@@ -154,22 +146,19 @@ class TestListScreen extends StatelessWidget {
           .collection('allowed_users').doc(emailKey)
           .get();
 
-      // ❌ 1. Not in Allowed List -> Popup
       if (!permDoc.exists) {
         if (context.mounted) {
-          Navigator.pop(context); // Close Loader
-          _showPurchasePopup(context, contactNum); // Show Contact Popup
+          Navigator.pop(context); 
+          _showPurchasePopup(context, contactNum); 
         }
         return;
       }
 
-      // ❌ 2. Expired Check
       DateTime expiryDate = (permDoc['expiryDate'] as Timestamp).toDate();
       if (DateTime.now().isAfter(expiryDate)) {
         throw "Access Expired on ${_formatDate(expiryDate)}.";
       }
 
-      // ✅ 3. Allowed -> Go to Test
       if (context.mounted) {
         Navigator.pop(context);
         Navigator.push(
@@ -195,7 +184,6 @@ class TestListScreen extends StatelessWidget {
     }
   }
 
-  // 💰 POPUP UI
   void _showPurchasePopup(BuildContext context, String contact) {
     showDialog(
       context: context,
@@ -208,7 +196,7 @@ class TestListScreen extends StatelessWidget {
             children: [
               const Text("Is test ko attempt karne ke liye aapko teacher se access lena hoga.", style: TextStyle(fontSize: 14)),
               const SizedBox(height: 15),
-              const Text("Contact Teacher to Subscribe:", style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text("Subscribe karne ke liye Teacher se contact karein:", style: TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -248,7 +236,6 @@ class TestListScreen extends StatelessWidget {
     );
   }
 
-  // 🔘 BUTTON LOGIC
   Widget _buildActionButtons({
     required BuildContext context, 
     required TestModel test, 
@@ -262,7 +249,6 @@ class TestListScreen extends StatelessWidget {
     DateTime now = DateTime.now();
     bool isLocked = now.isBefore(test.scheduledAt);
 
-    // ✅ TEACHER VIEW
     if (isHost && isMyTest) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -295,23 +281,23 @@ class TestListScreen extends StatelessWidget {
       );
     }
     
-    // Other Teacher
     if (isHost && !isMyTest) return const Text("Locked", style: TextStyle(fontSize: 10, color: Colors.grey));
 
-    // Student: Result
     if (isAttempted) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-        // 🔥 FIXED: Calling TestSolutionScreen
+        // 🔥 FIX: Using "TestSolutionScreen" class and correct file import
         onPressed: () => Navigator.push(
           context, 
-          MaterialPageRoute(builder: (_) => TestSolutionScreen(testId: test.id, originalQuestions: test.questions))
+          MaterialPageRoute(builder: (_) => TestSolutionScreen(
+            testId: test.id, 
+            originalQuestions: test.questions
+          ))
         ),
         child: const Text("Result"),
       );
     }
 
-    // Student: Time Lock
     if (isLocked) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
@@ -320,7 +306,6 @@ class TestListScreen extends StatelessWidget {
       );
     }
 
-    // Student: Start
     return ElevatedButton(
       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
       onPressed: () => _checkAccessAndStart(context, test, user, contactNum),
