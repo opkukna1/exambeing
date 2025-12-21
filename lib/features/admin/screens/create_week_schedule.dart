@@ -32,7 +32,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
   @override
   void initState() {
     super.initState();
-    _checkHostPermissions(); // 🔥 Step 1: Sabse pehle permission check karo
+    _checkHostPermissions(); // 🔥 Step 1: Permission & Limit Check
   }
 
   // 🔥 1️⃣ Permission & Limit Check Function
@@ -48,7 +48,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     }
 
     try {
-      // A. User ka data fetch karo (users collection se)
+      // A. User ka data fetch karo
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -69,15 +69,14 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
       }
 
       // C. Check 'hostnumber' (Max limit)
-      // Parse int safely (agar string "5" hai ya number 5 hai dono handle honge)
       int allowedLimit = int.tryParse(userData['hostnumber'].toString()) ?? 0;
 
-      // D. Count current schedules created for this Exam
-      // Note: Hum count() query use kar rahe hain jo fast aur sasti hai
+      // D. Count current schedules
       AggregateQuerySnapshot query = await FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(widget.examId)
           .collection('weeks')
+          .where('createdBy', isEqualTo: user.uid) // Sirf usi user ke banaye hue count karein (Optional)
           .count()
           .get();
       
@@ -110,10 +109,10 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
         duration: const Duration(seconds: 3),
       )
     );
-    Navigator.pop(context); // Screen band kar do
+    Navigator.pop(context); 
   }
 
-  // 2️⃣ Fetch Hierarchy (Existing Logic)
+  // 2️⃣ Fetch Hierarchy
   Future<void> _fetchHierarchy() async {
     try {
       DocumentSnapshot doc = await FirebaseFirestore.instance
@@ -124,7 +123,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
       if (doc.exists) {
         setState(() {
           fullHierarchy = doc['hierarchy'] as List<dynamic>;
-          isLoading = false; // Loading khatam
+          isLoading = false; 
         });
       } else {
         setState(() => isLoading = false);
@@ -177,13 +176,23 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     }
   }
 
+  // 🔥 3️⃣ SAVE SCHEDULE FUNCTION (Updated with createdBy)
   void _saveSchedule() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    // Basic Validations
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User not logged in!")));
+      return;
+    }
+
     if (_weekTitleController.text.isEmpty || _examDate == null || _addedTopics.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Title, Date aur kam se kam 1 Topic zaroori hai!")));
       return;
     }
 
     try {
+      // 🔥 Saving to Firebase with 'createdBy'
       await FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(widget.examId)
@@ -192,10 +201,15 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
         'weekTitle': _weekTitleController.text.trim(),
         'unlockTime': Timestamp.fromDate(_examDate!),
         'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': user.uid, // ✅ YE HAI WO MAIN LINE (TEACHER ID)
         'linkedTopics': _addedTopics.map((e) => "${e['topic']} (${e['subTopic']})").toList(),
         'scheduleData': _addedTopics,
       });
-      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Schedule Created Successfully! ✅")));
+        Navigator.pop(context);
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
@@ -212,7 +226,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
                 children: [
                   const CircularProgressIndicator(),
                   const SizedBox(height: 20),
-                  Text(loadingMessage ?? "Loading..."), // Loading message dikhayega
+                  Text(loadingMessage ?? "Loading..."), 
                 ],
               ),
             )
