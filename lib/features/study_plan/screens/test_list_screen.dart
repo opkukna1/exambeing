@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Copy Clipboard
+import 'package:flutter/services.dart'; // Clipboard
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/test_model.dart';
@@ -9,6 +9,7 @@ import '../../admin/screens/create_test_screen.dart';
 import '../../admin/screens/manage_users_screen.dart'; 
 
 class TestListScreen extends StatelessWidget {
+  // 🔥 ये IDs बहुत जरूरी हैं ताकि सही जगह से डाटा मिले
   final String examId;
   final String weekId;
 
@@ -27,7 +28,7 @@ class TestListScreen extends StatelessWidget {
       stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
       builder: (context, userSnapshot) {
         
-        // 1. Check HOST Status
+        // 1. Host Check
         bool isHost = false;
         if (userSnapshot.hasData && userSnapshot.data!.exists) {
           final userData = userSnapshot.data!.data() as Map<String, dynamic>;
@@ -44,17 +45,18 @@ class TestListScreen extends StatelessWidget {
                   child: Center(
                     child: Text(
                       "TEACHER MODE", 
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white, backgroundColor: Colors.red)
                     )
                   ),
                 )
             ],
           ),
           
-          // 🔥 Add Test Button (Sirf Host ke liye)
+          // Add Test Button (Sirf Host ko dikhega)
           floatingActionButton: isHost
               ? FloatingActionButton.extended(
                   onPressed: () {
+                    // 🔥 Pass IDs to Create Screen
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => CreateTestScreen(examId: examId, weekId: weekId)),
@@ -66,7 +68,7 @@ class TestListScreen extends StatelessWidget {
                 )
               : null,
 
-          // 🔥 Load Tests from Nested Collection
+          // 🔥 FIXED: Load Tests from NESTED Collection (Schedule -> Week -> Tests)
           body: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('study_schedules').doc(examId)
@@ -75,8 +77,10 @@ class TestListScreen extends StatelessWidget {
                 .orderBy('scheduledAt', descending: true)
                 .snapshots(),
             builder: (context, testSnapshot) {
-              if (!testSnapshot.hasData) return const Center(child: CircularProgressIndicator());
-              if (testSnapshot.data!.docs.isEmpty) return const Center(child: Text("No tests scheduled yet."));
+              if (testSnapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+              if (!testSnapshot.hasData || testSnapshot.data!.docs.isEmpty) {
+                return const Center(child: Text("No tests scheduled yet."));
+              }
 
               return ListView.builder(
                 itemCount: testSnapshot.data!.docs.length,
@@ -87,7 +91,7 @@ class TestListScreen extends StatelessWidget {
                   
                   // 🔥 Variables
                   String creatorId = data['createdBy'] ?? '';
-                  String contactNum = data['contactNumber'] ?? 'Not Provided';
+                  String contactNum = data['contactNumber'] ?? '8005576670'; // Default backup
                   bool isMyTest = (user.uid == creatorId);
 
                   // Check Attempt Status
@@ -105,7 +109,7 @@ class TestListScreen extends StatelessWidget {
                           subtitle: Text("Starts: ${_formatDate(test.scheduledAt)}"),
                           isThreeLine: true,
                           
-                          // 🔥 Buttons Logic
+                          // 🔥 Action Buttons
                           trailing: _buildActionButtons(
                             context: context, 
                             test: test, 
@@ -133,14 +137,14 @@ class TestListScreen extends StatelessWidget {
     return "${date.day}/${date.month} - ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 
-  // 🛡️ SECURITY CHECK (No Paid Check, Only Allowed List)
+  // 🛡️ SECURITY CHECK (Using Correct Path)
   Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum) async {
     showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
 
     try {
       String emailKey = user.email!.trim().toLowerCase();
       
-      // 🔥 Verify in Allowed Users Collection
+      // 🔥 FIX: Verify in Nested Collection (Schedule -> Week -> Tests -> AllowedUsers)
       DocumentSnapshot permDoc = await FirebaseFirestore.instance
           .collection('study_schedules').doc(examId)
           .collection('weeks').doc(weekId)
@@ -152,7 +156,7 @@ class TestListScreen extends StatelessWidget {
       if (!permDoc.exists) {
         if (context.mounted) {
           Navigator.pop(context); // Close Loader
-          _showPurchasePopup(context, contactNum); // Show Contact Popup
+          _showPurchasePopup(context, contactNum); // Show Popup
         }
         return;
       }
@@ -173,7 +177,7 @@ class TestListScreen extends StatelessWidget {
              testData: { 
                'testTitle': test.subject,
                'questions': test.questions,
-               'settings': {} 
+               'settings': {} // Agar settings test model me hain to pass karein
              },
              examId: examId,
              weekId: weekId,
@@ -189,21 +193,20 @@ class TestListScreen extends StatelessWidget {
     }
   }
 
-  // 💰 PURCHASE POPUP (Sundar wala)
+  // 💰 PURCHASE POPUP
   void _showPurchasePopup(BuildContext context, String contact) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(children: [Icon(Icons.lock, color: Colors.red), SizedBox(width: 10), Text("Locked Test")]),
+          title: const Row(children: [Icon(Icons.lock, color: Colors.red), SizedBox(width: 10), Text("Paid Test")]),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Is test ko attempt karne ke liye aapko teacher se access lena hoga.", style: TextStyle(fontSize: 14)),
+              const Text("Is test ko attempt karne ke liye aapko Subscription lena hoga.", style: TextStyle(fontSize: 14)),
               const SizedBox(height: 15),
-              const Text("Teacher se contact karein (Subscribe):", style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text("Subscribe karne ke liye Teacher se contact karein:", style: TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -257,7 +260,7 @@ class TestListScreen extends StatelessWidget {
     DateTime now = DateTime.now();
     bool isLocked = now.isBefore(test.scheduledAt);
 
-    // 1. TEACHER VIEW
+    // 1. TEACHER VIEW (Agar Host hai aur Usne banaya hai)
     if (isHost && isMyTest) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -272,7 +275,7 @@ class TestListScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => ManageUsersScreen(
                   testId: test.id, 
                   testName: data['testTitle'] ?? test.subject,
-                  examId: examId, // 🔥 Passing IDs needed for correct path
+                  examId: examId, // 🔥 Passing Correct IDs
                   weekId: weekId,
                 )),
               );
@@ -292,7 +295,7 @@ class TestListScreen extends StatelessWidget {
       );
     }
     
-    // 2. OTHER TEACHER
+    // 2. OTHER TEACHER (Locked)
     if (isHost && !isMyTest) return const Text("Locked", style: TextStyle(fontSize: 10, color: Colors.grey));
 
     // 3. STUDENT: Result
@@ -313,7 +316,7 @@ class TestListScreen extends StatelessWidget {
       );
     }
 
-    // 5. STUDENT: Start (Without Paid Check)
+    // 5. STUDENT: Start (Security Check)
     return ElevatedButton(
       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
       onPressed: () => _checkAccessAndStart(context, test, user, contactNum),
