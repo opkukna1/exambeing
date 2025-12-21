@@ -4,8 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/test_model.dart';
 import 'attempt_test_screen.dart';
-import 'solutions_screen.dart';
-// 🔥 Ensure imports are correct
+
+// ✅ FIXED IMPORT: Apki file ka sahi naam yahan use kiya hai
+import 'test_solution_screen.dart'; 
+
 import '../../admin/screens/create_test_screen.dart';
 import '../../admin/screens/manage_users_screen.dart'; 
 
@@ -54,7 +56,6 @@ class TestListScreen extends StatelessWidget {
           ),
           
           // 🔥 Add Test Button (Only for Host)
-          // Passes IDs to Create Screen so test is created in correct week
           floatingActionButton: isHost
               ? FloatingActionButton.extended(
                   onPressed: () {
@@ -146,7 +147,6 @@ class TestListScreen extends StatelessWidget {
     try {
       String emailKey = user.email!.trim().toLowerCase();
       
-      // 🔥 CRITICAL: Checking Nested Collection
       DocumentSnapshot permDoc = await FirebaseFirestore.instance
           .collection('study_schedules').doc(examId)
           .collection('weeks').doc(weekId)
@@ -262,7 +262,7 @@ class TestListScreen extends StatelessWidget {
     DateTime now = DateTime.now();
     bool isLocked = now.isBefore(test.scheduledAt);
 
-    // ✅ TEACHER VIEW (Uses Nested IDs)
+    // ✅ TEACHER VIEW
     if (isHost && isMyTest) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -276,8 +276,8 @@ class TestListScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => ManageUsersScreen(
                   testId: test.id, 
                   testName: data['testTitle'] ?? test.subject,
-                  examId: examId, // Passing ID
-                  weekId: weekId, // Passing ID
+                  examId: examId, 
+                  weekId: weekId,
                 )),
               );
             },
@@ -287,7 +287,6 @@ class TestListScreen extends StatelessWidget {
             onPressed: () async {
                bool confirm = await showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Delete Test?"), actions: [TextButton(onPressed: ()=>Navigator.pop(c,false), child: const Text("No")), TextButton(onPressed: ()=>Navigator.pop(c,true), child: const Text("Yes"))])) ?? false;
                if(confirm) {
-                   // Delete from Nested Path
                    await FirebaseFirestore.instance.collection('study_schedules').doc(examId).collection('weeks').doc(weekId).collection('tests').doc(test.id).delete();
                }
             },
@@ -303,7 +302,11 @@ class TestListScreen extends StatelessWidget {
     if (isAttempted) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SolutionsScreen(testId: test.id, originalQuestions: test.questions))),
+        // 🔥 FIXED: Calling TestSolutionScreen
+        onPressed: () => Navigator.push(
+          context, 
+          MaterialPageRoute(builder: (_) => TestSolutionScreen(testId: test.id, originalQuestions: test.questions))
+        ),
         child: const Text("Result"),
       );
     }
@@ -317,7 +320,7 @@ class TestListScreen extends StatelessWidget {
       );
     }
 
-    // Student: Start (Runs Security Check)
+    // Student: Start
     return ElevatedButton(
       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
       onPressed: () => _checkAccessAndStart(context, test, user, contactNum),
