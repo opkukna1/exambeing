@@ -3,8 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Question {
   String id;
   String questionText;
-  List<String> options; // ✅ Changed: Fixed separate options to a List
-  int correctIndex;     // ✅ Changed: String "A" ki jagah int Index (0,1,2,3)
+  List<String> options; // ✅ Hum yahan List hi rakhenge, par data alag tarah se bharenge
+  int correctIndex;     
   String explanation;
 
   Question({
@@ -15,26 +15,50 @@ class Question {
     required this.explanation,
   });
 
+  // App se Database bhejne ke liye (Agar naya test bana rahe ho)
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'question': questionText, // Database expects 'question'
+      'questionText': questionText,
       'options': options,
-      'correctIndex': correctIndex,
+      'correctAnswerIndex': correctIndex,
       'explanation': explanation,
     };
   }
 
+  // 🔥 MAIN FIX: Database se Data Padhne ka Logic
   factory Question.fromMap(Map<String, dynamic> map) {
+    List<String> parsedOptions = [];
+    
+    // CASE 1: Agar database me 'options' naam ki List pehle se hai (New Format)
+    if (map['options'] != null && map['options'] is List) {
+      parsedOptions = List<String>.from(map['options']);
+    } 
+    // CASE 2: Agar database me 'option0', 'option1' alag-alag hain (Old Format) 🔥
+    else {
+      int i = 0;
+      // Jab tak option0, option1, option2... milte rahenge, loop chalta rahega
+      while (map.containsKey('option$i')) {
+        String optVal = map['option$i'].toString();
+        // Null ya Empty check
+        if (optVal.isNotEmpty && optVal != "null") {
+          parsedOptions.add(optVal);
+        }
+        i++;
+      }
+    }
+
     return Question(
       id: map['id'] ?? '',
-      // Handle both keys just in case
-      questionText: map['question'] ?? map['questionText'] ?? '', 
       
-      // Dynamic List conversion
-      options: List<String>.from(map['options'] ?? []), 
+      // Question Text (Dono naam check karega)
+      questionText: map['questionText'] ?? map['question'] ?? 'No Question', 
       
+      options: parsedOptions, 
+      
+      // Correct Index (Dono naam check karega)
       correctIndex: map['correctAnswerIndex'] ?? map['correctIndex'] ?? 0,
+      
       explanation: map['explanation'] ?? map['solution'] ?? '',
     );
   }
@@ -42,10 +66,10 @@ class Question {
 
 class TestModel {
   String id;
-  String subject; // Will map 'testTitle' to this
+  String subject; 
   DateTime scheduledAt;
   List<Question> questions;
-  Map<String, dynamic> settings; // ✅ Added: For Timer, Positive/Negative Marks
+  Map<String, dynamic> settings; 
 
   TestModel({
     required this.id,
@@ -67,18 +91,17 @@ class TestModel {
   factory TestModel.fromMap(Map<String, dynamic> map, String docId) {
     return TestModel(
       id: docId,
-      // CreateScreen saves 'testTitle', Model uses 'subject'
       subject: map['testTitle'] ?? map['subject'] ?? 'Untitled Test',
       
-      // Fallback for date
+      // Date handling
       scheduledAt: (map['scheduledAt'] ?? map['unlockTime'] ?? Timestamp.now()).toDate(),
       
+      // Question List Parsing
       questions: map['questions'] != null
           ? List<Question>.from(
               (map['questions'] as List<dynamic>).map((x) => Question.fromMap(x)))
           : [],
           
-      // Load Settings (Duration, Marks)
       settings: map['settings'] ?? {}, 
     );
   }
