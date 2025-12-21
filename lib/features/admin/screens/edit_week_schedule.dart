@@ -23,8 +23,8 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
   late List<dynamic> _topicsList;
   bool _isLoading = true; 
 
-  // Dropdown Selections Data
-  List<dynamic> fullHierarchy = [];
+  // Combined Data (Global + Private)
+  List<dynamic> combinedHierarchy = [];
   
   // 🔥 Controllers for Add Topic Sheet
   final TextEditingController _subjController = TextEditingController();
@@ -81,7 +81,8 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
       if (userDoc.exists) {
         String isHost = (userDoc['host'] ?? 'no').toString().toLowerCase();
         if (isHost == 'yes') {
-          _fetchHierarchy();
+          // 🔥 Load Combined Data (Global + Private)
+          _fetchCombinedHierarchy(user.uid);
         } else {
           _showErrorAndExit("Access Denied: You are not a Host.");
         }
@@ -99,20 +100,38 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
     Navigator.pop(context); 
   }
 
-  // 1️⃣ Fetch Hierarchy
-  Future<void> _fetchHierarchy() async {
+  // 🔥 1️⃣ Fetch Combined Hierarchy (Global + Private)
+  Future<void> _fetchCombinedHierarchy(String userId) async {
     try {
-      var doc = await FirebaseFirestore.instance.collection('app_metadata').doc('notes_index').get();
-      if (doc.exists) {
-        if(mounted) {
-          setState(() {
-            fullHierarchy = doc['hierarchy'] as List<dynamic>;
-            _isLoading = false; 
-          });
-        }
-      } else {
-        setState(() => _isLoading = false);
+      List<dynamic> globalList = [];
+      List<dynamic> privateList = [];
+
+      // A. Fetch Global Metadata
+      DocumentSnapshot globalDoc = await FirebaseFirestore.instance.collection('app_metadata').doc('notes_index').get();
+      if (globalDoc.exists) {
+        globalList = globalDoc['hierarchy'] as List<dynamic>;
       }
+
+      // B. Fetch Private Metadata (Unique to Teacher)
+      DocumentSnapshot privateDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('my_custom_topics')
+          .doc('hierarchy_doc')
+          .get();
+      
+      if (privateDoc.exists) {
+        privateList = privateDoc['data'] as List<dynamic>;
+      }
+
+      // C. Merge
+      if(mounted) {
+        setState(() {
+          combinedHierarchy = [...privateList, ...globalList];
+          _isLoading = false; 
+        });
+      }
+
     } catch (e) {
       setState(() => _isLoading = false);
     }
@@ -125,7 +144,7 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
     });
   }
 
-  // 3️⃣ Add New Topic Logic (From Text Controllers)
+  // 🔥 3️⃣ Add New Topic Logic (Updated with Custom ID)
   void _addTopic() {
     String subj = _subjController.text.trim();
     String subSubj = _subSubjController.text.trim();
@@ -140,11 +159,13 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
         'subSubject': subSubj,
         'topic': topic,
         'subTopic': subTop,
-        // IDs: Agar select kiya to ID, warna custom ID
-        'subjId': selectedSubject?['id'] ?? 'custom',
-        'subSubjId': selectedSubSubject?['id'] ?? 'custom',
-        'topicId': selectedTopic?['id'] ?? 'custom',
-        'subTopId': selectedSubTopic?['id'] ?? 'custom',
+        // IDs: Database se select kiya to ID, warna Time-based Custom ID
+        'subjId': selectedSubject?['id'] ?? 'cust_${DateTime.now().millisecondsSinceEpoch}',
+        'subSubjId': selectedSubSubject?['id'] ?? 'cust_ss_${DateTime.now().millisecondsSinceEpoch}',
+        'topicId': selectedTopic?['id'] ?? 'cust_t_${DateTime.now().millisecondsSinceEpoch}',
+        'subTopId': selectedSubTopic?['id'] ?? 'cust_st_${DateTime.now().millisecondsSinceEpoch}',
+        // Flag for saving later
+        'isCustom': selectedSubject == null 
       });
       
       // Reset
@@ -156,9 +177,8 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
     Navigator.pop(context); 
   }
 
-  // 🔥 4️⃣ Show Add Dialog (Autocomplete Enabled)
+  // 4️⃣ Show Add Dialog
   void _showAddTopicSheet() {
-    // Reset controllers before opening
     _subjController.clear();
     _subSubjController.clear();
     _topicController.clear();
@@ -181,11 +201,10 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
                 const Text("Add New Topic", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 10),
 
-                // 1. Subject
-                _buildAutocomplete("Subject", _subjController, fullHierarchy, (val) {
+                // 1. Subject (Uses Combined Hierarchy)
+                _buildAutocomplete("Subject", _subjController, combinedHierarchy, (val) {
                   setSheetState(() {
                     selectedSubject = val;
-                    // Reset children
                     _subSubjController.clear(); _topicController.clear(); _subTopController.clear();
                     selectedSubSubject = null; selectedTopic = null; selectedSubTopic = null;
                   });
@@ -195,7 +214,6 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
                 _buildAutocomplete("Sub-Subject", _subSubjController, selectedSubject?['subSubjects'] ?? [], (val) {
                   setSheetState(() {
                     selectedSubSubject = val;
-                    // Reset children
                     _topicController.clear(); _subTopController.clear();
                     selectedTopic = null; selectedSubTopic = null;
                   });
@@ -205,7 +223,6 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
                 _buildAutocomplete("Topic", _topicController, selectedSubSubject?['topics'] ?? [], (val) {
                   setSheetState(() {
                     selectedTopic = val;
-                    // Reset children
                     _subTopController.clear();
                     selectedSubTopic = null;
                   });
@@ -230,10 +247,14 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
     );
   }
 
-  // 5️⃣ Save Changes
+  // 🔥 5️⃣ Save Changes & Private Metadata
   void _saveChanges() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if(user == null) return;
+
     setState(() => _isLoading = true);
     try {
+      // A. Save Public Schedule
       await FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(widget.examId)
@@ -244,6 +265,10 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
         'scheduleData': _topicsList,
         'linkedTopics': _topicsList.map((e) => "${e['topic']} (${e['subTopic']})").toList(),
       });
+
+      // B. Save Custom Topics (Private Dictionary)
+      await _savePrivateMetadata(user.uid);
+
       if(mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Schedule Updated! ✅")));
@@ -252,6 +277,50 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
       if(mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // 🔥 Helper: Save Private Metadata Logic
+  Future<void> _savePrivateMetadata(String uid) async {
+    List<dynamic> currentPrivateList = [];
+    var docRef = FirebaseFirestore.instance.collection('users').doc(uid).collection('my_custom_topics').doc('hierarchy_doc');
+    
+    var docSnap = await docRef.get();
+    if (docSnap.exists) {
+      currentPrivateList = List.from(docSnap['data']);
+    }
+
+    bool needsUpdate = false;
+
+    for (var item in _topicsList) {
+      // Check for Custom Items added in this session
+      if (item['isCustom'] == true) {
+        var subjIndex = currentPrivateList.indexWhere((e) => e['name'] == item['subject']);
+        
+        if (subjIndex == -1) {
+          currentPrivateList.add({
+            'name': item['subject'],
+            'id': item['subjId'],
+            'subSubjects': [{
+              'name': item['subSubject'],
+              'id': item['subSubjId'],
+              'topics': [{
+                'name': item['topic'],
+                'id': item['topicId'],
+                'subTopics': [{
+                  'name': item['subTopic'],
+                  'id': item['subTopId']
+                }]
+              }]
+            }]
+          });
+          needsUpdate = true;
+        }
+      }
+    }
+
+    if (needsUpdate) {
+      await docRef.set({'data': currentPrivateList}, SetOptions(merge: true));
     }
   }
 
@@ -297,7 +366,6 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
           onSelected(selection);
         },
         fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
-          // Sync check
           if (textController.text != controller.text) textController.text = controller.text;
           
           return TextField(
@@ -309,7 +377,11 @@ class _EditWeekScheduleState extends State<EditWeekSchedule> {
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               suffixIcon: const Icon(Icons.arrow_drop_down),
             ),
-            onChanged: (val) => controller.text = val,
+            onChanged: (val) {
+              controller.text = val;
+              // Reset selection if user types manually
+              if(label == "Subject") selectedSubject = null;
+            },
           );
         },
       ),
