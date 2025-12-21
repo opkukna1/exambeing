@@ -26,13 +26,43 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
     _fetchResult();
   }
 
-  // 🔥 Fetch User Result from Firestore
+  // 🔥 Fetch User Result DIRECTLY by Document ID (Faster & Cheaper)
   Future<void> _fetchResult() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     try {
-      QuerySnapshot query = await FirebaseFirestore.instance
+      // Direct Document Fetch instead of Query
+      DocumentSnapshot doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('test_results')
+          .doc(widget.testId)
+          .get();
+
+      if (doc.exists) {
+        if(mounted) {
+          setState(() {
+            resultData = doc.data() as Map<String, dynamic>;
+            isLoading = false;
+          });
+        }
+      } else {
+        // Fallback: Agar doc ID match na kare (purane version ki wajah se), to Query try karo
+        _fetchResultByQuery();
+      }
+    } catch (e) {
+      debugPrint("Error fetching result: $e");
+      if(mounted) setState(() => isLoading = false);
+    }
+  }
+
+  // Fallback for older data
+  Future<void> _fetchResultByQuery() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+       QuerySnapshot query = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('test_results')
@@ -40,18 +70,15 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
           .limit(1)
           .get();
 
-      if (query.docs.isNotEmpty) {
-        if(mounted) {
-          setState(() {
-            resultData = query.docs.first.data() as Map<String, dynamic>;
-            isLoading = false;
-          });
-        }
+      if (query.docs.isNotEmpty && mounted) {
+        setState(() {
+          resultData = query.docs.first.data() as Map<String, dynamic>;
+          isLoading = false;
+        });
       } else {
         if(mounted) setState(() => isLoading = false);
       }
     } catch (e) {
-      debugPrint("Error fetching result: $e");
       if(mounted) setState(() => isLoading = false);
     }
   }
