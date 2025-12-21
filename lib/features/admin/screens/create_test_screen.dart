@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 🔥 Auth Import
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 class CreateTestScreen extends StatefulWidget {
@@ -30,7 +30,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
 
   List<Map<String, dynamic>> _questions = [];
   bool _isGenerating = false; 
-  bool _isLoadingPage = true; // 🔥 Page Loading State for Security Check
+  bool _isLoadingPage = true; 
 
   // --- Auto Generator State ---
   final Map<String, int> _topicCounts = {}; 
@@ -39,10 +39,10 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   @override
   void initState() {
     super.initState();
-    _checkPermissions(); // 🔥 Security Check Start
+    _checkPermissions(); 
   }
 
-  // 🔒 SECURITY CHECK FUNCTION
+  // 🔒 SECURITY CHECK FUNCTION (FIXED PATH)
   Future<void> _checkPermissions() async {
     User? user = FirebaseAuth.instance.currentUser;
 
@@ -67,19 +67,28 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         return;
       }
 
-      // 2. Check if Schedule was CREATED BY this user
-      DocumentSnapshot scheduleDoc = await FirebaseFirestore.instance.collection('study_schedules').doc(widget.examId).get();
+      // 2. 🔥 FIXED: Check Ownership in WEEK Document (Not Exam Document)
+      // Path: study_schedules -> {examId} -> weeks -> {weekId}
+      DocumentSnapshot weekDoc = await FirebaseFirestore.instance
+          .collection('study_schedules')
+          .doc(widget.examId)
+          .collection('weeks')
+          .doc(widget.weekId)
+          .get();
       
-      if (!scheduleDoc.exists) {
-        _showErrorAndExit("Schedule not found.");
+      if (!weekDoc.exists) {
+        _showErrorAndExit("Week Schedule not found.");
         return;
       }
 
-      Map<String, dynamic> scheduleData = scheduleDoc.data() as Map<String, dynamic>;
+      Map<String, dynamic> weekData = weekDoc.data() as Map<String, dynamic>;
       
-      // 🔥 'createdBy' field check (Make sure you save this when creating schedule)
-      String creatorId = scheduleData['createdBy'] ?? ''; 
+      // Check 'createdBy'
+      String creatorId = weekData['createdBy'] ?? ''; 
       
+      // Debugging ke liye print (Optional)
+      debugPrint("Creator: $creatorId, Current User: ${user.uid}");
+
       if (creatorId != user.uid) {
         _showErrorAndExit("Access Denied: You can only add tests to your own schedules.");
         return;
@@ -104,7 +113,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   }
 
   // ---------------------------------------------------
-  // UI HELPERS (Unchanged)
+  // UI HELPERS (Same as before)
   // ---------------------------------------------------
 
   void _pickDate() async {
@@ -243,10 +252,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       ),
     );
   }
-
-  // ---------------------------------------------------
-  // 🤖 AUTO GENERATOR LOGIC
-  // ---------------------------------------------------
 
   void _openAutoGeneratorSheet() {
     _topicCounts.clear(); 
@@ -436,7 +441,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       return;
     }
 
-    // 🔒 Double Check before saving (Just in case)
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -452,7 +456,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         'unlockTime': Timestamp.fromDate(_unlockTime!),
         'questions': _questions,
         'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': user.uid, // 🔥 Saving Creator ID for future checks
+        'createdBy': user.uid, 
         'attemptedUsers': [],
         'settings': {
           'positive': _positiveMark,
@@ -470,7 +474,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 Show Loading until Permissions are checked
     if (_isLoadingPage) {
       return const Scaffold(
         body: Center(
