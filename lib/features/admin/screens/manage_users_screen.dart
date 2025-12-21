@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart'; // Date Format ke liye
+import 'package:firebase_auth/firebase_auth.dart'; // 🔥 Auth Import
+import 'package:intl/intl.dart';
 
 class ManageUsersScreen extends StatefulWidget {
   final String testId;
@@ -20,6 +21,75 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   final TextEditingController _emailController = TextEditingController();
   DateTime? _selectedDate;
   bool _isLoading = false;
+  bool _isVerifying = true; // 🔥 Shuru mein verify karega
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOwnership(); // 🔥 Page load hote hi Security Check
+  }
+
+  // 🔒 SECURITY CHECK FUNCTION
+  Future<void> _checkOwnership() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      _showErrorAndExit("Please login first.");
+      return;
+    }
+
+    try {
+      // 1. Fetch Test Details
+      DocumentSnapshot testDoc = await FirebaseFirestore.instance
+          .collection('tests')
+          .doc(widget.testId)
+          .get();
+
+      if (!testDoc.exists) {
+        _showErrorAndExit("Test not found.");
+        return;
+      }
+
+      Map<String, dynamic> testData = testDoc.data() as Map<String, dynamic>;
+      String creatorId = testData['createdBy'] ?? '';
+
+      // 2. Check if Current User is the Creator
+      if (creatorId != user.uid) {
+        _showErrorAndExit("Access Denied: You can only manage users for YOUR own tests.");
+        return;
+      }
+
+      // 3. Double Check Host Status (Optional but Safe)
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      
+      String isHost = (userDoc['host'] ?? 'no').toString().toLowerCase();
+      if (isHost != 'yes') {
+        _showErrorAndExit("Access Denied: You are not authorized as a Host.");
+        return;
+      }
+
+      // ✅ All Good
+      if (mounted) {
+        setState(() {
+          _isVerifying = false; // Loading hata do
+        });
+      }
+
+    } catch (e) {
+      _showErrorAndExit("Error verifying permissions: $e");
+    }
+  }
+
+  void _showErrorAndExit(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red, duration: const Duration(seconds: 3))
+    );
+    Navigator.pop(context); // Screen band kar do
+  }
 
   @override
   void dispose() {
@@ -31,12 +101,11 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   Future<void> _pickDate() async {
     DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().add(const Duration(days: 7)), // Default 7 din baad ki date
+      initialDate: DateTime.now().add(const Duration(days: 7)),
       firstDate: DateTime.now(),
       lastDate: DateTime(2030),
     );
     if (picked != null) {
-      // Time ko raat ke 11:59 PM par set kar dete hain taaki us din pura access rahe
       DateTime endOfDay = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
       setState(() => _selectedDate = endOfDay);
     }
@@ -44,7 +113,6 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
   // ➕ 2. ADD USER FUNCTION
   Future<void> _addUser() async {
-    // Validation
     if (_emailController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Student ki Email ID likhein!")));
       return;
@@ -56,24 +124,20 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
     setState(() => _isLoading = true);
     
-    // Email ko lowercase convert karein taaki matching mein galti na ho
     String email = _emailController.text.trim().toLowerCase(); 
 
     try {
-      // 🔥 Firestore mein data save karna
-      // Path: tests -> {testId} -> allowed_users -> {email}
       await FirebaseFirestore.instance
           .collection('tests')
           .doc(widget.testId)
           .collection('allowed_users')
-          .doc(email) // Document ID hi email hogi (Duplicate se bachne ke liye)
+          .doc(email)
           .set({
         'email': email,
         'expiryDate': Timestamp.fromDate(_selectedDate!),
         'addedAt': FieldValue.serverTimestamp(),
       });
 
-      // Reset UI
       _emailController.clear();
       setState(() => _selectedDate = null);
       
@@ -112,6 +176,15 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 Loading Screen Jab tak Permission Check ho rha hai
+    if (_isVerifying) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
