@@ -19,7 +19,7 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
     final titleController = TextEditingController();
     final descController = TextEditingController();
     final priceController = TextEditingController();
-    final phoneController = TextEditingController(); // Specific WhatsApp for this series
+    final phoneController = TextEditingController(); // Teacher's Number
     final totalTestsController = TextEditingController();
 
     showDialog(
@@ -32,13 +32,13 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
             children: [
               _buildTextField(titleController, "Exam Name (e.g. NEET 2025)"),
               const SizedBox(height: 10),
-              _buildTextField(descController, "Description/Features", maxLines: 2),
+              _buildTextField(descController, "Description (e.g. Physics + Chem)", maxLines: 2),
               const SizedBox(height: 10),
               _buildTextField(priceController, "Price (e.g. ₹499)"),
               const SizedBox(height: 10),
               _buildTextField(totalTestsController, "Total Tests (e.g. 50 Tests)"),
               const SizedBox(height: 10),
-              _buildTextField(phoneController, "WhatsApp Number (e.g. 919876543210)", isPhone: true),
+              _buildTextField(phoneController, "WhatsApp No (e.g. 919876543210)", isPhone: true),
             ],
           ),
         ),
@@ -55,11 +55,14 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
                   'price': priceController.text.trim(),
                   'totalTests': totalTestsController.text.trim(),
                   'teacherWhatsapp': phoneController.text.trim(), // Specific number
-                  'createdAt': FieldValue.serverTimestamp(),
-                  'allowedEmails': [], // Empty list initially
+                  'createdAt': FieldValue.serverTimestamp(), // For sorting
+                  'allowedEmails': [], // Empty initially
                 });
+                
                 if (mounted) Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ Series Added!")));
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("⚠️ Name and WhatsApp Number are required!")));
               }
             },
             child: const Text("Save Series", style: TextStyle(color: Colors.white)),
@@ -69,7 +72,7 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
     );
   }
 
-  // Helper for TextField
+  // Helper Widget for TextFields
   Widget _buildTextField(TextEditingController controller, String hint, {bool isPhone = false, int maxLines = 1}) {
     return TextField(
       controller: controller,
@@ -89,7 +92,7 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Delete Series?"),
-        content: const Text("This cannot be undone."),
+        content: const Text("Are you sure? This cannot be undone."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
           TextButton(
@@ -114,7 +117,7 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
 
     String email = user.email ?? "No Email";
     
-    // Formatting Phone
+    // Formatting Phone (Remove spaces, ensure 91)
     String finalPhone = phone.replaceAll(RegExp(r'\D'), ''); 
     if (!finalPhone.startsWith('91') && finalPhone.length == 10) {
       finalPhone = '91$finalPhone'; 
@@ -130,14 +133,18 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
         throw 'Could not launch WhatsApp';
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Could not open WhatsApp.")));
+      debugPrint("Error launching WhatsApp: $e");
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Could not open WhatsApp. Make sure it is installed.")));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final bool isAdmin = user != null && user.email == adminEmail;
+    
+    // 🔥 ROBUST ADMIN CHECK (Fixes visibility issue)
+    final bool isAdmin = user != null && 
+        (user.email?.trim().toLowerCase() == adminEmail.trim().toLowerCase());
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -148,29 +155,42 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
         elevation: 0,
         foregroundColor: Colors.black,
       ),
-      // 🔥 ADMIN ONLY FAB
+      
+      // 🔥 UPDATED FAB (White Text on Purple Background)
       floatingActionButton: isAdmin
           ? FloatingActionButton.extended(
               onPressed: _showAddSeriesDialog,
-              backgroundColor: Colors.deepPurple,
+              backgroundColor: Colors.deepPurple, // ✅ Background Purple
+              foregroundColor: Colors.white,      // ✅ Text/Icon White
+              elevation: 4,
               icon: const Icon(Icons.add),
-              label: const Text("Add Test Series"),
+              label: const Text("Add Series", style: TextStyle(fontWeight: FontWeight.bold)),
             )
           : null,
       
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('premium_test_series').orderBy('createdAt', descending: true).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('premium_test_series')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.shopping_bag_outlined, size: 80, color: Colors.grey[300]),
+                  Icon(Icons.store_mall_directory_outlined, size: 80, color: Colors.grey[300]),
                   const SizedBox(height: 10),
-                  const Text("No Premium Series Added Yet", style: TextStyle(color: Colors.grey)),
+                  const Text("No Premium Series Available", style: TextStyle(color: Colors.grey)),
+                  if (isAdmin) 
+                    const Padding(
+                      padding: EdgeInsets.only(top: 10),
+                      child: Text("(Click + button to add)", style: TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold)),
+                    ),
                 ],
               ),
             );
@@ -188,9 +208,9 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
               String desc = data['description'] ?? 'No Description';
               String price = data['price'] ?? 'Paid';
               String totalTests = data['totalTests'] ?? 'N/A';
-              String phone = data['teacherWhatsapp'] ?? ''; // Specific Number for this series
+              String phone = data['teacherWhatsapp'] ?? ''; // Specific Number
               
-              // Check if already bought (Optional Logic for Badge)
+              // Check Permission
               List allowedEmails = data['allowedEmails'] ?? [];
               bool isPurchased = allowedEmails.contains(user?.email);
 
@@ -274,14 +294,14 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
                               ),
                               onPressed: () {
                                 if (isPurchased) {
-                                  // Open Test Series (Self Study Page or Series Detail)
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Already Purchased! Go to Self Study.")));
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ Already Purchased! Check Self Study Section.")));
+                                  // Yahan aap redirect kar sakte hain
                                 } else {
                                   // 🔥 WHATSAPP TRIGGER
                                   if (phone.isNotEmpty) {
                                     _openWhatsApp(phone, title);
                                   } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: Teacher Contact Missing.")));
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("⚠️ Teacher has not set a number yet.")));
                                   }
                                 }
                               },
