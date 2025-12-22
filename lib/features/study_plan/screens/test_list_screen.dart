@@ -115,9 +115,9 @@ class TestListScreen extends StatelessWidget {
     return "${date.day}/${date.month} - ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 
-  // 🔥 UPDATED FIX: Ensures Dialog Closes Before Navigation
+  // 🔥 UPDATED FIX: Ensures Full Screen & Loading Dismissal
   Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum) async {
-    // 1. Show Loading (Wait for user feedback)
+    // 1. Show Loading
     showDialog(
       context: context, 
       barrierDismissible: false, 
@@ -132,18 +132,18 @@ class TestListScreen extends StatelessWidget {
           .collection('allowed_users').doc(emailKey)
           .get();
 
-      // 🔥 FIX: Close Loading Dialog Explicitly using Root Navigator
+      // 🔥 FIX 1: Close Loading Dialog properly using rootNavigator
       if (context.mounted) {
         Navigator.of(context, rootNavigator: true).pop(); 
       }
 
-      // 3. Check Access
+      // Check Access
       if (!permDoc.exists) {
         if (context.mounted) _showPurchasePopup(context, contactNum); 
         return;
       }
 
-      // 4. Check Expiry
+      // Check Expiry
       if (permDoc.data() != null) {
         Map<String, dynamic> permData = permDoc.data() as Map<String, dynamic>;
         if (permData.containsKey('expiryDate')) {
@@ -159,11 +159,10 @@ class TestListScreen extends StatelessWidget {
 
       // 5. Success! Navigate to Test
       if (context.mounted) {
-        // Convert Objects back to Maps
         List<Map<String, dynamic>> questionsAsMaps = test.questions.map((q) => q.toMap()).toList();
 
-        Navigator.push(
-          context, 
+        // 🔥 FIX 2: Use rootNavigator: true to HIDE Bottom Navigation Bar
+        Navigator.of(context, rootNavigator: true).push(
           MaterialPageRoute(builder: (_) => AttemptTestScreen(
              testId: test.id,
              testData: { 
@@ -178,7 +177,6 @@ class TestListScreen extends StatelessWidget {
       }
 
     } catch (e) {
-      // Error Handling: Close dialog if open
       if (context.mounted) {
         Navigator.of(context, rootNavigator: true).pop(); 
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
