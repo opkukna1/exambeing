@@ -89,10 +89,9 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     Navigator.pop(context); 
   }
 
-  // 🔥 1. CSV UPLOAD LOGIC
+  // 🔥 UPDATED: ROBUST CSV PARSER (Smart Handling)
   void _pickAndParseCSV() async {
     try {
-      // Pick CSV File
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
@@ -102,31 +101,62 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         setState(() => _isGenerating = true);
         
         File file = File(result.files.single.path!);
-        final input = file.openRead();
-        final fields = await input.transform(utf8.decoder).transform(const CsvToListConverter()).toList();
+        
+        // 1. Read file content safely (Handle UTF-8 and Latin1)
+        String csvString;
+        try {
+          csvString = await file.readAsString();
+        } catch (e) {
+          csvString = await file.readAsString(encoding: latin1);
+        }
+        
+        // 2. Try Standard Comma Parsing
+        List<List<dynamic>> fields = const CsvToListConverter().convert(csvString);
+
+        // 🔥 FIX: If Comma fails (only 1 col found), Try Semicolon
+        if (fields.isNotEmpty && fields[0].length < 2) {
+           debugPrint("Comma failed, trying Semicolon...");
+           fields = const CsvToListConverter(fieldDelimiter: ';').convert(csvString);
+        }
+
+        if (fields.isEmpty) {
+           setState(() => _isGenerating = false);
+           _showErrorDialog("File is empty or could not be read.");
+           return;
+        }
 
         int addedCount = 0;
+        int skippedCount = 0;
 
-        // Loop rows (Start from 1 to skip Header)
-        // Format: Question | OptA | OptB | OptC | OptD | Correct(A/B/C/D) | Explanation
+        // Loop starts from 1 (Skipping Header)
         for (int i = 1; i < fields.length; i++) {
           List<dynamic> row = fields[i];
-          if (row.length < 6) continue; // Skip invalid rows
+          
+          // Basic Validation: Need at least 6 columns
+          if (row.length < 6) {
+            skippedCount++;
+            continue; 
+          }
 
           String question = row[0].toString().trim();
           String optA = row[1].toString().trim();
           String optB = row[2].toString().trim();
           String optC = row[3].toString().trim();
           String optD = row[4].toString().trim();
-          String correctAnsRaw = row[5].toString().trim().toUpperCase(); // A, B, C, D
+          String correctAnsRaw = row[5].toString().trim().toUpperCase(); 
           String explanation = row.length > 6 ? row[6].toString().trim() : "";
 
-          int correctIndex = 0;
-          if (correctAnsRaw == 'B') correctIndex = 1;
-          else if (correctAnsRaw == 'C') correctIndex = 2;
-          else if (correctAnsRaw == 'D') correctIndex = 3;
+          if (question.isEmpty || optA.isEmpty) {
+            skippedCount++;
+            continue;
+          }
 
-          // Add to list if not duplicate
+          int correctIndex = 0;
+          if (correctAnsRaw.contains('B') || correctAnsRaw == '2') correctIndex = 1;
+          else if (correctAnsRaw.contains('C') || correctAnsRaw == '3') correctIndex = 2;
+          else if (correctAnsRaw.contains('D') || correctAnsRaw == '4') correctIndex = 3;
+
+          // Add Unique Question
           if (!_questions.any((q) => q['question'] == question)) {
             _questions.add({
               'id': DateTime.now().millisecondsSinceEpoch.toString() + i.toString(),
@@ -136,16 +166,35 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
               'explanation': explanation
             });
             addedCount++;
+          } else {
+            skippedCount++;
           }
         }
 
         setState(() => _isGenerating = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Imported $addedCount questions from CSV!")));
+
+        if (addedCount == 0) {
+          // Detailed Error for User
+          _showErrorDialog("Failed to import.\n\nCode found ${fields.length} rows.\nFirst Row had ${fields[0].length} columns.\n\nTip: Ensure columns are: Question, OptA, OptB, OptC, OptD, Answer");
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Colors.green, content: Text("Success! Imported $addedCount questions. (Skipped: $skippedCount)")));
+        }
       }
     } catch (e) {
       setState(() => _isGenerating = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error reading CSV: $e")));
+      _showErrorDialog("Error reading CSV: $e");
     }
+  }
+
+  void _showErrorDialog(String msg) {
+    showDialog(
+      context: context, 
+      builder: (c) => AlertDialog(
+        title: const Text("⚠️ Import Info"),
+        content: SingleChildScrollView(child: Text(msg)),
+        actions: [TextButton(onPressed: ()=>Navigator.pop(c), child: const Text("OK"))]
+      )
+    );
   }
 
   // 🔥 REGEX CLEANER
@@ -384,6 +433,9 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   }
 
   void _saveTest() async {
+    // Hide Keyboard First
+    FocusScope.of(context).unfocus();
+
     if (_testTitleController.text.isEmpty || _unlockTime == null || _questions.isEmpty || _contactController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Title, Time, Contact No. & Questions required!"))); return;
     }
@@ -438,7 +490,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                 Row(children: [
                     IconButton(onPressed: () => _showManualQuestionDialog(), icon: const Icon(Icons.add_circle, color: Colors.green), tooltip: "Add Manual Question"),
                     
-                    // 🔥 NEW CSV BUTTON
+                    // 🔥 CSV BUTTON (Calls Smart Parser)
                     IconButton(onPressed: _isGenerating ? null : _pickAndParseCSV, icon: const Icon(Icons.upload_file, color: Colors.orange), tooltip: "Upload CSV"),
                     
                     ElevatedButton.icon(onPressed: _isGenerating ? null : _openAutoGeneratorSheet, style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple.shade50, foregroundColor: Colors.deepPurple), icon: _isGenerating ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.auto_awesome), label: const Text("Auto Gen")),
