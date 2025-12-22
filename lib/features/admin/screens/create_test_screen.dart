@@ -89,7 +89,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     Navigator.pop(context); 
   }
 
-  // 🔥 UPDATED: ROBUST CSV PARSER (Smart Handling)
+  // 🔥 UPDATED: CSV PARSER (Fixes "1 Row Found" Issue)
   void _pickAndParseCSV() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -102,21 +102,24 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         
         File file = File(result.files.single.path!);
         
-        // 1. Read file content safely (Handle UTF-8 and Latin1)
+        // 1. Read file content safely
         String csvString;
         try {
           csvString = await file.readAsString();
         } catch (e) {
           csvString = await file.readAsString(encoding: latin1);
         }
+
+        // 🔥 FIX: Normalize Newlines (Ye line sabse zaroori hai error hatane ke liye)
+        csvString = csvString.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
         
         // 2. Try Standard Comma Parsing
-        List<List<dynamic>> fields = const CsvToListConverter().convert(csvString);
+        List<List<dynamic>> fields = const CsvToListConverter(eol: '\n').convert(csvString);
 
-        // 🔥 FIX: If Comma fails (only 1 col found), Try Semicolon
+        // Fallback: Agar Comma fail hua (1 column mila), to Semicolon try karo
         if (fields.isNotEmpty && fields[0].length < 2) {
            debugPrint("Comma failed, trying Semicolon...");
-           fields = const CsvToListConverter(fieldDelimiter: ';').convert(csvString);
+           fields = const CsvToListConverter(fieldDelimiter: ';', eol: '\n').convert(csvString);
         }
 
         if (fields.isEmpty) {
@@ -127,6 +130,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
 
         int addedCount = 0;
         int skippedCount = 0;
+        String debugLog = "";
 
         // Loop starts from 1 (Skipping Header)
         for (int i = 1; i < fields.length; i++) {
@@ -134,6 +138,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
           
           // Basic Validation: Need at least 6 columns
           if (row.length < 6) {
+             if (row.isNotEmpty) debugLog += "Row $i skipped: Length ${row.length}\n";
             skippedCount++;
             continue; 
           }
@@ -174,8 +179,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         setState(() => _isGenerating = false);
 
         if (addedCount == 0) {
-          // Detailed Error for User
-          _showErrorDialog("Failed to import.\n\nCode found ${fields.length} rows.\nFirst Row had ${fields[0].length} columns.\n\nTip: Ensure columns are: Question, OptA, OptB, OptC, OptD, Answer");
+          _showErrorDialog("Failed to import.\n\nCode found ${fields.length} rows.\n\nDebug Info:\n$debugLog\n\nTip: Make sure you saved as 'CSV (Comma delimited)'.");
         } else {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Colors.green, content: Text("Success! Imported $addedCount questions. (Skipped: $skippedCount)")));
         }
