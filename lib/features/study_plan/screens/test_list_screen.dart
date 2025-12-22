@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Clipboard
+import 'package:flutter/services.dart'; 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/test_model.dart';
@@ -68,7 +68,6 @@ class TestListScreen extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final doc = testSnapshot.data!.docs[index];
                   final data = doc.data() as Map<String, dynamic>;
-                  // Safe Model Conversion
                   final test = TestModel.fromMap(data, doc.id);
                   
                   String creatorId = data['createdBy'] ?? '';
@@ -116,9 +115,9 @@ class TestListScreen extends StatelessWidget {
     return "${date.day}/${date.month} - ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 
-  // 🔥 UPDATED: Robust Logic & Data Conversion
+  // 🔥 UPDATED FIX: Ensures Dialog Closes Before Navigation
   Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum) async {
-    // 1. Show Loading
+    // 1. Show Loading (Wait for user feedback)
     showDialog(
       context: context, 
       barrierDismissible: false, 
@@ -127,22 +126,19 @@ class TestListScreen extends StatelessWidget {
 
     try {
       String emailKey = user.email!.trim().toLowerCase();
-      debugPrint("Checking access for: $emailKey");
-
-      // 2. Fetch Permission Document (Course Level)
+      
       DocumentSnapshot permDoc = await FirebaseFirestore.instance
           .collection('study_schedules').doc(examId)
           .collection('allowed_users').doc(emailKey)
           .get();
 
-      // Close Loading Dialog
-      if (context.mounted && Navigator.canPop(context)) {
-        Navigator.pop(context);
+      // 🔥 FIX: Close Loading Dialog Explicitly using Root Navigator
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); 
       }
 
       // 3. Check Access
       if (!permDoc.exists) {
-        debugPrint("Access Denied: User not in course list.");
         if (context.mounted) _showPurchasePopup(context, contactNum); 
         return;
       }
@@ -163,8 +159,7 @@ class TestListScreen extends StatelessWidget {
 
       // 5. Success! Navigate to Test
       if (context.mounted) {
-        
-        // 🔥 CRITICAL FIX: Convert Objects back to Maps (Ye Crash Rokega)
+        // Convert Objects back to Maps
         List<Map<String, dynamic>> questionsAsMaps = test.questions.map((q) => q.toMap()).toList();
 
         Navigator.push(
@@ -173,7 +168,7 @@ class TestListScreen extends StatelessWidget {
              testId: test.id,
              testData: { 
                'testTitle': test.subject,
-               'questions': questionsAsMaps, // ✅ Now sending Maps, not Objects
+               'questions': questionsAsMaps, 
                'settings': test.settings 
              },
              examId: examId,
@@ -183,11 +178,9 @@ class TestListScreen extends StatelessWidget {
       }
 
     } catch (e) {
-      // Error Handling
-      if (context.mounted && Navigator.canPop(context)) {
-        Navigator.pop(context); 
-      }
+      // Error Handling: Close dialog if open
       if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); 
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
       }
     }
@@ -198,47 +191,17 @@ class TestListScreen extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Row(children: [Icon(Icons.lock, color: Colors.red), SizedBox(width: 10), Text("Paid Test")]),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("Is test ko attempt karne ke liye aapko teacher se access lena hoga.", style: TextStyle(fontSize: 14)),
-              const SizedBox(height: 15),
-              const Text("Subscribe karne ke liye Teacher se contact karein:", style: TextStyle(fontSize: 12, color: Colors.grey)),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green)),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text("WhatsApp / Call", style: TextStyle(fontSize: 10, color: Colors.green)),
-                        Text(contact, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.green),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: contact));
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Number Copied!"), backgroundColor: Colors.green));
-                      },
-                    )
-                  ],
-                ),
-              )
+              const Text("Contact Teacher to access this test."),
+              const SizedBox(height: 10),
+              SelectableText(contact, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-              onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
-            )
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK")),
           ],
         );
       },
@@ -264,26 +227,15 @@ class TestListScreen extends StatelessWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.group_add, color: Colors.blue),
-            tooltip: "Manage Course Students",
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => ManageUsersScreen(
-                  testId: test.id, 
-                  testName: data['testTitle'] ?? test.subject,
-                  examId: examId, 
-                  weekId: weekId,
-                )),
-              );
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ManageUsersScreen(testId: test.id, testName: data['testTitle'] ?? test.subject, examId: examId, weekId: weekId)));
             },
           ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.red),
             onPressed: () async {
                bool confirm = await showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Delete Test?"), actions: [TextButton(onPressed: ()=>Navigator.pop(c,false), child: const Text("No")), TextButton(onPressed: ()=>Navigator.pop(c,true), child: const Text("Yes"))])) ?? false;
-               if(confirm) {
-                   await FirebaseFirestore.instance.collection('study_schedules').doc(examId).collection('weeks').doc(weekId).collection('tests').doc(test.id).delete();
-               }
+               if(confirm) await FirebaseFirestore.instance.collection('study_schedules').doc(examId).collection('weeks').doc(weekId).collection('tests').doc(test.id).delete();
             },
           ),
         ],
@@ -295,13 +247,7 @@ class TestListScreen extends StatelessWidget {
     if (isAttempted) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-        onPressed: () => Navigator.push(
-          context, 
-          MaterialPageRoute(builder: (_) => TestSolutionScreen(
-            testId: test.id, 
-            originalQuestions: test.questions.map((q) => q.toMap()).toList() // ✅ Convert objects to maps here too
-          ))
-        ),
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TestSolutionScreen(testId: test.id, originalQuestions: test.questions.map((q) => q.toMap()).toList()))),
         child: const Text("Result"),
       );
     }
