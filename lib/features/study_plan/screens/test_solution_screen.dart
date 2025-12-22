@@ -4,12 +4,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class TestSolutionScreen extends StatefulWidget {
   final String testId;
-  final List<dynamic> originalQuestions;
+  // Hum Map receive karenge taaki crash na ho
+  final List<Map<String, dynamic>> originalQuestions; 
+  final String? examName;
 
   const TestSolutionScreen({
     super.key, 
     required this.testId, 
-    required this.originalQuestions
+    required this.originalQuestions,
+    this.examName
   });
 
   @override
@@ -17,22 +20,21 @@ class TestSolutionScreen extends StatefulWidget {
 }
 
 class _TestSolutionScreenState extends State<TestSolutionScreen> {
-  Map<String, dynamic>? resultData;
-  bool isLoading = true;
+  bool _isLoading = true;
+  Map<String, dynamic> _userResultData = {};
+  Map<String, dynamic> _userResponses = {}; // Key: QuestionID, Value: SelectedOptionIndex
 
   @override
   void initState() {
     super.initState();
-    _fetchResult();
+    _fetchUserResult();
   }
 
-  // 🔥 Fetch User Result DIRECTLY by Document ID (Faster & Cheaper)
-  Future<void> _fetchResult() async {
+  Future<void> _fetchUserResult() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     try {
-      // Direct Document Fetch instead of Query
       DocumentSnapshot doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -41,83 +43,56 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
           .get();
 
       if (doc.exists) {
-        if(mounted) {
-          setState(() {
-            resultData = doc.data() as Map<String, dynamic>;
-            isLoading = false;
-          });
-        }
+        setState(() {
+          _userResultData = doc.data() as Map<String, dynamic>;
+          // User ke answers map ko load karo
+          _userResponses = Map<String, dynamic>.from(_userResultData['userResponse'] ?? {});
+          _isLoading = false;
+        });
       } else {
-        // Fallback: Agar doc ID match na kare (purane version ki wajah se), to Query try karo
-        _fetchResultByQuery();
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       debugPrint("Error fetching result: $e");
-      if(mounted) setState(() => isLoading = false);
+      setState(() => _isLoading = false);
     }
   }
 
-  // Fallback for older data
-  Future<void> _fetchResultByQuery() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    try {
-       QuerySnapshot query = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('test_results')
-          .where('testId', isEqualTo: widget.testId)
-          .limit(1)
-          .get();
-
-      if (query.docs.isNotEmpty && mounted) {
-        setState(() {
-          resultData = query.docs.first.data() as Map<String, dynamic>;
-          isLoading = false;
-        });
-      } else {
-        if(mounted) setState(() => isLoading = false);
-      }
-    } catch (e) {
-      if(mounted) setState(() => isLoading = false);
+  // Helper to ensure Options are List<String>
+  List<String> _getOptions(Map<String, dynamic> q) {
+    if (q['options'] != null && (q['options'] as List).isNotEmpty) {
+      return List<String>.from(q['options']);
     }
+    // Fallback for old data
+    List<String> opts = [];
+    for (int i = 0; i < 6; i++) {
+      if (q.containsKey('option$i')) opts.add(q['option$i'].toString());
+    }
+    return opts;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
-    if (resultData == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Result")),
-        body: const Center(child: Text("No result found. Please attempt the test first.")),
-      );
-    }
-
-    // ✅ Setup Data
-    Map<String, dynamic> userResponses = resultData!['userResponse'] ?? {};
-    int correct = resultData!['correct'] ?? 0;
-    int wrong = resultData!['wrong'] ?? 0;
-    int skipped = resultData!['skipped'] ?? 0;
-    double score = (resultData!['score'] ?? 0).toDouble();
+    // Stats for Header
+    int correct = _userResultData['correct'] ?? 0;
+    int wrong = _userResultData['wrong'] ?? 0;
+    int skipped = _userResultData['skipped'] ?? 0;
+    double score = (_userResultData['score'] ?? 0).toDouble();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Solutions & Analysis 🧐"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 1,
-      ),
+      appBar: AppBar(title: Text(widget.examName ?? "Analysis")),
       body: Column(
         children: [
-          // 📊 1. SCORE HEADER
+          // 📊 1. SCORE HEADER (Jo aapke screenshot mein hai)
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.deepPurple.shade50,
+            decoration: BoxDecoration(color: Colors.deepPurple.shade50),
             child: Column(
               children: [
-                Text("Total Score: ${score.toStringAsFixed(1)}", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
-                const SizedBox(height: 10),
+                Text("Total Score: ${score.toStringAsFixed(1)}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+                const SizedBox(height: 15),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -129,150 +104,15 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
               ],
             ),
           ),
-          
+
           // 📝 2. QUESTION LIST
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               itemCount: widget.originalQuestions.length,
               itemBuilder: (context, index) {
-                var q = widget.originalQuestions[index];
-                
-                // ID Mapping (Fallback to question text if ID missing)
-                String qKey = q['id'] ?? q['question']; 
-                
-                int? userSelectedOpt = userResponses[qKey];
-                int correctOpt = q['correctIndex'];
-
-                // Status Logic
-                bool isSkipped = userSelectedOpt == null;
-                bool isCorrect = userSelectedOpt == correctOpt;
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: isSkipped ? Colors.orange.shade200 
-                           : isCorrect ? Colors.green.shade200 
-                           : Colors.red.shade200,
-                      width: 1.5
-                    )
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header: Q.No & Status
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text("Q.${index + 1}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isSkipped ? Colors.orange.shade50 : isCorrect ? Colors.green.shade50 : Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(4)
-                              ),
-                              child: Text(
-                                isSkipped ? "SKIPPED" : isCorrect ? "CORRECT" : "WRONG",
-                                style: TextStyle(
-                                  fontSize: 10, 
-                                  fontWeight: FontWeight.bold,
-                                  color: isSkipped ? Colors.orange : isCorrect ? Colors.green : Colors.red
-                                ),
-                              ),
-                            )
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        
-                        // Question Text
-                        Text(
-                          q['question'], 
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
-                        ),
-                        const SizedBox(height: 15),
-
-                        // Options Loop
-                        ...List.generate(q['options'].length, (optIndex) {
-                          String optionText = q['options'][optIndex];
-                          
-                          Color bgColor = Colors.white;
-                          Color textColor = Colors.black87;
-                          IconData? icon;
-
-                          if (optIndex == correctOpt) {
-                            // ✅ Correct Answer (Always Green)
-                            bgColor = Colors.green.shade50;
-                            textColor = Colors.green.shade900;
-                            icon = Icons.check_circle;
-                          } else if (optIndex == userSelectedOpt) {
-                            // ❌ User's Wrong Answer (Red)
-                            bgColor = Colors.red.shade50;
-                            textColor = Colors.red.shade900;
-                            icon = Icons.cancel;
-                          }
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: bgColor,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade200)
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    "${String.fromCharCode(65 + optIndex)}. $optionText",
-                                    style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
-                                  ),
-                                ),
-                                if (icon != null) Icon(icon, size: 18, color: textColor)
-                              ],
-                            ),
-                          );
-                        }),
-
-                        // 💡 EXPLANATION SECTION
-                        if (q['explanation'] != null && q['explanation'].toString().isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          const Divider(),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.blue.shade100)
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Row(
-                                  children: [
-                                    Icon(Icons.lightbulb, size: 16, color: Colors.blue),
-                                    SizedBox(width: 5),
-                                    Text("Explanation", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-                                Text(
-                                  q['explanation'],
-                                  style: const TextStyle(fontSize: 13, color: Colors.black87),
-                                ),
-                              ],
-                            ),
-                          )
-                        ]
-                      ],
-                    ),
-                  ),
-                );
+                var qData = widget.originalQuestions[index];
+                return _buildSolutionCard(qData, index);
               },
             ),
           ),
@@ -281,17 +121,122 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
     );
   }
 
-  // Helper for Top Stats
   Widget _buildStatBadge(String label, int count, Color color) {
     return Column(
       children: [
         CircleAvatar(
-          backgroundColor: color.withOpacity(0.1),
+          backgroundColor: color.withOpacity(0.2),
           child: Text("$count", style: TextStyle(color: color, fontWeight: FontWeight.bold)),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 5),
         Text(label, style: const TextStyle(fontSize: 12))
       ],
+    );
+  }
+
+  Widget _buildSolutionCard(Map<String, dynamic> q, int index) {
+    // 1. Prepare Data
+    String qId = q['id'] ?? "q_$index";
+    String questionText = q['question'] ?? q['questionText'] ?? 'No Question';
+    List<String> options = _getOptions(q);
+    int correctIndex = q['correctIndex'] ?? q['correctAnswerIndex'] ?? 0;
+    String explanation = q['explanation'] ?? q['solution'] ?? '';
+
+    // 2. Determine User Status
+    // Firestore mein key String ho sakti hai, UI list int hai
+    int? userSelectedIndex;
+    if (_userResponses.containsKey(qId)) {
+      userSelectedIndex = _userResponses[qId];
+    }
+
+    bool isSkipped = userSelectedIndex == null;
+    bool isCorrect = userSelectedIndex == correctIndex;
+
+    // Card Color Border
+    Color statusColor = isSkipped ? Colors.orange : (isCorrect ? Colors.green : Colors.red);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: statusColor.withOpacity(0.5))),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Question Label with Status Icon
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Q${index + 1}.", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(width: 8),
+                Expanded(child: Text(questionText, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500))),
+                Icon(
+                  isSkipped ? Icons.warning_amber : (isCorrect ? Icons.check_circle : Icons.cancel),
+                  color: statusColor,
+                )
+              ],
+            ),
+            const SizedBox(height: 15),
+
+            // Options List
+            ...List.generate(options.length, (optIndex) {
+              bool isThisCorrect = (optIndex == correctIndex);
+              bool isThisUserSelected = (optIndex == userSelectedIndex);
+              
+              Color optColor = Colors.white;
+              Color borderColor = Colors.grey.shade300;
+              IconData? icon;
+
+              // Logic for coloring options
+              if (isThisCorrect) {
+                optColor = Colors.green.shade50;
+                borderColor = Colors.green;
+                icon = Icons.check_circle;
+              } else if (isThisUserSelected) {
+                // Agar user ne ye select kiya aur ye galat hai (kyunki sahi wala upar cover ho gaya)
+                optColor = Colors.red.shade50;
+                borderColor = Colors.red;
+                icon = Icons.cancel;
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: optColor,
+                  border: Border.all(color: borderColor),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    if (icon != null) Icon(icon, size: 18, color: borderColor) else const SizedBox(width: 18),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(options[optIndex], style: TextStyle(color: Colors.black87, fontWeight: isThisCorrect || isThisUserSelected ? FontWeight.bold : FontWeight.normal))),
+                  ],
+                ),
+              );
+            }),
+
+            // Explanation Section
+            if (explanation.isNotEmpty) ...[
+              const Divider(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("💡 Explanation:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                    const SizedBox(height: 5),
+                    Text(explanation, style: const TextStyle(fontSize: 14)),
+                  ],
+                ),
+              )
+            ]
+          ],
+        ),
+      ),
     );
   }
 }
