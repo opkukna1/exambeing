@@ -26,6 +26,7 @@ class BookmarksHomeScreen extends StatefulWidget {
 
 class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
   // 🔒 ADMIN CHECK
+  // (Aap chaho to isko Firestore se bhi check kar sakte ho, filhal hardcoded hai)
   final String adminEmail = "opsiddh42@gmail.com";
   bool get isAdmin => FirebaseAuth.instance.currentUser?.email == adminEmail;
 
@@ -100,6 +101,9 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const Scaffold(body: Center(child: Text("Please Login")));
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -135,7 +139,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
           children: [
             
             // ------------------------------------------------
-            // 1️⃣ SECTION: EXAM SELECTION (Horizontal)
+            // 1️⃣ SECTION: EXAM SELECTION (Horizontal) - 🔥 WITH FILTER
             // ------------------------------------------------
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -157,32 +161,61 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                     itemCount: exams.length,
                     itemBuilder: (context, index) {
                       var doc = exams[index];
-                      bool isSelected = selectedExamId == doc.id;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            selectedExamId = doc.id;
-                            selectedExamName = doc['examName'];
-                            selectedWeekId = null; 
-                            selectedWeekData = null;
-                          });
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isSelected ? Colors.deepPurple : Colors.white,
-                            borderRadius: BorderRadius.circular(30),
-                            border: Border.all(color: isSelected ? Colors.deepPurple : Colors.grey.shade300),
-                            boxShadow: isSelected ? [BoxShadow(color: Colors.deepPurple.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : [],
-                          ),
-                          child: Center(
-                            child: Text(
-                              doc['examName'],
-                              style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
+                      
+                      // 🔥🔥 LOGIC: Check Permission for Each Exam
+                      // Har Exam ke liye hum check karenge ki user Allowed hai ya nahi
+                      return StreamBuilder<DocumentSnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('study_schedules')
+                            .doc(doc.id)
+                            .collection('allowed_users')
+                            .doc(user.email!.trim().toLowerCase())
+                            .snapshots(),
+                        builder: (context, permSnap) {
+                          
+                          bool isAllowed = false;
+                          
+                          // 1. Agar Admin hai to sab dikhega
+                          if (isAdmin) isAllowed = true;
+                          
+                          // 2. Agar Normal User hai, to check karo list mein hai ya nahi
+                          if (permSnap.hasData && permSnap.data!.exists) {
+                            // Expiry bhi check kar sakte hain agar future mein zaroorat ho
+                            isAllowed = true; 
+                          }
+
+                          // ⛔ HIDE IF NOT ALLOWED
+                          if (!isAllowed) return const SizedBox.shrink();
+
+                          // ✅ SHOW CARD IF ALLOWED
+                          bool isSelected = selectedExamId == doc.id;
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                selectedExamId = doc.id;
+                                selectedExamName = doc['examName'];
+                                selectedWeekId = null; 
+                                selectedWeekData = null;
+                              });
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 10),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.deepPurple : Colors.white,
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(color: isSelected ? Colors.deepPurple : Colors.grey.shade300),
+                                boxShadow: isSelected ? [BoxShadow(color: Colors.deepPurple.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : [],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  doc['examName'],
+                                  style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       );
                     },
                   );
