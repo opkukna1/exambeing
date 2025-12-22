@@ -237,6 +237,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 20),
 
+            // 🔥 NEW: Buy Test Series Button (Placed Above AI Button)
+            _buildBuyTestSeriesCard(),
+
+            const SizedBox(height: 20),
+
             // 🔥 AI Button
             _buildAiAnalysisCard(),
 
@@ -327,6 +332,68 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ✅ NEW WIDGET: Buy Test Series Card
+  Widget _buildBuyTestSeriesCard() {
+    return Container(
+      width: double.infinity, 
+      height: 80,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        // Premium Gold/Orange Gradient
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF2994A), Color(0xFFF2C94C)], 
+          begin: Alignment.centerLeft, 
+          end: Alignment.centerRight
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+             // 🚀 Navigate to Full Screen Buy Page
+             Navigator.push(
+               context,
+               MaterialPageRoute(builder: (context) => const BuyTestSeriesScreen()),
+             );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12), 
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), shape: BoxShape.circle), 
+                  child: const Icon(Icons.workspace_premium, color: Colors.white, size: 28)
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center, 
+                    crossAxisAlignment: CrossAxisAlignment.start, 
+                    children: [
+                      const Text("Buy Test Series", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4), 
+                      const Text("Unlock all premium exams", style: TextStyle(color: Colors.white70, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)
+                    ]
+                  )
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8), 
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle), 
+                  child: const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 16)
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildAiAnalysisCard() {
     return Container(
       width: double.infinity, height: 80,
@@ -407,6 +474,30 @@ class _HomeScreenState extends State<HomeScreen> {
         final seriesList = snapshot.data!.docs;
         return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.85), itemCount: seriesList.length, itemBuilder: (context, index) { final data = seriesList[index].data() as Map<String, dynamic>; final title = data['title'] ?? "Series"; final category = data['category'] ?? "Exam"; Color accentColor = index % 2 == 0 ? Colors.purple : Colors.indigo; Color iconBg = index % 2 == 0 ? Colors.purple.shade50 : Colors.indigo.shade50; return Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.grey.shade200, blurRadius: 5, offset: const Offset(0, 3))]), child: Material(color: Colors.transparent, child: InkWell(borderRadius: BorderRadius.circular(20), onTap: () { if (data['type'] == 'subject') { context.push('/subject-list', extra: {'seriesId': seriesList[index].id, 'seriesTitle': title}); } else { context.push('/test-list', extra: {'seriesId': seriesList[index].id, 'subjectId': 'default', 'subjectTitle': title}); } }, child: Padding(padding: const EdgeInsets.all(16.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(height: 45, width: 45, decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)), child: Icon(Icons.menu_book, color: accentColor)), const Spacer(), Text(category.toUpperCase(), style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), const SizedBox(height: 8), Row(children: [Text("View All", style: TextStyle(color: accentColor, fontSize: 12, fontWeight: FontWeight.bold)), const SizedBox(width: 4), Icon(Icons.arrow_forward_rounded, size: 14, color: accentColor)])]))))); });
       },
+    );
+  }
+}
+
+// 🔥 Placeholder Screen for "Buy Test Series"
+class BuyTestSeriesScreen extends StatelessWidget {
+  const BuyTestSeriesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Premium Plans"), backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+             Icon(Icons.stars, size: 80, color: Colors.amber),
+             SizedBox(height: 20),
+             Text("Unlock Unlimited Tests!", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+             SizedBox(height: 10),
+             Text("Choose a plan to get started.", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
     );
   }
 }
