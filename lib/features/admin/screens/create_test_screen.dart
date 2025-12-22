@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert'; // For CSV
+import 'dart:io';      // For File
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart'; // 🔥 Required
+import 'package:csv/csv.dart'; // 🔥 Required
 
 class CreateTestScreen extends StatefulWidget {
   final String examId;
@@ -18,7 +22,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   // --- Basic Info ---
   final _testTitleController = TextEditingController();
   final _contactController = TextEditingController(); 
-  DateTime? _unlockTime; // Isko hum database me 'scheduledAt' ke naam se save karenge
+  DateTime? _unlockTime; 
 
   // --- Exam Settings ---
   int _durationMinutes = 60;   
@@ -67,7 +71,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
 
       String creatorId = weekDoc['createdBy'] ?? ''; 
       
-      // 🔥 CRITICAL: Sirf Week Creator hi Test add kar sakta hai
       if (creatorId != user.uid) { 
         _showErrorAndExit("Access Denied: You can only add tests to YOUR own schedules."); 
         return; 
@@ -84,6 +87,65 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
     Navigator.pop(context); 
+  }
+
+  // 🔥 1. CSV UPLOAD LOGIC
+  void _pickAndParseCSV() async {
+    try {
+      // Pick CSV File
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+      );
+
+      if (result != null) {
+        setState(() => _isGenerating = true);
+        
+        File file = File(result.files.single.path!);
+        final input = file.openRead();
+        final fields = await input.transform(utf8.decoder).transform(const CsvToListConverter()).toList();
+
+        int addedCount = 0;
+
+        // Loop rows (Start from 1 to skip Header)
+        // Format: Question | OptA | OptB | OptC | OptD | Correct(A/B/C/D) | Explanation
+        for (int i = 1; i < fields.length; i++) {
+          List<dynamic> row = fields[i];
+          if (row.length < 6) continue; // Skip invalid rows
+
+          String question = row[0].toString().trim();
+          String optA = row[1].toString().trim();
+          String optB = row[2].toString().trim();
+          String optC = row[3].toString().trim();
+          String optD = row[4].toString().trim();
+          String correctAnsRaw = row[5].toString().trim().toUpperCase(); // A, B, C, D
+          String explanation = row.length > 6 ? row[6].toString().trim() : "";
+
+          int correctIndex = 0;
+          if (correctAnsRaw == 'B') correctIndex = 1;
+          else if (correctAnsRaw == 'C') correctIndex = 2;
+          else if (correctAnsRaw == 'D') correctIndex = 3;
+
+          // Add to list if not duplicate
+          if (!_questions.any((q) => q['question'] == question)) {
+            _questions.add({
+              'id': DateTime.now().millisecondsSinceEpoch.toString() + i.toString(),
+              'question': question,
+              'options': [optA, optB, optC, optD],
+              'correctIndex': correctIndex,
+              'explanation': explanation
+            });
+            addedCount++;
+          }
+        }
+
+        setState(() => _isGenerating = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Imported $addedCount questions from CSV!")));
+      }
+    } catch (e) {
+      setState(() => _isGenerating = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error reading CSV: $e")));
+    }
   }
 
   // 🔥 REGEX CLEANER
@@ -238,25 +300,57 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       });
   }
 
-  // 🔥 FETCH LOGIC WITH CLEANING
+  // 🔥 2. OPTIMIZED BATCH FETCH LOGIC
   Future<void> _fetchQuestionsFromSelection() async {
     setState(() => _isGenerating = true);
     List<Map<String, dynamic>> fetchedQuestions = [];
+    
     try {
       List<Future<void>> tasks = [];
+      
       for (var entry in _topicCounts.entries) {
-        for (int i = 0; i < entry.value; i++) {
-          tasks.add(Future(() async {
-            String randomId = FirebaseFirestore.instance.collection('questions').doc().id;
-            var query = await FirebaseFirestore.instance.collection('questions').where('topicId', isEqualTo: entry.key).orderBy(FieldPath.documentId).startAt([randomId]).limit(1).get();
-            if (query.docs.isNotEmpty) { _processFetchedDoc(query.docs.first, fetchedQuestions); } 
-            else { var startQuery = await FirebaseFirestore.instance.collection('questions').where('topicId', isEqualTo: entry.key).limit(1).get(); if (startQuery.docs.isNotEmpty) _processFetchedDoc(startQuery.docs.first, fetchedQuestions); }
-          }));
-        }
+        String topicId = entry.key;
+        int countNeeded = entry.value;
+
+        // BATCH QUERY: Fetch 'countNeeded' questions in ONE go
+        tasks.add(Future(() async {
+          // 1. Generate Random ID
+          String randomId = FirebaseFirestore.instance.collection('questions').doc().id;
+
+          // 2. Fetch Batch starting from Random ID
+          var querySnapshot = await FirebaseFirestore.instance
+              .collection('questions')
+              .where('topicId', isEqualTo: topicId)
+              .orderBy(FieldPath.documentId)
+              .startAt([randomId])
+              .limit(countNeeded) // 🔥 FETCH BATCH
+              .get();
+
+          List<QueryDocumentSnapshot> docs = querySnapshot.docs;
+
+          // 3. If batch is small (reached end), fetch remaining from start
+          if (docs.length < countNeeded) {
+            int remaining = countNeeded - docs.length;
+            var startSnapshot = await FirebaseFirestore.instance
+                .collection('questions')
+                .where('topicId', isEqualTo: topicId)
+                .orderBy(FieldPath.documentId)
+                .limit(remaining)
+                .get();
+            docs.addAll(startSnapshot.docs);
+          }
+
+          // 4. Process all fetched docs
+          for (var doc in docs) {
+            _processFetchedDoc(doc, fetchedQuestions);
+          }
+        }));
       }
+
       await Future.wait(tasks);
       setState(() { _questions.addAll(fetchedQuestions); _isGenerating = false; });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Fetched ${fetchedQuestions.length} questions!")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Fetched ${fetchedQuestions.length} questions successfully!")));
+      
     } catch (e) {
       setState(() => _isGenerating = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -297,13 +391,9 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     if (user == null) return;
 
     try {
-      // 🔥 Saving to Nested Path with correct Teacher ID
       await FirebaseFirestore.instance.collection('study_schedules').doc(widget.examId).collection('weeks').doc(widget.weekId).collection('tests').add({
         'testTitle': _testTitleController.text.trim(),
-        
-        // 🔥🔥 CRITICAL FIX: Saved as 'scheduledAt' instead of 'unlockTime' to match List Screen
         'scheduledAt': Timestamp.fromDate(_unlockTime!), 
-        
         'questions': _questions,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': user.uid, 
@@ -347,13 +437,17 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                 Text("Questions (${_questions.length})", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 Row(children: [
                     IconButton(onPressed: () => _showManualQuestionDialog(), icon: const Icon(Icons.add_circle, color: Colors.green), tooltip: "Add Manual Question"),
+                    
+                    // 🔥 NEW CSV BUTTON
+                    IconButton(onPressed: _isGenerating ? null : _pickAndParseCSV, icon: const Icon(Icons.upload_file, color: Colors.orange), tooltip: "Upload CSV"),
+                    
                     ElevatedButton.icon(onPressed: _isGenerating ? null : _openAutoGeneratorSheet, style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple.shade50, foregroundColor: Colors.deepPurple), icon: _isGenerating ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.auto_awesome), label: const Text("Auto Gen")),
                 ])
             ]),
             const Divider(),
             
             _questions.isEmpty 
-            ? const Padding(padding: EdgeInsets.all(20), child: Center(child: Text("No questions added.")))
+            ? const Padding(padding: EdgeInsets.all(20), child: Center(child: Text("No questions added. Upload CSV or Auto Gen.")))
             : ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
