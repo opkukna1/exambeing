@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 // ✅ IMPORT THE NEW SOLUTION SCREEN
-import 'package:exambeing/features/study_plan/screens/test_solution_screen.dart'; 
+import 'test_solution_screen.dart'; 
 
 class StudyResultsScreen extends StatelessWidget {
   final String examId;
@@ -88,7 +88,6 @@ class StudyResultsScreen extends StatelessWidget {
                   itemBuilder: (context, index) {
                     var data = docs[index].data() as Map<String, dynamic>;
                     double score = (data['score'] as num).toDouble();
-                    int totalQ = data['totalQ'] ?? 0;
                     
                     // Formatting Date
                     Timestamp? ts = data['attemptedAt'];
@@ -154,14 +153,18 @@ class StudyResultsScreen extends StatelessWidget {
                                 ),
                                 onPressed: () {
                                    if (data['questionsSnapshot'] != null) {
-                                     // Ensure we are passing List<dynamic> correctly
-                                     List<dynamic> qList = data['questionsSnapshot'] as List<dynamic>;
+                                     // ✅ FIX: Explicitly cast List<dynamic> to List<Map<String, dynamic>>
+                                     List<dynamic> rawList = data['questionsSnapshot'];
+                                     List<Map<String, dynamic>> safeQuestions = List<Map<String, dynamic>>.from(
+                                        rawList.map((x) => Map<String, dynamic>.from(x))
+                                     );
                                      
                                      Navigator.push(
                                        context, 
                                        MaterialPageRoute(builder: (c) => TestSolutionScreen(
                                          testId: data['testId'] ?? docs[index].id, 
-                                         originalQuestions: qList
+                                         originalQuestions: safeQuestions, // ✅ ERROR SOLVED HERE
+                                         examName: data['testTitle'],
                                        ))
                                      );
                                    } else {
