@@ -51,6 +51,7 @@ dependencies:
   firebase_auth: ^5.3.1
   google_sign_in: ^6.2.1
   smart_auth: ^2.0.0
+  in_app_purchase: ^3.1.7
   
   # Notes edit ke liye 
   flutter_quill: 11.5.0
