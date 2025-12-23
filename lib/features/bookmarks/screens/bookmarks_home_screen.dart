@@ -3,18 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
-// ✅ IMPORTS
+// ✅ IMPORTS (Make sure paths are correct)
 import 'package:exambeing/features/admin/screens/create_week_schedule.dart';
 import 'package:exambeing/features/study_plan/screens/linked_notes_screen.dart';
 import 'package:exambeing/features/study_plan/screens/study_results_screen.dart';
-// 👇 NEW IMPORTS FOR TEST SYSTEM
 import 'package:exambeing/features/admin/screens/create_test_screen.dart';
 import 'package:exambeing/features/study_plan/screens/attempt_test_screen.dart';
-// 👇 NEW IMPORT FOR EDIT SCHEDULE
 import 'package:exambeing/features/admin/screens/edit_week_schedule.dart';
-// 🔥 IMPORT TEST LIST (Manage Logic Yahan Hai)
 import 'package:exambeing/features/study_plan/screens/test_list_screen.dart';
-// 👥 IMPORT MANAGE STUDENTS (Naya Screen)
 import 'package:exambeing/features/admin/screens/manage_students_screen.dart';
 
 class BookmarksHomeScreen extends StatefulWidget {
@@ -26,9 +22,13 @@ class BookmarksHomeScreen extends StatefulWidget {
 
 class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
   // 🔒 ADMIN CHECK
-  // (Aap chaho to isko Firestore se bhi check kar sakte ho, filhal hardcoded hai)
   final String adminEmail = "opsiddh42@gmail.com";
-  bool get isAdmin => FirebaseAuth.instance.currentUser?.email == adminEmail;
+  
+  // Safe Admin Check
+  bool get isAdmin {
+    final user = FirebaseAuth.instance.currentUser;
+    return user != null && user.email?.toLowerCase().trim() == adminEmail.toLowerCase().trim();
+  }
 
   String? selectedExamId;
   String? selectedExamName;
@@ -56,6 +56,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                 await FirebaseFirestore.instance.collection('study_schedules').add({
                   'examName': nameController.text.trim(),
                   'createdAt': FieldValue.serverTimestamp(),
+                  'purchasedUsers': [], // Important for filtering
                 });
                 if (mounted) Navigator.pop(ctx);
               }
@@ -102,7 +103,11 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return const Scaffold(body: Center(child: Text("Please Login")));
+    
+    // Safety check for Login
+    if (user == null || user.email == null) {
+      return const Scaffold(body: Center(child: Text("Please Login to view your Plan")));
+    }
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -113,12 +118,11 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
         foregroundColor: Colors.black,
         actions: [
           if (isAdmin) ...[
-            // 👥 MANAGE STUDENTS BUTTON (Added Here)
+            // 👥 MANAGE STUDENTS BUTTON
             IconButton(
               icon: const Icon(Icons.people_alt, color: Colors.deepPurple),
               tooltip: "Manage Students",
               onPressed: () {
-                // Navigate to Manage Students Screen
                 Navigator.push(
                   context, 
                   MaterialPageRoute(builder: (c) => const ManageStudentsScreen())
@@ -139,7 +143,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
           children: [
             
             // ------------------------------------------------
-            // 1️⃣ SECTION: EXAM SELECTION (Horizontal) - 🔥 WITH FILTER
+            // 1️⃣ SECTION: EXAM SELECTION (Horizontal) - 🔥 WITH ROBUST FILTER
             // ------------------------------------------------
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -161,9 +165,9 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                     itemCount: exams.length,
                     itemBuilder: (context, index) {
                       var doc = exams[index];
+                      var data = doc.data() as Map<String, dynamic>;
                       
-                      // 🔥🔥 LOGIC: Check Permission for Each Exam
-                      // Har Exam ke liye hum check karenge ki user Allowed hai ya nahi
+                      // 🔥🔥 LOGIC: Check Permission (Dual Check)
                       return StreamBuilder<DocumentSnapshot>(
                         stream: FirebaseFirestore.instance
                             .collection('study_schedules')
@@ -175,13 +179,22 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                           
                           bool isAllowed = false;
                           
-                          // 1. Agar Admin hai to sab dikhega
-                          if (isAdmin) isAllowed = true;
-                          
-                          // 2. Agar Normal User hai, to check karo list mein hai ya nahi
-                          if (permSnap.hasData && permSnap.data!.exists) {
-                            // Expiry bhi check kar sakte hain agar future mein zaroorat ho
+                          // Rule 1: Admin sees everything
+                          if (isAdmin) {
+                            isAllowed = true;
+                          } 
+                          // Rule 2: Check Subcollection (Primary Method)
+                          else if (permSnap.hasData && permSnap.data!.exists) {
                             isAllowed = true; 
+                          }
+                          // Rule 3: Check Array (Backup Method from Buy Screen)
+                          else {
+                             if (data.containsKey('purchasedUsers')) {
+                               List users = List.from(data['purchasedUsers'] ?? []);
+                               if (users.contains(user.email)) {
+                                 isAllowed = true;
+                               }
+                             }
                           }
 
                           // ⛔ HIDE IF NOT ALLOWED
@@ -193,7 +206,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                             onTap: () {
                               setState(() {
                                 selectedExamId = doc.id;
-                                selectedExamName = doc['examName'];
+                                selectedExamName = data['examName'];
                                 selectedWeekId = null; 
                                 selectedWeekData = null;
                               });
@@ -209,7 +222,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                               ),
                               child: Center(
                                 child: Text(
-                                  doc['examName'],
+                                  data['examName'] ?? "Exam",
                                   style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -388,7 +401,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                         label: label, 
                         color: color, 
                         onTap: () {
-                          // 🔥 NAVIGATE TO TEST LIST SCREEN
                           Navigator.push(
                             context, 
                             MaterialPageRoute(
