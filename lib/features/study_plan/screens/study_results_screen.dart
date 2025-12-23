@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+// ✅ IMPORT PRINTING PACKAGE
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
 
 // ✅ IMPORT THE NEW SOLUTION SCREEN
 import 'test_solution_screen.dart'; 
@@ -11,6 +14,170 @@ class StudyResultsScreen extends StatelessWidget {
   final String examName;
 
   const StudyResultsScreen({super.key, required this.examId, required this.examName});
+
+  // 🔥 PDF GENERATION LOGIC STARTS HERE
+  Future<void> _generateAndPrintPdf(BuildContext context, Map<String, dynamic> resultData, String examTitle) async {
+    try {
+      // 1. Data Preparation
+      List<dynamic> rawList = resultData['questionsSnapshot'] ?? [];
+      List<Map<String, dynamic>> questions = List<Map<String, dynamic>>.from(
+         rawList.map((x) => Map<String, dynamic>.from(x))
+      );
+      
+      double score = (resultData['score'] as num).toDouble();
+      int correct = resultData['correct'] ?? 0;
+      int wrong = resultData['wrong'] ?? 0;
+
+      // 2. HTML Content Builder
+      StringBuffer html = StringBuffer();
+      
+      html.write("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: sans-serif; color: #333; }
+            .cover-page { 
+              height: 90vh; 
+              display: flex; 
+              flex-direction: column; 
+              justify-content: center; 
+              align-items: center; 
+              text-align: center;
+              border: 5px double #673AB7;
+              padding: 20px;
+            }
+            .logo { font-size: 50px; font-weight: bold; color: #673AB7; margin-bottom: 20px; }
+            .exam-title { font-size: 30px; margin-bottom: 10px; }
+            .score-box { 
+              font-size: 40px; 
+              font-weight: bold; 
+              color: white; 
+              background-color: #673AB7; 
+              padding: 20px 40px; 
+              border-radius: 50px; 
+              margin: 20px 0;
+            }
+            .stats { font-size: 18px; color: #555; margin-top: 10px; }
+            
+            .page-break { page-break-after: always; }
+            
+            .question-container { 
+              border: 1px solid #ddd; 
+              padding: 15px; 
+              margin-bottom: 15px; 
+              border-radius: 8px;
+              page-break-inside: avoid; /* Try not to split questions across pages */
+              background-color: #fff;
+            }
+            .q-text { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+            .option { padding: 5px; margin: 2px 0; font-size: 14px; }
+            .user-ans { color: #1565C0; font-weight: bold; } /* Blue for user selection */
+            .correct-ans { color: #2E7D32; font-weight: bold; } /* Green for correct */
+            .wrong-ans { color: #C62828; text-decoration: line-through; } /* Red for wrong */
+            
+            .explanation-box { 
+              background-color: #f3e5f5; 
+              padding: 10px; 
+              margin-top: 10px; 
+              border-left: 4px solid #673AB7; 
+              font-size: 13px;
+            }
+            .status-badge {
+              float: right;
+              font-size: 12px;
+              padding: 2px 8px;
+              border-radius: 4px;
+              color: white;
+            }
+            .badge-correct { background-color: green; }
+            .badge-wrong { background-color: red; }
+            .badge-skipped { background-color: orange; }
+          </style>
+        </head>
+        <body>
+      """);
+
+      // --- PAGE 1: COVER PAGE ---
+      html.write("""
+        <div class="cover-page">
+          <div class="logo">Exambeing</div>
+          <div class="exam-title">$examTitle</div>
+          <div>Solution & Analysis Key</div>
+          <div class="score-box">Score: ${score.toStringAsFixed(1)}</div>
+          <div class="stats">
+            Correct: $correct | Wrong: $wrong
+          </div>
+          <p style="margin-top:50px; font-size:12px; color:#999;">Generated on ${DateFormat('dd MMM yyyy').format(DateTime.now())}</p>
+        </div>
+        <div class="page-break"></div>
+      """);
+
+      // --- PAGE 2+: QUESTIONS ---
+      // Loop through questions
+      for (int i = 0; i < questions.length; i++) {
+        var q = questions[i];
+        String questionText = q['question'] ?? 'No Question Text';
+        String explanation = q['explanation'] ?? 'No explanation available.';
+        String correctOption = q['correctOption'] ?? '';
+        String userSelected = q['selectedOption'] ?? ''; // Can be null or empty if skipped
+
+        // Logic to determine status
+        bool isSkipped = userSelected.isEmpty;
+        bool isCorrect = userSelected == correctOption;
+        
+        String badgeHtml = "";
+        if (isSkipped) {
+          badgeHtml = '<span class="status-badge badge-skipped">Skipped</span>';
+        } else if (isCorrect) {
+          badgeHtml = '<span class="status-badge badge-correct">Correct</span>';
+        } else {
+          badgeHtml = '<span class="status-badge badge-wrong">Wrong</span>';
+        }
+
+        // Add page break logic manually every 4 questions to ensure clean split
+        // (Though existing logic handles overflow, this forces structure as requested)
+        if (i > 0 && i % 4 == 0) {
+           html.write('<div class="page-break"></div>');
+        }
+
+        html.write("""
+          <div class="question-container">
+            $badgeHtml
+            <div class="q-text">Q${i + 1}: $questionText</div>
+            <div style="margin-bottom: 8px;">
+        """);
+
+        // Options Display logic
+        // Assuming options are stored somewhat standardly, usually we display User vs Correct
+        html.write("""
+              <div class="option"><b>Your Answer:</b> <span class="${isCorrect ? 'correct-ans' : (isSkipped ? '' : 'wrong-ans')}">${isSkipped ? 'Not Attempted' : userSelected}</span></div>
+              <div class="option"><b>Correct Answer:</b> <span class="correct-ans">$correctOption</span></div>
+            </div>
+            <div class="explanation-box">
+              <b>Explanation:</b><br/>
+              $explanation
+            </div>
+          </div>
+        """);
+      }
+
+      html.write("</body></html>");
+
+      // 3. Print/PDF Action
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => await Printing.convertHtml(
+          format: format,
+          html: html.toString(),
+        ),
+        name: '${examTitle}_Solutions', // Name of the saved file
+      );
+
+    } catch (e) {
+      debugPrint("Error generating PDF: $e");
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error generating PDF: $e")));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,38 +307,63 @@ class StudyResultsScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 15),
                             
-                            // 👇 ACTION BUTTON
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                icon: const Icon(Icons.visibility, size: 16),
-                                label: const Text("View Solutions & Analysis"),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.deepPurple,
-                                  side: const BorderSide(color: Colors.deepPurple),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+                            // 👇 ACTION BUTTONS ROW
+                            Row(
+                              children: [
+                                // 1. VIEW SOLUTION BUTTON (Existing)
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    icon: const Icon(Icons.visibility, size: 16),
+                                    label: const Text("Analysis"),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.deepPurple,
+                                      side: const BorderSide(color: Colors.deepPurple),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+                                    ),
+                                    onPressed: () {
+                                       if (data['questionsSnapshot'] != null) {
+                                         // ✅ FIX: Explicitly cast List<dynamic> to List<Map<String, dynamic>>
+                                         List<dynamic> rawList = data['questionsSnapshot'];
+                                         List<Map<String, dynamic>> safeQuestions = List<Map<String, dynamic>>.from(
+                                            rawList.map((x) => Map<String, dynamic>.from(x))
+                                         );
+                                         
+                                         Navigator.push(
+                                           context, 
+                                           MaterialPageRoute(builder: (c) => TestSolutionScreen(
+                                             testId: data['testId'] ?? docs[index].id, 
+                                             originalQuestions: safeQuestions, 
+                                             examName: data['testTitle'],
+                                           ))
+                                         );
+                                       } else {
+                                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Analysis not available for this test.")));
+                                       }
+                                    },
+                                  ),
                                 ),
-                                onPressed: () {
-                                   if (data['questionsSnapshot'] != null) {
-                                     // ✅ FIX: Explicitly cast List<dynamic> to List<Map<String, dynamic>>
-                                     List<dynamic> rawList = data['questionsSnapshot'];
-                                     List<Map<String, dynamic>> safeQuestions = List<Map<String, dynamic>>.from(
-                                        rawList.map((x) => Map<String, dynamic>.from(x))
-                                     );
-                                     
-                                     Navigator.push(
-                                       context, 
-                                       MaterialPageRoute(builder: (c) => TestSolutionScreen(
-                                         testId: data['testId'] ?? docs[index].id, 
-                                         originalQuestions: safeQuestions, // ✅ ERROR SOLVED HERE
-                                         examName: data['testTitle'],
-                                       ))
-                                     );
-                                   } else {
-                                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Analysis not available for this test.")));
-                                   }
-                                },
-                              ),
+                                const SizedBox(width: 10),
+                                
+                                // 2. DOWNLOAD PDF BUTTON (🔥 NEW)
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.download, size: 16),
+                                    label: const Text("Download PDF"),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.deepPurple,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+                                    ),
+                                    onPressed: () {
+                                      if (data['questionsSnapshot'] != null) {
+                                        _generateAndPrintPdf(context, data, data['testTitle'] ?? "Test Result");
+                                      } else {
+                                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data not available for PDF.")));
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
                             )
                           ],
                         ),
