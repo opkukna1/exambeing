@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:in_app_purchase/in_app_purchase.dart'; // 📦 Payment Package
 
 class BuyTestSeriesScreen extends StatefulWidget {
   const BuyTestSeriesScreen({super.key});
@@ -11,34 +12,165 @@ class BuyTestSeriesScreen extends StatefulWidget {
 }
 
 class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
-  // 🔥 ADMIN EMAIL - Sirf isko add/delete button dikhega
+  // 🔥 ADMIN EMAIL
   final String adminEmail = "opsiddh42@gmail.com";
 
-  // --- 1. ADMIN LOGIC: ADD NEW SERIES ---
+  // 💰 Payment Variables
+  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
+  late StreamSubscription<List<PurchaseDetails>> _subscription;
+  bool _isAvailable = false;
+  bool _purchasePending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final Stream<List<PurchaseDetails>> purchaseUpdated = _inAppPurchase.purchaseStream;
+    _subscription = purchaseUpdated.listen((purchaseDetailsList) {
+      _listenToPurchaseUpdated(purchaseDetailsList);
+    }, onDone: () {
+      _subscription.cancel();
+    }, onError: (error) {
+      setState(() { _purchasePending = false; });
+    });
+    _initStore();
+  }
+
+  Future<void> _initStore() async {
+    _isAvailable = await _inAppPurchase.isAvailable();
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+
+  // --- 1. LISTEN TO PAYMENT UPDATES ---
+  void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) async {
+    for (var purchaseDetails in purchaseDetailsList) {
+      if (purchaseDetails.status == PurchaseStatus.pending) {
+        setState(() { _purchasePending = true; });
+      } else {
+        if (purchaseDetails.status == PurchaseStatus.error) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${purchaseDetails.error?.message}")));
+        } else if (purchaseDetails.status == PurchaseStatus.purchased || purchaseDetails.status == PurchaseStatus.restored) {
+          
+          // 🎉 SUCCESS: Content Unlock Karo
+          await _unlockContentLogic(purchaseDetails.productID);
+        }
+
+        if (purchaseDetails.pendingCompletePurchase) {
+          await _inAppPurchase.completePurchase(purchaseDetails);
+        }
+        setState(() { _purchasePending = false; });
+      }
+    }
+  }
+
+  // --- 2. 🔥 MAIN UNLOCK LOGIC (LINKING SCHEDULE ID) ---
+  Future<void> _unlockContentLogic(String googleProductId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.email == null) return;
+
+    try {
+      // Step A: Find the Premium Card using Google Product ID
+      var query = await FirebaseFirestore.instance
+          .collection('premium_test_series')
+          .where('productId', isEqualTo: googleProductId)
+          .get();
+
+      if (query.docs.isNotEmpty) {
+        var premiumDoc = query.docs.first;
+        String linkedScheduleId = premiumDoc['linkedScheduleId']; // 👈 Yahan se Schedule ID milegi
+
+        if (linkedScheduleId.isNotEmpty) {
+          // Step B: Update the REAL Schedule in 'study_schedules'
+          // User ki email ko 'allowed_users' subcollection mein daal rahe hain
+          await FirebaseFirestore.instance
+              .collection('study_schedules')
+              .doc(linkedScheduleId)
+              .collection('allowed_users') // Subcollection approach (Best for security)
+              .doc(user.email) // Email ko hi Doc ID bana diya
+              .set({
+                'access': true,
+                'purchasedAt': FieldValue.serverTimestamp(),
+                'method': 'GooglePlay'
+              });
+
+          // Step C: Update Premium Card UI (Optional, just to show 'Owned' button)
+          await FirebaseFirestore.instance.collection('premium_test_series').doc(premiumDoc.id).update({
+            'allowedEmails': FieldValue.arrayUnion([user.email])
+          });
+
+          if(mounted) {
+            _showSuccessDialog();
+          }
+        } else {
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: Admin hasn't linked a Schedule ID! Contact Support.")));
+        }
+      }
+    } catch (e) {
+      debugPrint("Unlock Error: $e");
+    }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(context: context, builder: (c) => AlertDialog(
+      title: const Text("🎉 Purchase Successful!"),
+      content: const Text("Your Test Series has been unlocked.\nGo to 'Self Study' section to start."),
+      actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text("OK"))],
+    ));
+  }
+
+  // --- 3. BUY TRIGGER ---
+  void _buyProduct(String productId) async {
+    if (!_isAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Store Not Available")));
+      return;
+    }
+    
+    // Google Payment Popup
+    Set<String> _kIds = {productId};
+    final ProductDetailsResponse response = await _inAppPurchase.queryProductDetails(_kIds);
+    if (response.notFoundIDs.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Product ID not found in Console!")));
+      return;
+    }
+    final PurchaseParam purchaseParam = PurchaseParam(productDetails: response.productDetails.first);
+    _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+  }
+
+  // --- 4. ADMIN DIALOG (UPDATED FOR SCHEDULE ID) ---
   void _showAddSeriesDialog() {
-    final titleController = TextEditingController();
-    final descController = TextEditingController();
-    final priceController = TextEditingController();
-    final phoneController = TextEditingController(); // Teacher's Number
-    final totalTestsController = TextEditingController();
+    final titleC = TextEditingController();
+    final descC = TextEditingController();
+    final priceC = TextEditingController();
+    final productIdC = TextEditingController(); // Google Play ID
+    final scheduleIdC = TextEditingController(); // 🔥 REAL FIREBASE SCHEDULE ID
+    final totalTestsC = TextEditingController();
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Admin: Add Test Series 🛠️"),
+        title: const Text("Admin: Add Product 🛒"),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildTextField(titleController, "Exam Name (e.g. NEET 2025)"),
+              _buildTextField(titleC, "Display Name (e.g. NEET 2025)"),
               const SizedBox(height: 10),
-              _buildTextField(descController, "Description (e.g. Physics + Chem)", maxLines: 2),
+              _buildTextField(descC, "Description"),
               const SizedBox(height: 10),
-              _buildTextField(priceController, "Price (e.g. ₹499)"),
+              _buildTextField(priceC, "Price Label (e.g. ₹499)"),
               const SizedBox(height: 10),
-              _buildTextField(totalTestsController, "Total Tests (e.g. 50 Tests)"),
+              _buildTextField(totalTestsC, "Total Tests info"),
               const SizedBox(height: 10),
-              _buildTextField(phoneController, "WhatsApp No (e.g. 919876543210)", isPhone: true),
+              _buildTextField(productIdC, "Google Product ID (from Play Console)", isBold: true),
+              const SizedBox(height: 10),
+              // 👇 NEW FIELD FOR LINKING
+              _buildTextField(scheduleIdC, "Linked Schedule ID (from Firestore)", isBold: true),
+              const Text("Copy Doc ID from 'study_schedules' collection", style: TextStyle(fontSize: 10, color: Colors.grey)),
             ],
           ),
         ),
@@ -47,275 +179,120 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
             onPressed: () async {
-              if (titleController.text.isNotEmpty && phoneController.text.isNotEmpty) {
-                // Save to Firestore
+              if (titleC.text.isNotEmpty && productIdC.text.isNotEmpty && scheduleIdC.text.isNotEmpty) {
                 await FirebaseFirestore.instance.collection('premium_test_series').add({
-                  'title': titleController.text.trim(),
-                  'description': descController.text.trim(),
-                  'price': priceController.text.trim(),
-                  'totalTests': totalTestsController.text.trim(),
-                  'teacherWhatsapp': phoneController.text.trim(), // Specific number
-                  'createdAt': FieldValue.serverTimestamp(), // For sorting
-                  'allowedEmails': [], // Empty initially
+                  'title': titleC.text.trim(),
+                  'description': descC.text.trim(),
+                  'price': priceC.text.trim(),
+                  'totalTests': totalTestsC.text.trim(),
+                  'productId': productIdC.text.trim(), // Google ID
+                  'linkedScheduleId': scheduleIdC.text.trim(), // 🔥 Actual Content ID
+                  'createdAt': FieldValue.serverTimestamp(),
+                  'allowedEmails': [],
                 });
-                
                 if (mounted) Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ Series Added!")));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ Linked Series Added!")));
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("⚠️ Name and WhatsApp Number are required!")));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("⚠️ All IDs are required!")));
               }
             },
-            child: const Text("Save Series", style: TextStyle(color: Colors.white)),
+            child: const Text("Save", style: TextStyle(color: Colors.white)),
           )
         ],
       ),
     );
   }
 
-  // Helper Widget for TextFields
-  Widget _buildTextField(TextEditingController controller, String hint, {bool isPhone = false, int maxLines = 1}) {
+  Widget _buildTextField(TextEditingController controller, String hint, {bool isBold = false}) {
     return TextField(
       controller: controller,
-      keyboardType: isPhone ? TextInputType.phone : TextInputType.text,
-      maxLines: maxLines,
       decoration: InputDecoration(
-        labelText: hint,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        labelText: hint, 
+        labelStyle: isBold ? const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold) : null,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))
       ),
     );
   }
 
-  // --- 2. ADMIN LOGIC: DELETE SERIES ---
   void _deleteSeries(String docId) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Delete Series?"),
-        content: const Text("Are you sure? This cannot be undone."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-          TextButton(
-            onPressed: () async {
-              await FirebaseFirestore.instance.collection('premium_test_series').doc(docId).delete();
-              Navigator.pop(ctx);
-            },
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
-          )
-        ],
-      ),
-    );
-  }
-
-  // --- 3. WHATSAPP LOGIC (DYNAMIC) ---
-  void _openWhatsApp(String phone, String seriesName) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please Login first.")));
-      return;
-    }
-
-    String email = user.email ?? "No Email";
-    
-    // Formatting Phone (Remove spaces, ensure 91)
-    String finalPhone = phone.replaceAll(RegExp(r'\D'), ''); 
-    if (!finalPhone.startsWith('91') && finalPhone.length == 10) {
-      finalPhone = '91$finalPhone'; 
-    }
-
-    // ✨ REQUIRED MESSAGE FORMAT
-    String message = "Sir I want to buy test series *$seriesName* and my email id is $email";
-    
-    final Uri url = Uri.parse("https://wa.me/$finalPhone?text=${Uri.encodeComponent(message)}");
-
-    try {
-      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-        throw 'Could not launch WhatsApp';
-      }
-    } catch (e) {
-      debugPrint("Error launching WhatsApp: $e");
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Could not open WhatsApp. Make sure it is installed.")));
-    }
+    FirebaseFirestore.instance.collection('premium_test_series').doc(docId).delete();
   }
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    
-    // 🔥 ROBUST ADMIN CHECK (Fixes visibility issue)
-    final bool isAdmin = user != null && 
-        (user.email?.trim().toLowerCase() == adminEmail.trim().toLowerCase());
+    // Admin Check
+    final bool isAdmin = user?.email?.toLowerCase().startsWith("opsiddh42") ?? false;
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text("Premium Store 💎"),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
-      ),
+      appBar: AppBar(title: const Text("Premium Store 💎"), backgroundColor: Colors.white, foregroundColor: Colors.black, centerTitle: true, elevation: 0),
+      floatingActionButton: isAdmin ? FloatingActionButton.extended(onPressed: _showAddSeriesDialog, label: const Text("Add Product"), icon: const Icon(Icons.add), backgroundColor: Colors.deepPurple, foregroundColor: Colors.white) : null,
       
-      // 🔥 UPDATED FAB (White Text on Purple Background)
-      floatingActionButton: isAdmin
-          ? FloatingActionButton.extended(
-              onPressed: _showAddSeriesDialog,
-              backgroundColor: Colors.deepPurple, // ✅ Background Purple
-              foregroundColor: Colors.white,      // ✅ Text/Icon White
-              elevation: 4,
-              icon: const Icon(Icons.add),
-              label: const Text("Add Series", style: TextStyle(fontWeight: FontWeight.bold)),
-            )
-          : null,
-      
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('premium_test_series')
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Stack(
+        children: [
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('premium_test_series').orderBy('createdAt', descending: true).snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              if (snapshot.data!.docs.isEmpty) return const Center(child: Text("No Products Available"));
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.store_mall_directory_outlined, size: 80, color: Colors.grey[300]),
-                  const SizedBox(height: 10),
-                  const Text("No Premium Series Available", style: TextStyle(color: Colors.grey)),
-                  if (isAdmin) 
-                    const Padding(
-                      padding: EdgeInsets.only(top: 10),
-                      child: Text("(Click + button to add)", style: TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold)),
-                    ),
-                ],
-              ),
-            );
-          }
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: snapshot.data!.docs.length,
+                itemBuilder: (context, index) {
+                  var doc = snapshot.data!.docs[index];
+                  var data = doc.data() as Map<String, dynamic>;
+                  String productId = data['productId'] ?? '';
+                  // Check Ownership locally for UI update
+                  bool isOwned = (data['allowedEmails'] as List? ?? []).contains(user?.email);
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: snapshot.data!.docs.length,
-            itemBuilder: (context, index) {
-              var doc = snapshot.data!.docs[index];
-              var data = doc.data() as Map<String, dynamic>;
-
-              // Extract Data
-              String title = data['title'] ?? 'Unnamed Series';
-              String desc = data['description'] ?? 'No Description';
-              String price = data['price'] ?? 'Paid';
-              String totalTests = data['totalTests'] ?? 'N/A';
-              String phone = data['teacherWhatsapp'] ?? ''; // Specific Number
-              
-              // Check Permission
-              List allowedEmails = data['allowedEmails'] ?? [];
-              bool isPurchased = allowedEmails.contains(user?.email);
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 15, offset: const Offset(0, 8))],
-                ),
-                child: Column(
-                  children: [
-                    // --- 1. HEADER (Gold Gradient) ---
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFFF2994A), Color(0xFFF2C94C)]),
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(10)),
-                            child: Text(isPurchased ? "UNLOCKED" : price, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          ),
-                          // 🗑️ ADMIN DELETE BUTTON
-                          if (isAdmin)
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.white),
-                              onPressed: () => _deleteSeries(doc.id),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                        ],
-                      ),
-                    ),
-
-                    // --- 2. BODY ---
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, 5))]),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(15),
+                          decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFF2994A), Color(0xFFF2C94C)]), borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Icon(Icons.checklist_rtl, color: Colors.deepPurple, size: 20),
-                              const SizedBox(width: 8),
-                              Text(totalTests, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
+                              Expanded(child: Text(data['title'] ?? 'Test Series', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
+                              if(isAdmin) IconButton(icon: const Icon(Icons.delete, color: Colors.white), onPressed: () => _deleteSeries(doc.id))
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          Text(desc, style: TextStyle(color: Colors.grey[600], fontSize: 13, height: 1.4)),
-                          
-                          const SizedBox(height: 20),
-                          const Divider(),
-                          const SizedBox(height: 10),
-
-                          // --- 3. BUY BUTTON ---
-                          SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isPurchased ? Colors.green : const Color(0xFF25D366), // WhatsApp Green
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                elevation: 0,
-                              ),
-                              icon: Icon(isPurchased ? Icons.play_arrow : Icons.whatsapp, color: Colors.white),
-                              label: Text(
-                                isPurchased ? "OPEN TEST SERIES" : "BUY NOW (WhatsApp)",
-                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                              onPressed: () {
-                                if (isPurchased) {
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ Already Purchased! Check Self Study Section.")));
-                                  // Yahan aap redirect kar sakte hain
-                                } else {
-                                  // 🔥 WHATSAPP TRIGGER
-                                  if (phone.isNotEmpty) {
-                                    _openWhatsApp(phone, title);
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("⚠️ Teacher has not set a number yet.")));
-                                  }
-                                }
-                              },
-                            ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(15),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(data['description'] ?? '', style: TextStyle(color: Colors.grey[600])),
+                              const SizedBox(height: 10),
+                              if(isAdmin) Text("Linked Schedule ID: ${data['linkedScheduleId']}", style: const TextStyle(fontSize: 10, color: Colors.red)),
+                              const SizedBox(height: 15),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 45,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(backgroundColor: isOwned ? Colors.green : Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                                  icon: Icon(isOwned ? Icons.check : Icons.shopping_cart, color: Colors.white),
+                                  label: Text(isOwned ? "UNLOCKED" : "BUY FOR ${data['price']}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  onPressed: isOwned ? () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Already Owned! Go to Self Study."))) : () => _buyProduct(productId),
+                                ),
+                              )
+                            ],
                           ),
-                        ],
-                      ),
+                        )
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               );
             },
-          );
-        },
+          ),
+          if (_purchasePending) Container(color: Colors.black54, child: const Center(child: CircularProgressIndicator()))
+        ],
       ),
     );
   }
