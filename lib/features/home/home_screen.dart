@@ -1,17 +1,21 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_markdown/flutter_markdown.dart'; // 🔥 For AI Result
+import 'package:flutter_markdown/flutter_markdown.dart'; 
 
-// ✅ IMPORTS
+// ✅ EXISTING IMPORTS
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:exambeing/services/ad_manager.dart';
 import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
-import 'package:exambeing/services/ai_analysis_service.dart'; // 🔥 Your AI Service
+import 'package:exambeing/services/ai_analysis_service.dart'; 
 import 'package:badges/badges.dart' as badges;
+
+// 🔥🔥🔥 NEW IMPORT (Jo aapne manga tha) 🔥🔥🔥
+import 'package:exambeing/features/study_plan/screens/buy_test_series_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,7 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserName();
     _activateLuckyTrial();
     AdManager.loadInterstitialAd();
-    _saveDeviceToken(); // ✅ FCM Token Save logic is here
+    _saveDeviceToken(); 
   }
 
   // --- 1. GET USER NAME ---
@@ -47,9 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --- 2. FCM / NOTIFICATION LOGIC (Restored) ---
-  
-  // A. Save Token to Firestore
+  // --- 2. FCM / NOTIFICATION LOGIC ---
   Future<void> _saveDeviceToken() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -73,7 +75,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // B. Get Unread Count for Badge
   Future<int> _getUnreadCount(List<QueryDocumentSnapshot> docs) async {
     final prefs = await SharedPreferences.getInstance();
     final int lastCheck = prefs.getInt('last_notification_check') ?? 0;
@@ -90,10 +91,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return unread;
   }
 
-  // C. Handle Click
   void _handleNotificationClick() {
     context.push('/notifications').then((_) {
-      if(mounted) setState(() {}); // Refresh badge on return
+      if(mounted) setState(() {}); 
     });
   }
 
@@ -125,10 +125,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- 4. 🤖 AI ANALYSIS LOGIC (Black Screen Fixed using Overlay) ---
+  // --- 4. 🤖 AI ANALYSIS LOGIC ---
   void _onAiAnalyzePressed() async {
-    
-    // Start Loading Overlay
     setState(() {
       _isLoading = true;
     });
@@ -137,17 +135,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final service = AiAnalysisService();
-      
-      // Fetch with Timeout (15 seconds)
       result = await service.getAnalysis().timeout(
         const Duration(seconds: 15), 
         onTimeout: () => "Error: AI took too long. Check internet.",
       );
-
     } catch (e) {
       result = "Error: Something went wrong ($e)";
     } finally {
-      // Stop Loading Overlay (Always runs)
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -155,7 +149,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    // Handle Result
     if (result == "LIMIT_REACHED") {
       _showDialog("Limit Reached 🛑", "You have used your 5 free AI analysis for this month.");
     } else if (result == "NO_DATA") {
@@ -212,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- UI BUILD (Using Stack for Overlay) ---
+  // --- UI BUILD ---
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -237,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔥 NEW: Buy Test Series Button (Placed Above AI Button)
+            // 🔥 NEW: Buy Test Series Button
             _buildBuyTestSeriesCard(),
 
             const SizedBox(height: 20),
@@ -259,10 +252,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
 
-        // 2. 🔥 LOADING OVERLAY (Black Screen Fix)
+        // 2. 🔥 LOADING OVERLAY
         if (_isLoading)
           Container(
-            color: Colors.black.withOpacity(0.7), // Dim background
+            color: Colors.black.withOpacity(0.7),
             child: Center(
               child: Container(
                 padding: const EdgeInsets.all(25),
@@ -299,7 +292,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         
-        // 🔥 Badge Logic Restored
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection('notifications').snapshots(),
           builder: (context, snapshot) {
@@ -332,14 +324,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✅ NEW WIDGET: Buy Test Series Card
+  // ✅ NEW WIDGET: Buy Test Series Card (Linked to correct screen)
   Widget _buildBuyTestSeriesCard() {
     return Container(
       width: double.infinity, 
       height: 80,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        // Premium Gold/Orange Gradient
         gradient: const LinearGradient(
           colors: [Color(0xFFF2994A), Color(0xFFF2C94C)], 
           begin: Alignment.centerLeft, 
@@ -354,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-             // 🚀 Navigate to Full Screen Buy Page
+             // 🔥🔥 NAVIGATE TO THE IMPORTED SCREEN
              Navigator.push(
                context,
                MaterialPageRoute(builder: (context) => const BuyTestSeriesScreen()),
@@ -384,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(8), 
                   decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle), 
-                  child: const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 16)
+                  child: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16)
                 )
               ],
             ),
@@ -474,30 +465,6 @@ class _HomeScreenState extends State<HomeScreen> {
         final seriesList = snapshot.data!.docs;
         return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 0.85), itemCount: seriesList.length, itemBuilder: (context, index) { final data = seriesList[index].data() as Map<String, dynamic>; final title = data['title'] ?? "Series"; final category = data['category'] ?? "Exam"; Color accentColor = index % 2 == 0 ? Colors.purple : Colors.indigo; Color iconBg = index % 2 == 0 ? Colors.purple.shade50 : Colors.indigo.shade50; return Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.grey.shade200, blurRadius: 5, offset: const Offset(0, 3))]), child: Material(color: Colors.transparent, child: InkWell(borderRadius: BorderRadius.circular(20), onTap: () { if (data['type'] == 'subject') { context.push('/subject-list', extra: {'seriesId': seriesList[index].id, 'seriesTitle': title}); } else { context.push('/test-list', extra: {'seriesId': seriesList[index].id, 'subjectId': 'default', 'subjectTitle': title}); } }, child: Padding(padding: const EdgeInsets.all(16.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(height: 45, width: 45, decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)), child: Icon(Icons.menu_book, color: accentColor)), const Spacer(), Text(category.toUpperCase(), style: TextStyle(color: Colors.grey[500], fontSize: 10, fontWeight: FontWeight.bold)), const SizedBox(height: 4), Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), const SizedBox(height: 8), Row(children: [Text("View All", style: TextStyle(color: accentColor, fontSize: 12, fontWeight: FontWeight.bold)), const SizedBox(width: 4), Icon(Icons.arrow_forward_rounded, size: 14, color: accentColor)])]))))); });
       },
-    );
-  }
-}
-
-// 🔥 Placeholder Screen for "Buy Test Series"
-class BuyTestSeriesScreen extends StatelessWidget {
-  const BuyTestSeriesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Premium Plans"), backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-             Icon(Icons.stars, size: 80, color: Colors.amber),
-             SizedBox(height: 20),
-             Text("Unlock Unlimited Tests!", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-             SizedBox(height: 10),
-             Text("Choose a plan to get started.", style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
     );
   }
 }
