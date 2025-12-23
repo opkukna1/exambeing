@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-// ✅ PDF PACKAGES
+// ✅ PDF & PRINTING PACKAGES
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
+// Note: Hum 'pdf/widgets.dart' use nahi kar rahe kyunki hum HTML use karenge
 
 // ✅ IMPORT SOLUTION SCREEN
 import 'test_solution_screen.dart'; 
@@ -16,12 +16,10 @@ class StudyResultsScreen extends StatelessWidget {
 
   const StudyResultsScreen({super.key, required this.examId, required this.examName});
 
-  // 🔥 PDF GENERATOR FUNCTION
+  // 🔥🔥🔥 NEW: HTML BASED PDF GENERATOR (Fixes Hindi Font & Styling) 🔥🔥🔥
   Future<void> _generateAndPrintPdf(BuildContext context, Map<String, dynamic> resultData, String examTitle) async {
     try {
-      final doc = pw.Document();
-
-      // 1. Prepare Data
+      // 1. Data Setup
       List<dynamic> rawList = resultData['questionsSnapshot'] ?? [];
       List<Map<String, dynamic>> questions = List<Map<String, dynamic>>.from(
          rawList.map((x) => Map<String, dynamic>.from(x))
@@ -30,123 +28,165 @@ class StudyResultsScreen extends StatelessWidget {
       double score = (resultData['score'] as num).toDouble();
       int correct = resultData['correct'] ?? 0;
       int wrong = resultData['wrong'] ?? 0;
+      int skipped = resultData['skipped'] ?? 0;
 
-      // 2. Create PDF Layout
-      doc.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(32),
-          build: (pw.Context context) {
-            return [
-              // --- COVER PAGE ---
-              pw.Center(
-                child: pw.Column(
-                  mainAxisAlignment: pw.MainAxisAlignment.center,
-                  children: [
-                    pw.Text("Exambeing", style: pw.TextStyle(fontSize: 40, fontWeight: pw.FontWeight.bold, color: PdfColors.deepPurple)),
-                    pw.SizedBox(height: 20),
-                    pw.Text(examTitle, style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-                    pw.SizedBox(height: 10),
-                    pw.Text("Solution Key & Analysis", style: const pw.TextStyle(fontSize: 18, color: PdfColors.grey)),
-                    pw.SizedBox(height: 40),
-                    pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 50, vertical: 20),
-                      decoration: pw.BoxDecoration(
-                        color: PdfColors.deepPurple,
-                        borderRadius: pw.BorderRadius.circular(20)
-                      ),
-                      child: pw.Text("Score: ${score.toStringAsFixed(1)}", style: pw.TextStyle(fontSize: 30, color: PdfColors.white, fontWeight: pw.FontWeight.bold)),
-                    ),
-                    pw.SizedBox(height: 20),
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.center,
-                      children: [
-                        pw.Text("Correct: $correct", style: pw.TextStyle(color: PdfColors.green, fontSize: 18)),
-                        pw.SizedBox(width: 20),
-                        pw.Text("Wrong: $wrong", style: pw.TextStyle(color: PdfColors.red, fontSize: 18)),
-                      ]
-                    ),
-                    pw.SizedBox(height: 40),
-                    pw.Divider(),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 20),
+      // 2. Build HTML String
+      StringBuffer html = StringBuffer();
 
-              // --- QUESTIONS LIST ---
-              ...List.generate(questions.length, (index) {
-                var q = questions[index];
-                String questionText = q['question'] ?? 'No Question';
-                String explanation = q['explanation'] ?? 'No explanation available.';
-                String correctOption = q['correctOption'] ?? '';
-                String userSelected = q['selectedOption'] ?? ''; 
-                bool isSkipped = userSelected.isEmpty;
-                bool isCorrect = userSelected == correctOption;
+      // --- HTML HEADER & CSS STYLES ---
+      html.write("""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; }
+            
+            /* COVER PAGE STYLE */
+            .cover-page {
+              height: 90vh;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              text-align: center;
+              border: 4px double #673AB7;
+              border-radius: 20px;
+              margin-bottom: 20px;
+            }
+            .brand-name { font-size: 50px; font-weight: bold; color: #673AB7; margin-bottom: 10px; }
+            .exam-name { font-size: 28px; font-weight: bold; margin-bottom: 20px; text-decoration: underline; }
+            .score-card {
+              background-color: #673AB7;
+              color: white;
+              padding: 20px 50px;
+              border-radius: 50px;
+              font-size: 40px;
+              font-weight: bold;
+              margin: 30px 0;
+            }
+            .stats-row { font-size: 20px; margin-top: 20px; }
+            .stat-green { color: green; font-weight: bold; }
+            .stat-red { color: red; font-weight: bold; }
+            
+            /* PAGE BREAK LOGIC */
+            .page-break { page-break-after: always; }
+            
+            /* QUESTION CARD STYLE */
+            .question-box {
+              border: 1px solid #ddd;
+              border-radius: 10px;
+              padding: 15px;
+              margin-bottom: 15px;
+              background-color: #fff;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+              page-break-inside: avoid; /* Important: Prevents question splitting */
+            }
+            .q-header {
+              display: flex;
+              justify-content: space-between;
+              border-bottom: 2px solid #eee;
+              padding-bottom: 8px;
+              margin-bottom: 10px;
+            }
+            .q-num { font-weight: bold; color: #673AB7; font-size: 18px; }
+            .q-text { font-size: 16px; margin-bottom: 15px; font-weight: 500; }
+            
+            /* OPTIONS TABLE STYLE */
+            .ans-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+            .ans-table td { padding: 8px; border: 1px solid #eee; }
+            .label-col { width: 120px; font-weight: bold; background-color: #f9f9f9; }
+            
+            .text-correct { color: green; font-weight: bold; }
+            .text-wrong { color: red; font-weight: bold; text-decoration: line-through; }
+            .text-skipped { color: orange; font-weight: bold; }
+            
+            .explanation {
+              background-color: #f0f4c3; /* Light Yellow/Green */
+              padding: 10px;
+              border-left: 5px solid #afb42b;
+              font-size: 14px;
+              color: #444;
+            }
+          </style>
+        </head>
+        <body>
+      """);
 
-                return pw.Container(
-                  margin: const pw.EdgeInsets.only(bottom: 15),
-                  padding: const pw.EdgeInsets.all(10),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey300),
-                    borderRadius: pw.BorderRadius.circular(8)
-                  ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                        children: [
-                          pw.Text("Q${index + 1}", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.deepPurple)),
-                          pw.Container(
-                            padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: pw.BoxDecoration(
-                              color: isSkipped ? PdfColors.orange : (isCorrect ? PdfColors.green : PdfColors.red),
-                              borderRadius: pw.BorderRadius.circular(4)
-                            ),
-                            child: pw.Text(
-                              isSkipped ? "Skipped" : (isCorrect ? "Correct" : "Wrong"), 
-                              style: const pw.TextStyle(color: PdfColors.white, fontSize: 10)
-                            )
-                          )
-                        ]
-                      ),
-                      pw.SizedBox(height: 5),
-                      pw.Text(questionText, style: const pw.TextStyle(fontSize: 12)),
-                      pw.Divider(color: PdfColors.grey200),
-                      pw.Row(
-                        children: [
-                          pw.Text("Your Ans: ", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                          pw.Text(isSkipped ? "Not Attempted" : userSelected, style: pw.TextStyle(fontSize: 10, color: isCorrect ? PdfColors.green : PdfColors.red)),
-                          pw.SizedBox(width: 20),
-                          pw.Text("Correct: ", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                          pw.Text(correctOption, style: const pw.TextStyle(fontSize: 10, color: PdfColors.green)),
-                        ]
-                      ),
-                      pw.SizedBox(height: 5),
-                      pw.Container(
-                        padding: const pw.EdgeInsets.all(5),
-                        color: PdfColors.grey100,
-                        width: double.infinity,
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text("Explanation:", style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                            pw.Text(explanation, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
-                          ]
-                        )
-                      )
-                    ]
-                  )
-                );
-              })
-            ];
-          }
-        )
-      );
+      // --- 3. ADD COVER PAGE CONTENT ---
+      html.write("""
+        <div class="cover-page">
+          <div class="brand-name">Exambeing</div>
+          <div class="exam-name">$examTitle</div>
+          <div class="score-card">Score: ${score.toStringAsFixed(1)}</div>
+          <div class="stats-row">
+            <span class="stat-green">Correct: $correct</span> &nbsp; | &nbsp; 
+            <span class="stat-red">Wrong: $wrong</span> &nbsp; | &nbsp; 
+            <span>Skipped: $skipped</span>
+          </div>
+          <p style="margin-top:50px; color:#888;">Generated on ${DateFormat('dd MMM yyyy').format(DateTime.now())}</p>
+        </div>
+        <div class="page-break"></div>
+      """);
 
-      // 3. Print / Save
+      // --- 4. LOOP THROUGH QUESTIONS ---
+      for (int i = 0; i < questions.length; i++) {
+        var q = questions[i];
+        String questionText = q['question'] ?? 'Question not found';
+        String explanation = q['explanation'] ?? 'No explanation available.';
+        String correctOption = q['correctOption'] ?? '';
+        String userSelected = q['selectedOption'] ?? ''; 
+        
+        bool isSkipped = userSelected.isEmpty;
+        bool isCorrect = userSelected == correctOption;
+
+        // Logic for User Answer Display
+        String userAnsHtml;
+        if (isSkipped) {
+          userAnsHtml = '<span class="text-skipped">Not Attempted ⚠️</span>';
+        } else if (isCorrect) {
+          userAnsHtml = '<span class="text-correct">$userSelected ✅</span>';
+        } else {
+          userAnsHtml = '<span class="text-wrong">$userSelected</span> ❌ <span style="color:red; font-size:12px;">(Wrong)</span>';
+        }
+
+        html.write("""
+          <div class="question-box">
+            <div class="q-header">
+              <span class="q-num">Question ${i + 1}</span>
+              <span>${isCorrect ? '✅ +Marks' : (isSkipped ? '⚠️ 0 Marks' : '❌ -Marks')}</span>
+            </div>
+            
+            <div class="q-text">$questionText</div>
+            
+            <table class="ans-table">
+              <tr>
+                <td class="label-col">Your Answer:</td>
+                <td>$userAnsHtml</td>
+              </tr>
+              <tr>
+                <td class="label-col">Correct Ans:</td>
+                <td><span class="text-correct">$correctOption ✅</span></td>
+              </tr>
+            </table>
+
+            <div class="explanation">
+              <strong>💡 Explanation:</strong><br/>
+              $explanation
+            </div>
+          </div>
+        """);
+      }
+
+      html.write("</body></html>");
+
+      // 5. Convert HTML to PDF & Open Print Dialog
       await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async => doc.save(),
+        onLayout: (PdfPageFormat format) async => await Printing.convertHtml(
+          format: format,
+          html: html.toString(),
+        ),
         name: '${examTitle}_Solutions',
       );
 
@@ -324,6 +364,7 @@ class StudyResultsScreen extends StatelessWidget {
                                     ),
                                     onPressed: () {
                                       if (data['questionsSnapshot'] != null) {
+                                        // 🔥 CALLING THE NEW HTML GENERATOR
                                         _generateAndPrintPdf(context, data, data['testTitle'] ?? "Result");
                                       } else {
                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data missing for PDF.")));
