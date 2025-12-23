@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+// ✅ IMPORT PRINTING & PDF PACKAGES
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
 
 class TestSolutionScreen extends StatefulWidget {
   final String testId;
-  // Hum Map receive karenge taaki crash na ho
   final List<Map<String, dynamic>> originalQuestions; 
   final String? examName;
 
@@ -43,18 +46,19 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
           .get();
 
       if (doc.exists) {
-        setState(() {
-          _userResultData = doc.data() as Map<String, dynamic>;
-          // User ke answers map ko load karo
-          _userResponses = Map<String, dynamic>.from(_userResultData['userResponse'] ?? {});
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _userResultData = doc.data() as Map<String, dynamic>;
+            _userResponses = Map<String, dynamic>.from(_userResultData['userResponse'] ?? {});
+            _isLoading = false;
+          });
+        }
       } else {
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
       debugPrint("Error fetching result: $e");
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -63,12 +67,181 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
     if (q['options'] != null && (q['options'] as List).isNotEmpty) {
       return List<String>.from(q['options']);
     }
-    // Fallback for old data
     List<String> opts = [];
     for (int i = 0; i < 6; i++) {
       if (q.containsKey('option$i')) opts.add(q['option$i'].toString());
     }
     return opts;
+  }
+
+  // 🔥🔥🔥 PDF GENERATOR FUNCTION (HTML BASED) 🔥🔥🔥
+  Future<void> _generateAndPrintPdf(BuildContext context) async {
+    try {
+      // 1. Prepare Data
+      double score = (_userResultData['score'] ?? 0).toDouble();
+      int correct = _userResultData['correct'] ?? 0;
+      int wrong = _userResultData['wrong'] ?? 0;
+      int skipped = _userResultData['skipped'] ?? 0;
+      String examTitle = widget.examName ?? "Test Solution";
+
+      StringBuffer html = StringBuffer();
+
+      // --- HTML HEAD & CSS ---
+      html.write("""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; }
+            
+            /* COVER PAGE */
+            .cover-page {
+              height: 90vh;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              text-align: center;
+              border: 5px double #673AB7;
+              border-radius: 20px;
+            }
+            .brand { font-size: 50px; font-weight: bold; color: #673AB7; margin-bottom: 10px; }
+            .title { font-size: 30px; font-weight: bold; margin-bottom: 20px; text-decoration: underline; }
+            .score-box { background-color: #673AB7; color: white; padding: 20px 40px; border-radius: 50px; font-size: 40px; font-weight: bold; margin: 30px 0; }
+            .stats { font-size: 20px; margin-top: 10px; }
+            .green-text { color: green; font-weight: bold; }
+            .red-text { color: red; font-weight: bold; }
+            .orange-text { color: orange; font-weight: bold; }
+            
+            .page-break { page-break-after: always; }
+            
+            /* QUESTION BOX */
+            .q-box {
+              border: 1px solid #ccc;
+              border-radius: 10px;
+              padding: 15px;
+              margin-bottom: 20px;
+              background-color: #fff;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+              page-break-inside: avoid;
+            }
+            .q-header { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; }
+            .q-num { font-weight: bold; color: #673AB7; font-size: 18px; }
+            .q-text { font-size: 16px; margin-bottom: 10px; font-weight: 500; }
+            
+            /* TABLE STYLE FOR OPTIONS */
+            .opt-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .opt-table td { padding: 8px; border: 1px solid #eee; vertical-align: middle; }
+            .opt-label { font-weight: bold; width: 40px; background-color: #f5f5f5; text-align: center;}
+            
+            .correct-row { background-color: #e8f5e9; border: 1px solid green; } /* Light Green */
+            .wrong-row { background-color: #ffebee; border: 1px solid red; }   /* Light Red */
+            
+            .status-badge { padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; }
+            .badge-correct { background-color: green; }
+            .badge-wrong { background-color: red; }
+            .badge-skipped { background-color: orange; }
+
+            .exp-box { background-color: #fff9c4; padding: 10px; margin-top: 10px; border-left: 4px solid #fbc02d; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+      """);
+
+      // --- COVER PAGE CONTENT ---
+      html.write("""
+        <div class="cover-page">
+          <div class="brand">Exambeing</div>
+          <div class="title">$examTitle</div>
+          <div class="score-box">Score: ${score.toStringAsFixed(1)}</div>
+          <div class="stats">
+            <span class="green-text">Correct: $correct</span> &nbsp;|&nbsp; 
+            <span class="red-text">Wrong: $wrong</span> &nbsp;|&nbsp; 
+            <span class="orange-text">Skipped: $skipped</span>
+          </div>
+          <p style="margin-top:50px; color:#777;">Generated on ${DateFormat('dd MMM yyyy').format(DateTime.now())}</p>
+        </div>
+        <div class="page-break"></div>
+      """);
+
+      // --- QUESTIONS LOOP ---
+      for (int i = 0; i < widget.originalQuestions.length; i++) {
+        var q = widget.originalQuestions[i];
+        String questionText = q['question'] ?? q['questionText'] ?? 'No Question';
+        String explanation = q['explanation'] ?? q['solution'] ?? 'No explanation available.';
+        List<String> options = _getOptions(q);
+        int correctIndex = q['correctIndex'] ?? q['correctAnswerIndex'] ?? 0;
+        String qId = q['id'] ?? "q_$i";
+        
+        // Determine Status
+        int? userIdx = _userResponses[qId];
+        bool isSkipped = userIdx == null;
+        bool isCorrect = userIdx == correctIndex;
+        
+        String statusLabel = isSkipped ? "Skipped" : (isCorrect ? "Correct" : "Wrong");
+        String badgeClass = isSkipped ? "badge-skipped" : (isCorrect ? "badge-correct" : "badge-wrong");
+
+        html.write("""
+          <div class="q-box">
+            <div class="q-header">
+              <span class="q-num">Q${i + 1}</span>
+              <span class="status-badge $badgeClass">$statusLabel</span>
+            </div>
+            <div class="q-text">$questionText</div>
+            
+            <table class="opt-table">
+        """);
+
+        // Options Rows
+        for (int j = 0; j < options.length; j++) {
+           String rowStyle = "";
+           String mark = "";
+           String userLabel = "";
+           
+           if (j == correctIndex) {
+             rowStyle = 'class="correct-row"'; // Always green for correct
+             mark = "✅";
+           } else if (j == userIdx && !isCorrect) {
+             rowStyle = 'class="wrong-row"'; // Red for user's wrong choice
+             mark = "❌";
+           }
+
+           if (j == userIdx) {
+             userLabel = "<span style='font-size:12px; font-weight:bold; color:#555;'> (Your Ans)</span>";
+           }
+
+           html.write("""
+             <tr $rowStyle>
+               <td class="opt-label">${String.fromCharCode(65 + j)}</td>
+               <td>${options[j]} $mark $userLabel</td>
+             </tr>
+           """);
+        }
+
+        html.write("""
+            </table>
+            <div class="exp-box">
+              <strong>💡 Explanation:</strong><br/>
+              $explanation
+            </div>
+          </div>
+        """);
+      }
+
+      html.write("</body></html>");
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => await Printing.convertHtml(
+          format: format,
+          html: html.toString(),
+        ),
+        name: '${examTitle}_Analysis',
+      );
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
   }
 
   @override
@@ -82,10 +255,20 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
     double score = (_userResultData['score'] ?? 0).toDouble();
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.examName ?? "Analysis")),
+      appBar: AppBar(
+        title: Text(widget.examName ?? "Analysis"),
+        actions: [
+          // 🔥🔥 NEW DOWNLOAD BUTTON 🔥🔥
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: "Download PDF",
+            onPressed: () => _generateAndPrintPdf(context),
+          ),
+        ],
+      ),
       body: Column(
         children: [
-          // 📊 1. SCORE HEADER (Jo aapke screenshot mein hai)
+          // 📊 1. SCORE HEADER
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: Colors.deepPurple.shade50),
@@ -135,15 +318,12 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
   }
 
   Widget _buildSolutionCard(Map<String, dynamic> q, int index) {
-    // 1. Prepare Data
     String qId = q['id'] ?? "q_$index";
     String questionText = q['question'] ?? q['questionText'] ?? 'No Question';
     List<String> options = _getOptions(q);
     int correctIndex = q['correctIndex'] ?? q['correctAnswerIndex'] ?? 0;
     String explanation = q['explanation'] ?? q['solution'] ?? '';
 
-    // 2. Determine User Status
-    // Firestore mein key String ho sakti hai, UI list int hai
     int? userSelectedIndex;
     if (_userResponses.containsKey(qId)) {
       userSelectedIndex = _userResponses[qId];
@@ -151,8 +331,6 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
 
     bool isSkipped = userSelectedIndex == null;
     bool isCorrect = userSelectedIndex == correctIndex;
-
-    // Card Color Border
     Color statusColor = isSkipped ? Colors.orange : (isCorrect ? Colors.green : Colors.red);
 
     return Card(
@@ -163,7 +341,6 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Question Label with Status Icon
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -178,7 +355,6 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
             ),
             const SizedBox(height: 15),
 
-            // Options List
             ...List.generate(options.length, (optIndex) {
               bool isThisCorrect = (optIndex == correctIndex);
               bool isThisUserSelected = (optIndex == userSelectedIndex);
@@ -187,13 +363,11 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
               Color borderColor = Colors.grey.shade300;
               IconData? icon;
 
-              // Logic for coloring options
               if (isThisCorrect) {
                 optColor = Colors.green.shade50;
                 borderColor = Colors.green;
                 icon = Icons.check_circle;
               } else if (isThisUserSelected) {
-                // Agar user ne ye select kiya aur ye galat hai (kyunki sahi wala upar cover ho gaya)
                 optColor = Colors.red.shade50;
                 borderColor = Colors.red;
                 icon = Icons.cancel;
@@ -217,7 +391,6 @@ class _TestSolutionScreenState extends State<TestSolutionScreen> {
               );
             }),
 
-            // Explanation Section
             if (explanation.isNotEmpty) ...[
               const Divider(height: 20),
               Container(
