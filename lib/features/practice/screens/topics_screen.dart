@@ -135,8 +135,10 @@ class _TopicsScreenState extends State<TopicsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade50, // Slight grey background for better card contrast
       appBar: AppBar(
         title: Text(subjectName),
+        elevation: 0,
       ),
       body: Stack(
         children: [
@@ -155,7 +157,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
 
               final topics = snapshot.data!;
               return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
                 itemCount: topics.length,
                 itemBuilder: (context, index) {
                   final topic = topics[index];
@@ -183,64 +185,105 @@ class _TopicsScreenState extends State<TopicsScreen> {
     );
   }
 
+  // 🔥 UPDATED MODERN CARD (Lock Removed)
   Widget _buildTopicCard(BuildContext context, Topic topic, int index) {
-    return Card(
-      color: Theme.of(context).colorScheme.primary,
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    return Container(
       margin: const EdgeInsets.only(bottom: 16.0),
-      child: InkWell(
-        onTap: () => _showModeSelectionDialog(topic),
-        borderRadius: BorderRadius.circular(12.0),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Column(
-                children: [
-                  Icon(Icons.list_alt_rounded, color: Colors.white.withOpacity(0.7), size: 30),
-                  const SizedBox(height: 4),
-                  Text('Test', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
-                ],
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '#${index + 1} ${topic.name}',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 4), // Shadow position
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showModeSelectionDialog(topic),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                // 🎨 Modern Index Indicator
+                Container(
+                  height: 50,
+                  width: 50,
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Subject: $subjectName',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withOpacity(0.8),
-                          ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => _showModeSelectionDialog(topic),
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.15),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                
+                // 📝 Topic Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        topic.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
                         children: [
-                          Text('Start Test'),
-                          SizedBox(width: 8),
-                          Icon(Icons.lock_outline, size: 16),
+                          Icon(Icons.category_outlined, size: 12, color: Colors.grey[500]),
+                          const SizedBox(width: 4),
+                          Text(
+                            subjectName,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
                         ],
                       ),
-                    )
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                
+                // ▶️ Start Button (Clean, No Lock)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: primaryColor,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: const Text(
+                    "Start",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
