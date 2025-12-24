@@ -68,7 +68,7 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
     }
   }
 
-  // --- 2. 🔥 MAIN UNLOCK LOGIC (LINKING SCHEDULE ID) ---
+  // --- 2. 🔥 MAIN UNLOCK LOGIC (UPDATED WITH EXPIRY DATE) ---
   Future<void> _unlockContentLogic(String googleProductId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.email == null) return;
@@ -85,6 +85,11 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
         String linkedScheduleId = premiumDoc['linkedScheduleId']; // 👈 Yahan se Schedule ID milegi
 
         if (linkedScheduleId.isNotEmpty) {
+          
+          // ✅ DATE CALCULATION (1 Year Validity)
+          DateTime now = DateTime.now(); // Abhi ka time (grantedAt)
+          DateTime expiry = now.add(const Duration(days: 365)); // Aaj se 365 din baad (expiryDate)
+
           // Step B: Update the REAL Schedule in 'study_schedules'
           // User ki email ko 'allowed_users' subcollection mein daal rahe hain
           await FirebaseFirestore.instance
@@ -93,8 +98,10 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
               .collection('allowed_users') // Subcollection approach (Best for security)
               .doc(user.email) // Email ko hi Doc ID bana diya
               .set({
-                'access': true,
-                'purchasedAt': FieldValue.serverTimestamp(),
+                'email': user.email, // String
+                'grantedAt': Timestamp.fromDate(now), // Timestamp (Abhi ka)
+                'expiryDate': Timestamp.fromDate(expiry), // Timestamp (1 saal baad ka)
+                'access': true, // Boolean (Safety ke liye)
                 'method': 'GooglePlay'
               });
 
