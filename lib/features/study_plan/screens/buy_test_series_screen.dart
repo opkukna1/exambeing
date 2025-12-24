@@ -46,17 +46,36 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
     super.dispose();
   }
 
-  // --- 1. LISTEN TO PAYMENT UPDATES ---
+  // --- 1. 🔥 UPDATED: SMART PAYMENT LISTENER (Auto-Fix Already Owned) ---
   void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) async {
     for (var purchaseDetails in purchaseDetailsList) {
       if (purchaseDetails.status == PurchaseStatus.pending) {
         setState(() { _purchasePending = true; });
       } else {
+        
+        // ❌ ERROR HANDLING & AUTO-RECOVERY
         if (purchaseDetails.status == PurchaseStatus.error) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${purchaseDetails.error?.message}")));
-        } else if (purchaseDetails.status == PurchaseStatus.purchased || purchaseDetails.status == PurchaseStatus.restored) {
+          String errorMessage = purchaseDetails.error?.message ?? "";
+          debugPrint("Payment Error: $errorMessage");
           
-          // 🎉 SUCCESS: Content Unlock Karo
+          // 🔥 MAGIC FIX: Agar "Already Owned" error aaye, to Success maan lo
+          if (errorMessage.contains("itemAlreadyOwned") || errorMessage.contains("Already Owned")) {
+             debugPrint("Item already owned. Retrying unlock...");
+             
+             // Success dialog dikhayein taaki user confuse na ho
+             ScaffoldMessenger.of(context).showSnackBar(
+               const SnackBar(content: Text("Restoring Purchase..."), backgroundColor: Colors.green)
+             );
+             
+             // Seedha Unlock logic chala do
+             await _unlockContentLogic(purchaseDetails.productID);
+          } else {
+             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $errorMessage")));
+          }
+        } 
+        
+        // ✅ SUCCESS HANDLING
+        else if (purchaseDetails.status == PurchaseStatus.purchased || purchaseDetails.status == PurchaseStatus.restored) {
           await _unlockContentLogic(purchaseDetails.productID);
         }
 
@@ -68,7 +87,7 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
     }
   }
 
-  // --- 2. 🔥 MAIN UNLOCK LOGIC (UPDATED WITH EXPIRY DATE) ---
+  // --- 2. 🔥 MAIN UNLOCK LOGIC (Correct Fields as per Screenshot) ---
   Future<void> _unlockContentLogic(String googleProductId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.email == null) return;
@@ -87,8 +106,8 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
         if (linkedScheduleId.isNotEmpty) {
           
           // ✅ DATE CALCULATION (1 Year Validity)
-          DateTime now = DateTime.now(); // Abhi ka time (grantedAt)
-          DateTime expiry = now.add(const Duration(days: 365)); // Aaj se 365 din baad (expiryDate)
+          DateTime now = DateTime.now(); 
+          DateTime expiry = now.add(const Duration(days: 365)); // 1 saal baad
 
           // Step B: Update the REAL Schedule in 'study_schedules'
           // User ki email ko 'allowed_users' subcollection mein daal rahe hain
@@ -98,10 +117,11 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
               .collection('allowed_users') // Subcollection approach (Best for security)
               .doc(user.email) // Email ko hi Doc ID bana diya
               .set({
-                'email': user.email, // String
-                'grantedAt': Timestamp.fromDate(now), // Timestamp (Abhi ka)
-                'expiryDate': Timestamp.fromDate(expiry), // Timestamp (1 saal baad ka)
-                'access': true, // Boolean (Safety ke liye)
+                'email': user.email, 
+                // 👇 Fields aapke screenshot ke hisab se set kiye hain
+                'grantedAt': Timestamp.fromDate(now), 
+                'expiryDate': Timestamp.fromDate(expiry), 
+                'access': true, 
                 'method': 'GooglePlay'
               });
 
@@ -148,7 +168,7 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> {
     _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
   }
 
-  // --- 4. ADMIN DIALOG (UPDATED FOR SCHEDULE ID) ---
+  // --- 4. ADMIN DIALOG ---
   void _showAddSeriesDialog() {
     final titleC = TextEditingController();
     final descC = TextEditingController();
