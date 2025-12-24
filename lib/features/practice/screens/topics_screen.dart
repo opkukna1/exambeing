@@ -53,25 +53,38 @@ class _TopicsScreenState extends State<TopicsScreen> {
     }
   }
 
-  // 📥 2. Fetch Topics sorted by 'rank'
+  // 📥 2. Fetch Topics (FIXED: Client Side Sorting)
   Future<void> _fetchAndSortTopics() async {
     try {
-      // Direct Firestore call to ensure we get 'rank' field handling right
+      // ❌ OLD: .orderBy('rank') -> Yeh data hide kar raha tha
+      // ✅ NEW: Fetch ALL topics first
       QuerySnapshot snapshot = await FirebaseFirestore.instance
           .collection('subjects')
           .doc(subjectId)
           .collection('topics')
-          .orderBy('rank', descending: false) // Sort by rank (1, 2, 3...)
           .get();
 
-      List<Topic> loadedTopics = snapshot.docs.map((doc) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      // Get Docs list
+      List<QueryDocumentSnapshot> docs = snapshot.docs;
+
+      // 🔄 Sort locally: Jiska rank nahi hai usko last me (9999) maano
+      docs.sort((a, b) {
+        Map<String, dynamic> dataA = a.data() as Map<String, dynamic>;
+        Map<String, dynamic> dataB = b.data() as Map<String, dynamic>;
         
-        // 🔥 FIX: Correct Constructor use (Added subjectId, Removed imageUrl)
+        int rankA = dataA['rank'] ?? 9999;
+        int rankB = dataB['rank'] ?? 9999;
+        
+        return rankA.compareTo(rankB);
+      });
+
+      // Convert sorted docs to Topic objects
+      List<Topic> loadedTopics = docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         return Topic(
           id: doc.id,
           name: data['name'] ?? 'Unknown Topic',
-          subjectId: subjectId, // ✅ Required field passed
+          subjectId: subjectId,
         );
       }).toList();
 
