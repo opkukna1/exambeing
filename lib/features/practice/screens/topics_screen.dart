@@ -66,12 +66,12 @@ class _TopicsScreenState extends State<TopicsScreen> {
 
       List<Topic> loadedTopics = snapshot.docs.map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        // Agar rank nahi hai to default 9999 manenge taaki wo end me dikhe
+        
+        // 🔥 FIX: Correct Constructor use (Added subjectId, Removed imageUrl)
         return Topic(
           id: doc.id,
           name: data['name'] ?? 'Unknown Topic',
-          imageUrl: data['imageUrl'] ?? '',
-          // Rank model me nahi hai to ignore karein, hum UI me list index use karenge
+          subjectId: subjectId, // ✅ Required field passed
         );
       }).toList();
 
