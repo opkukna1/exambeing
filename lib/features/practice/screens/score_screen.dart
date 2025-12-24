@@ -9,7 +9,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:exambeing/models/question_model.dart';
-import 'package:exambeing/services/ad_manager.dart';
 import 'package:exambeing/services/revision_db.dart';
 
 class ScoreScreen extends StatefulWidget {
@@ -50,7 +49,7 @@ class _ScoreScreenState extends State<ScoreScreen> {
   void initState() {
     super.initState();
     _processResult(); 
-    AdManager.loadInterstitialAd();
+    // AdManager load removed
   }
 
   Future<void> _processResult() async {
@@ -324,9 +323,8 @@ class _ScoreScreenState extends State<ScoreScreen> {
                           icon: const Icon(Icons.list_alt),
                           label: const Text('Solutions'),
                           onPressed: () {
-                            AdManager.showInterstitialAd(() {
-                              _navigateToSolutions();
-                            });
+                            // Ad removed, directly navigating
+                            _navigateToSolutions();
                           },
                         ),
                       ),
