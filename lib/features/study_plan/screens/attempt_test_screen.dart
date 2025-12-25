@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // 🔥 REQUIRED
+import 'package:flutter/services.dart'; 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'study_results_screen.dart'; 
@@ -38,9 +38,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
   @override
   void initState() {
     super.initState();
-    
-    // 🔥 FORCE FULL SCREEN (Immersive Mode)
-    // Ye status bar aur navigation bar dono ko hide karega
+    // 🔥 Full Screen Mode
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     questions = widget.testData['questions'] ?? [];
@@ -55,7 +53,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
 
   @override
   void dispose() {
-    // 🔥 RESTORE NORMAL UI (Show status bar again)
+    // 🔥 Restore Normal UI
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     
     _timer?.cancel();
@@ -130,18 +128,40 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
          answersForDb[qId] = optIndex;
       });
 
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('test_results').doc(widget.testId).set({
-            'testId': widget.testId, 'testTitle': widget.testData['testTitle'] ?? 'Test Result', 'score': totalScore,
-            'correct': correctCount, 'wrong': wrongCount, 'skipped': skippedCount, 'totalQ': questions.length,
-            'attemptedAt': FieldValue.serverTimestamp(), 'questionsSnapshot': finalQuestionsData, 'userResponse': answersForDb, 'settings': marking,
-          });
+      // 🔥🔥 LOGIC UPDATE: Check Previous Attempts 🔥🔥
+      DocumentReference resultRef = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('test_results').doc(widget.testId);
+      DocumentSnapshot existingDoc = await resultRef.get();
+      
+      int attemptCount = 1; // Default
+      if (existingDoc.exists) {
+        var data = existingDoc.data() as Map<String, dynamic>;
+        // Agar pehle se attemptCount hai to +1 karo, nahi to maano ye 2nd attempt hai
+        int prevCount = data['attemptCount'] ?? 1;
+        attemptCount = prevCount + 1;
+      }
 
+      // Save Result with Attempt Count
+      await resultRef.set({
+            'testId': widget.testId, 
+            'testTitle': widget.testData['testTitle'] ?? 'Test Result', 
+            'score': totalScore,
+            'correct': correctCount, 
+            'wrong': wrongCount, 
+            'skipped': skippedCount, 
+            'totalQ': questions.length,
+            'attemptedAt': FieldValue.serverTimestamp(), 
+            'questionsSnapshot': finalQuestionsData, 
+            'userResponse': answersForDb, 
+            'settings': marking,
+            'attemptCount': attemptCount, // ✅ Saving count (1 or 2)
+      });
+
+      // Mark user as attempted in schedule (sirf array union, duplicate nahi hoga)
       await FirebaseFirestore.instance.collection('study_schedules').doc(widget.examId).collection('weeks').doc(widget.weekId).collection('tests').doc(widget.testId).update({
         'attemptedUsers': FieldValue.arrayUnion([user.uid])
       });
 
       if (!mounted) return;
-      // Restore UI before leaving
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(examId: widget.examId, examName: widget.testData['testTitle'] ?? "Result")));
@@ -158,7 +178,6 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
     return PopScope(
       canPop: false, 
       child: Scaffold(
-        // AppBar with no back button
         appBar: AppBar(
           automaticallyImplyLeading: false, 
           elevation: 1,
