@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
-// ✅ IMPORTS (Make sure paths are correct)
+// ✅ IMPORTS
 import 'package:exambeing/features/admin/screens/create_week_schedule.dart';
 import 'package:exambeing/features/study_plan/screens/linked_notes_screen.dart';
 import 'package:exambeing/features/study_plan/screens/study_results_screen.dart';
@@ -14,7 +14,17 @@ import 'package:exambeing/features/study_plan/screens/test_list_screen.dart';
 import 'package:exambeing/features/admin/screens/manage_students_screen.dart';
 
 class BookmarksHomeScreen extends StatefulWidget {
-  const BookmarksHomeScreen({super.key});
+  // 🔥 UPDATED: Added parameters to handle navigation from Store
+  final String? examId;
+  final String? examName;
+  final bool isPremiumAccess; // true = Purchased, false = Demo/Locked
+
+  const BookmarksHomeScreen({
+    super.key,
+    this.examId,
+    this.examName,
+    this.isPremiumAccess = true // Default true for normal usage
+  });
 
   @override
   State<BookmarksHomeScreen> createState() => _BookmarksHomeScreenState();
@@ -37,6 +47,16 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
   String? selectedWeekId;
   Map<String, dynamic>? selectedWeekData;
 
+  @override
+  void initState() {
+    super.initState();
+    // 🔥 AUTO-SELECT: Agar Store se aaye hain to Exam select kar lo
+    if (widget.examId != null) {
+      selectedExamId = widget.examId;
+      selectedExamName = widget.examName;
+    }
+  }
+
   // 1️⃣ ADMIN: Create New Exam
   void _addNewExam() {
     TextEditingController nameController = TextEditingController();
@@ -56,7 +76,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                 await FirebaseFirestore.instance.collection('study_schedules').add({
                   'examName': nameController.text.trim(),
                   'createdAt': FieldValue.serverTimestamp(),
-                  'purchasedUsers': [], // Important for filtering
+                  'purchasedUsers': [], 
                 });
                 if (mounted) Navigator.pop(ctx);
               }
@@ -143,7 +163,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
           children: [
             
             // ------------------------------------------------
-            // 1️⃣ SECTION: EXAM SELECTION (Horizontal) - 🔥 WITH ROBUST FILTER
+            // 1️⃣ SECTION: EXAM SELECTION (Horizontal)
             // ------------------------------------------------
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -167,7 +187,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                       var doc = exams[index];
                       var data = doc.data() as Map<String, dynamic>;
                       
-                      // 🔥🔥 LOGIC: Check Permission (Dual Check)
+                      // 🔥🔥 LOGIC: Check Permission (Dual Check + Demo Check)
                       return StreamBuilder<DocumentSnapshot>(
                         stream: FirebaseFirestore.instance
                             .collection('study_schedules')
@@ -183,11 +203,15 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                           if (isAdmin) {
                             isAllowed = true;
                           } 
-                          // Rule 2: Check Subcollection (Primary Method)
+                          // Rule 2: Coming from Store Link (Demo Mode or Bought)
+                          else if (widget.examId == doc.id) {
+                            isAllowed = true;
+                          }
+                          // Rule 3: Check Subcollection (Primary Method)
                           else if (permSnap.hasData && permSnap.data!.exists) {
                             isAllowed = true; 
                           }
-                          // Rule 3: Check Array (Backup Method from Buy Screen)
+                          // Rule 4: Check Array (Backup Method)
                           else {
                              if (data.containsKey('purchasedUsers')) {
                                List users = List.from(data['purchasedUsers'] ?? []);
@@ -389,7 +413,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                         icon = Icons.do_not_disturb_on;
                       }
 
-                      // Visual Cue for Admin
                       if (isAdmin) {
                         label = "Manage Tests";
                         color = Colors.redAccent;
@@ -401,12 +424,18 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                         label: label, 
                         color: color, 
                         onTap: () {
+                          // 🔥 PASSING THE LOCK STATUS DOWN
+                          // Agar widget.isPremiumAccess FALSE hai, to Locked Mode ON hoga
+                          // Agar user Admin hai, to Locked Mode OFF hoga
+                          bool isLockedMode = !widget.isPremiumAccess && !isAdmin;
+
                           Navigator.push(
                             context, 
                             MaterialPageRoute(
                               builder: (c) => TestListScreen(
                                 examId: selectedExamId!, 
-                                weekId: selectedWeekId!
+                                weekId: selectedWeekId!,
+                                isLockedMode: isLockedMode // 👈 Sending this to TestListScreen
                               )
                             )
                           );
