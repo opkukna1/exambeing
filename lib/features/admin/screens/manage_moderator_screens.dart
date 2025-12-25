@@ -11,7 +11,7 @@ class ManageModeratorScreen extends StatefulWidget {
 }
 
 class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
-  // 🔥 ADMIN EMAIL (Sirf isi ko sabka data dikhega)
+  // 🔥 ADMIN EMAIL
   final String adminEmail = "opsiddh42@gmail.com";
 
   bool get isAdmin {
@@ -24,9 +24,7 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return const Scaffold(body: Center(child: Text("Please Login")));
 
-    // 🔥 MAIN LOGIC:
-    // Agar Admin hai -> To Admin View (Sabki List)
-    // Agar Moderator hai -> To Moderator View (Sirf Apna Dashboard)
+    // 🔥 LOGIC: Admin ko List, Moderator ko Dashboard
     if (isAdmin) {
       return _buildAdminView();
     } else {
@@ -35,18 +33,17 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
   }
 
   // ==========================================
-  // 👮 ADMIN VIEW (Shows List of ALL Moderators)
+  // 👮 ADMIN VIEW (List of All Moderators)
   // ==========================================
   Widget _buildAdminView() {
     return Scaffold(
       appBar: AppBar(title: const Text("Manage Moderators 👥"), backgroundColor: Colors.white, foregroundColor: Colors.black),
       floatingActionButton: FloatingActionButton(onPressed: _showAddModeratorDialog, backgroundColor: Colors.deepPurple, child: const Icon(Icons.add)),
       body: StreamBuilder<QuerySnapshot>(
-        // Admin ko sab dikhega (No Filter)
         stream: FirebaseFirestore.instance.collection('moderator_assignments').orderBy('createdAt', descending: true).snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          if (snapshot.data!.docs.isEmpty) return const Center(child: Text("No moderators yet."));
+          if (snapshot.data!.docs.isEmpty) return const Center(child: Text("No moderators assigned yet."));
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
@@ -54,6 +51,7 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
             itemBuilder: (context, index) {
               var doc = snapshot.data!.docs[index];
               var data = doc.data() as Map<String, dynamic>;
+              // Admin ke liye Card (Full Access)
               return _buildLiveStatsCard(doc.id, data, isForAdmin: true);
             },
           );
@@ -63,13 +61,13 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
   }
 
   // ==========================================
-  // 🧑‍🏫 MODERATOR VIEW (Shows ONLY Their Own Data)
+  // 🧑‍🏫 MODERATOR VIEW (Personal Dashboard)
   // ==========================================
   Widget _buildModeratorView(User user) {
     return Scaffold(
       appBar: AppBar(title: const Text("Partner Dashboard 🚀"), backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
       body: StreamBuilder<QuerySnapshot>(
-        // 🔥 STRICT FILTER: Sirf wahi data dikhega jisme moderatorEmail == Login Email hai
+        // 🔥 STRICT FILTER: Sirf apna data dikhega
         stream: FirebaseFirestore.instance
             .collection('moderator_assignments')
             .where('moderatorEmail', isEqualTo: user.email!.trim().toLowerCase()) 
@@ -81,17 +79,16 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
             return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               const Icon(Icons.lock_outline, size: 60, color: Colors.grey), 
               const SizedBox(height: 10),
-              const Text("Access Denied or Not Assigned."),
+              const Text("Account Not Linked."),
               const SizedBox(height: 5),
               Text("Logged in as: ${user.email}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              const Text("Contact Admin to link your account.", style: TextStyle(color: Colors.grey)),
             ]));
           }
 
-          // Moderator ke liye sirf 1 hi document hoga (Uska khud ka)
           var doc = snapshot.data!.docs.first;
           var data = doc.data() as Map<String, dynamic>;
           
+          // Moderator ke liye Card (Read Only)
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: _buildLiveStatsCard(doc.id, data, isForAdmin: false),
@@ -102,26 +99,27 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
   }
 
   // ==========================================
-  // 🧩 LIVE STATS CARD (Shared Logic for Both)
+  // 🧩 LIVE STATS CARD (Shared Logic + Time Filter)
   // ==========================================
   Widget _buildLiveStatsCard(String docId, Map<String, dynamic> data, {required bool isForAdmin}) {
     String modName = data['moderatorName'] ?? 'Unknown';
-    String scheduleId = data['scheduleId'] ?? '';
+    String scheduleId = (data['scheduleId'] ?? '').toString().trim(); // Removing spaces safely
     String scheduleTitle = data['scheduleTitle'] ?? '';
     int commission = data['commissionPrice'] ?? 0;
     int totalWithdrawn = data['totalWithdrawn'] ?? 0;
     List history = data['withdrawalHistory'] ?? [];
     
-    // Testing ke liye Date Filter HATA rakha hai.
-    // Production ke liye uncomment kar lena:
-    // Timestamp modJoinedAt = data['createdAt'] ?? Timestamp.now(); 
+    // 🔥 TIME FILTER: Moderator joining date
+    Timestamp modJoinedAt = data['createdAt'] ?? Timestamp.now(); 
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(scheduleId)
-          .collection('allowed_users') // <-- Students Count Source
-          // .where('grantedAt', isGreaterThanOrEqualTo: modJoinedAt) // Date Filter (Currently Disabled for Testing)
+          .collection('allowed_users')
+          // 🔥🔥 TIME FILTER APPLIED HERE 🔥🔥
+          // Sirf wo students count honge jo Moderator banne ke baad aaye hain
+          .where('grantedAt', isGreaterThanOrEqualTo: modJoinedAt) 
           .snapshots(),
       builder: (context, userSnap) {
         
@@ -144,6 +142,7 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -151,7 +150,10 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(isForAdmin ? modName : scheduleTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         if(isForAdmin) Text(scheduleTitle, style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold)),
-                        if(!isForAdmin) Text("Rate: ₹$commission / student", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                        if(!isForAdmin) Text("Commission: ₹$commission / student", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                        
+                        // Show Joining Date (Helpful to understand Time Filter)
+                        Text("Tracking since: ${DateFormat('dd MMM yy').format(modJoinedAt.toDate())}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
                       ]),
                     ),
                     if (isForAdmin) 
@@ -162,6 +164,8 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
                   ],
                 ),
                 const Divider(),
+
+                // Stats
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -171,6 +175,8 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
                   ],
                 ),
                 const SizedBox(height: 15),
+
+                // Balance
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -178,6 +184,8 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
                   child: Center(child: Text("Pending Payout: ₹$availableBalance", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green))),
                 ),
                 const SizedBox(height: 15),
+
+                // Buttons
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -185,6 +193,7 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
                       OutlinedButton.icon(icon: const Icon(Icons.history, size: 16), label: const Text("History"), onPressed: () => _showHistoryDialog(history)),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade50, foregroundColor: Colors.blue, elevation: 0), icon: const Icon(Icons.people, size: 16), label: const Text("Students"), onPressed: () => _showStudentListDialog(studentDocs, commission)),
+                      
                       if (isForAdmin) ...[
                         const SizedBox(width: 8),
                         ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white), icon: const Icon(Icons.attach_money, size: 16), label: const Text("Pay"), onPressed: () => _showAddWithdrawalDialog(docId, modName, totalWithdrawn, availableBalance)),
@@ -235,7 +244,7 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
   }
 
   void _showStudentListDialog(List<QueryDocumentSnapshot> students, int rate) {
-    showDialog(context: context, builder: (c) => AlertDialog(title: Text("Students (${students.length})"), content: SizedBox(width: double.maxFinite, height: 400, child: students.isEmpty ? const Center(child: Text("No students")) : ListView.builder(itemCount: students.length, itemBuilder: (c, i) { var data = students[i].data() as Map<String, dynamic>; return ListTile(title: Text(data['displayName']??'User'), subtitle: Text(data['email']??''), trailing: Text("+₹$rate", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)));})), actions: [TextButton(onPressed: ()=>Navigator.pop(c), child: const Text("Close"))]));
+    showDialog(context: context, builder: (c) => AlertDialog(title: Text("Students (${students.length})"), content: SizedBox(width: double.maxFinite, height: 400, child: students.isEmpty ? const Center(child: Text("No students yet.")) : ListView.builder(itemCount: students.length, itemBuilder: (c, i) { var data = students[i].data() as Map<String, dynamic>; return ListTile(title: Text(data['displayName']??'User'), subtitle: Text(data['email']??''), trailing: Text("+₹$rate", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)));})), actions: [TextButton(onPressed: ()=>Navigator.pop(c), child: const Text("Close"))]));
   }
 
   Widget _tf(TextEditingController c, String label, {bool isNum = false}) {
