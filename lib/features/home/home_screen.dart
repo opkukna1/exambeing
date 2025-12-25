@@ -345,9 +345,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-             // 🔥🔥 NAVIGATE TO THE IMPORTED SCREEN
-             Navigator.push(
-               context,
+             // 🔥🔥 UPDATED: rootNavigator: true se bottom/top bars hide ho jayenge 🔥🔥
+             Navigator.of(context, rootNavigator: true).push(
                MaterialPageRoute(builder: (context) => const BuyTestSeriesScreen()),
              );
           },
