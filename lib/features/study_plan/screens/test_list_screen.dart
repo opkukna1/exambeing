@@ -10,11 +10,13 @@ import '../../admin/screens/manage_users_screen.dart';
 class TestListScreen extends StatelessWidget {
   final String examId;
   final String weekId;
+  final bool isLockedMode; // 🔥 NEW: Lock status accept karega
 
   const TestListScreen({
     super.key, 
     required this.examId, 
-    required this.weekId
+    required this.weekId,
+    this.isLockedMode = false, // Default false (Unlocked)
   });
 
   @override
@@ -96,7 +98,8 @@ class TestListScreen extends StatelessWidget {
                             isHost: isHost, 
                             isMyTest: isMyTest, 
                             user: user, 
-                            contactNum: contactNum
+                            contactNum: contactNum,
+                            index: index // 🔥 Passed Index for locking logic
                           ),
                         ),
                       );
@@ -137,8 +140,8 @@ class TestListScreen extends StatelessWidget {
         Navigator.of(context, rootNavigator: true).pop(); 
       }
 
-      // Check Access
-      if (!permDoc.exists) {
+      // Check Access (Agar LockedMode false hai tabhi check karega database)
+      if (!isLockedMode && !permDoc.exists) {
         if (context.mounted) _showPurchasePopup(context, contactNum); 
         return;
       }
@@ -171,7 +174,7 @@ class TestListScreen extends StatelessWidget {
                'settings': test.settings 
              },
              examId: examId,
-             weekId: weekId,
+             weekId: weekId, // Passing weekId as requested
           ))
         );
       }
@@ -214,10 +217,11 @@ class TestListScreen extends StatelessWidget {
     required bool isHost, 
     required bool isMyTest, 
     required User user,
-    required String contactNum
+    required String contactNum,
+    required int index // 🔥 Index received here
   }) {
     DateTime now = DateTime.now();
-    bool isLocked = now.isBefore(test.scheduledAt);
+    bool isLockedTime = now.isBefore(test.scheduledAt);
 
     if (isHost && isMyTest) {
       return Row(
@@ -242,6 +246,26 @@ class TestListScreen extends StatelessWidget {
     
     if (isHost && !isMyTest) return const Text("Locked", style: TextStyle(fontSize: 10, color: Colors.grey));
 
+    // 🔥🔥 NEW LOGIC START: PREMIUM / DEMO LOCK 🔥🔥
+    // Agar LockedMode ON hai (User Free hai) AUR Index > 0 (Pehla test nahi hai)
+    // To Lock dikhao aur Access Roko.
+    if (isLockedMode && index > 0) {
+      return ElevatedButton(
+        style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade400),
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("🔒 Locked! Please Buy the Series to unlock this test."),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            )
+          );
+        },
+        child: const Icon(Icons.lock, color: Colors.white, size: 18),
+      );
+    }
+    // 🔥🔥 NEW LOGIC END 🔥🔥
+
     if (isAttempted) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
@@ -250,7 +274,7 @@ class TestListScreen extends StatelessWidget {
       );
     }
 
-    if (isLocked) {
+    if (isLockedTime) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
         onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Starts at ${_formatDate(test.scheduledAt)}"))),
