@@ -235,8 +235,8 @@ class AppDrawer extends StatelessWidget {
                                 Icons.admin_panel_settings_rounded, 
                                 "Manage Moderators", 
                                 () {
-                                  Navigator.pop(context);
-                                  Navigator.push(context, MaterialPageRoute(builder: (c) => const ManageModeratorScreen()));
+                                  // 🔥 REMOVED manual Navigator.pop here because _buildDrawerItem handles it
+                                  Navigator.push(context, MaterialPageRoute(builder: (c) => ManageModeratorScreen()));
                                 },
                                 isSpecial: true,
                                 specialColor: Colors.redAccent
@@ -249,8 +249,8 @@ class AppDrawer extends StatelessWidget {
                                 Icons.analytics_rounded, 
                                 "Moderator Dashboard", 
                                 () {
-                                  Navigator.pop(context);
-                                  Navigator.push(context, MaterialPageRoute(builder: (c) => const ModeratorDashboardScreen()));
+                                  // 🔥 REMOVED manual Navigator.pop here because _buildDrawerItem handles it
+                                  Navigator.push(context, MaterialPageRoute(builder: (c) => ModeratorDashboardScreen()));
                                 },
                                 isSpecial: true,
                                 specialColor: Colors.deepPurple
@@ -293,6 +293,7 @@ class AppDrawer extends StatelessWidget {
   }
 
   // ✨ HELPER: Drawer Item Builder
+  // 🔥 FIX APPLIED HERE: Added automatic Navigator.pop(context)
   Widget _buildDrawerItem(BuildContext context, IconData icon, String title, VoidCallback onTap, {bool isSpecial = false, Color? specialColor, bool isLogout = false}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -327,7 +328,8 @@ class AppDrawer extends StatelessWidget {
         ),
         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
         onTap: () {
-          // Normal pages use go_router, special pages might assume Navigator logic inside onTap
+          // 🔥🔥 AUTOMATICALLY CLOSE DRAWER BEFORE NAVIGATION 🔥🔥
+          Navigator.pop(context); 
           onTap(); 
         },
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
