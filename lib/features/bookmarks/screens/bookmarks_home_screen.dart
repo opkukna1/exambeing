@@ -129,11 +129,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
         foregroundColor: Colors.black,
         actions: [
           if (isAdmin) ...[
-            IconButton(
-              icon: const Icon(Icons.people_alt, color: Colors.deepPurple),
-              tooltip: "Manage Students",
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const ManageStudentsScreen())),
-            ),
+            // 🔥 REMOVED: Manage Students Button (People Icon) as requested
             IconButton(
               icon: const Icon(Icons.add_circle, color: Colors.deepPurple),
               onPressed: _addNewExam,
