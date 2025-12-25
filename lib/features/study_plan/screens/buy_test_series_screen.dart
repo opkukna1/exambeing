@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-// 🔥 IMP: Import path check kar lena (agar alag folder me hai to adjust karein)
-import 'series_detail_screen.dart'; 
+
+// 🔥 IMP: Apni Bookmarks Home Screen ka sahi path import karein
+import 'package:exambeing/features/bookmarks/screens/bookmarks_home_screen.dart'; 
 
 class BuyTestSeriesScreen extends StatefulWidget {
   const BuyTestSeriesScreen({super.key});
@@ -186,10 +187,10 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> with WidgetsB
                               // 🔥🔥 MODIFIED BUTTONS ROW 🔥🔥
                               Row(
                                 children: [
-                                  // 1. CHECK SCHEDULE & TEST BUTTON (Renamed & Linked)
+                                  // 1. CHECK SCHEDULE & TEST BUTTON (Redirects to BookmarksHome in DEMO mode)
                                   if (!isOwned)
                                   Expanded(
-                                    flex: 5, // Thoda space badha diya text fit hone ke liye
+                                    flex: 5, 
                                     child: OutlinedButton(
                                       style: OutlinedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 5),
@@ -197,14 +198,15 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> with WidgetsB
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
                                       ),
                                       onPressed: () {
-                                        // ✅ LINKED to SeriesDetailScreen
-                                        Navigator.push(context, MaterialPageRoute(builder: (_) => SeriesDetailScreen(
-                                          scheduleDocId: scheduleId, 
-                                          title: data['title'] ?? 'Schedule'
+                                        // ✅ LINKED to BookmarksHomeScreen (Locked Mode)
+                                        Navigator.push(context, MaterialPageRoute(builder: (_) => BookmarksHomeScreen(
+                                          examId: scheduleId, 
+                                          examName: data['title'] ?? 'Schedule',
+                                          isPremiumAccess: false, // 🔒 User hasn't bought it yet
                                         )));
                                       },
                                       child: const Text(
-                                        "Check Schedule & Test", // 👈 Renamed Here
+                                        "Check Schedule & Test", 
                                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                                         textAlign: TextAlign.center,
                                         maxLines: 1,
@@ -215,7 +217,7 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> with WidgetsB
                                   
                                   if (!isOwned) const SizedBox(width: 8),
 
-                                  // 2. BUY BUTTON
+                                  // 2. BUY / OPEN BUTTON
                                   Expanded(
                                     flex: 5,
                                     child: ElevatedButton(
@@ -224,9 +226,18 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> with WidgetsB
                                         padding: const EdgeInsets.symmetric(vertical: 12),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
                                       ),
-                                      onPressed: isOwned ? null : () => _buyProduct(productId),
+                                      onPressed: isOwned 
+                                        ? () {
+                                            // ✅ OPEN SERIES (Unlocked Mode)
+                                            Navigator.push(context, MaterialPageRoute(builder: (_) => BookmarksHomeScreen(
+                                              examId: scheduleId, 
+                                              examName: data['title'] ?? 'Schedule',
+                                              isPremiumAccess: true, // 🔓 Fully Unlocked
+                                            )));
+                                          }
+                                        : () => _buyProduct(productId),
                                       child: Text(
-                                        isOwned ? "UNLOCKED" : "BUY ${data['price']}", 
+                                        isOwned ? "OPEN SERIES" : "BUY ${data['price']}", 
                                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
                                       ),
                                     ),
