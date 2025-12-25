@@ -11,6 +11,7 @@ class ManageModeratorScreen extends StatefulWidget {
 }
 
 class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
+  // 🔥 ADMIN EMAIL (Sirf isi ko sabka data dikhega)
   final String adminEmail = "opsiddh42@gmail.com";
 
   bool get isAdmin {
@@ -23,7 +24,9 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return const Scaffold(body: Center(child: Text("Please Login")));
 
-    // 🔥 MAIN SWITCH: Admin vs Moderator
+    // 🔥 MAIN LOGIC:
+    // Agar Admin hai -> To Admin View (Sabki List)
+    // Agar Moderator hai -> To Moderator View (Sirf Apna Dashboard)
     if (isAdmin) {
       return _buildAdminView();
     } else {
@@ -32,24 +35,26 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
   }
 
   // ==========================================
-  // 👮 ADMIN VIEW (Manage Everything)
+  // 👮 ADMIN VIEW (Shows List of ALL Moderators)
   // ==========================================
   Widget _buildAdminView() {
     return Scaffold(
       appBar: AppBar(title: const Text("Manage Moderators 👥"), backgroundColor: Colors.white, foregroundColor: Colors.black),
       floatingActionButton: FloatingActionButton(onPressed: _showAddModeratorDialog, backgroundColor: Colors.deepPurple, child: const Icon(Icons.add)),
       body: StreamBuilder<QuerySnapshot>(
+        // Admin ko sab dikhega (No Filter)
         stream: FirebaseFirestore.instance.collection('moderator_assignments').orderBy('createdAt', descending: true).snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          
+          if (snapshot.data!.docs.isEmpty) return const Center(child: Text("No moderators yet."));
+
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
               var doc = snapshot.data!.docs[index];
               var data = doc.data() as Map<String, dynamic>;
-              return _buildModeratorCard(doc.id, data, forAdmin: true);
+              return _buildLiveStatsCard(doc.id, data, isForAdmin: true);
             },
           );
         },
@@ -58,36 +63,38 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
   }
 
   // ==========================================
-  // 🧑‍🏫 MODERATOR VIEW (Personal Dashboard)
+  // 🧑‍🏫 MODERATOR VIEW (Shows ONLY Their Own Data)
   // ==========================================
   Widget _buildModeratorView(User user) {
     return Scaffold(
       appBar: AppBar(title: const Text("Partner Dashboard 🚀"), backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
       body: StreamBuilder<QuerySnapshot>(
-        // 🔥 SIRF APNA DATA LAO
+        // 🔥 STRICT FILTER: Sirf wahi data dikhega jisme moderatorEmail == Login Email hai
         stream: FirebaseFirestore.instance
             .collection('moderator_assignments')
-            .where('moderatorEmail', isEqualTo: user.email!.trim().toLowerCase())
+            .where('moderatorEmail', isEqualTo: user.email!.trim().toLowerCase()) 
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Icon(Icons.person_off, size: 60, color: Colors.grey), 
+              const Icon(Icons.lock_outline, size: 60, color: Colors.grey), 
               const SizedBox(height: 10),
-              const Text("You are not a Partner yet."),
-              Text("Logged in as: ${user.email}", style: const TextStyle(fontSize: 12, color: Colors.grey))
+              const Text("Access Denied or Not Assigned."),
+              const SizedBox(height: 5),
+              Text("Logged in as: ${user.email}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text("Contact Admin to link your account.", style: TextStyle(color: Colors.grey)),
             ]));
           }
 
-          // Moderator ka data mil gaya
+          // Moderator ke liye sirf 1 hi document hoga (Uska khud ka)
           var doc = snapshot.data!.docs.first;
           var data = doc.data() as Map<String, dynamic>;
           
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: _buildModeratorCard(doc.id, data, forAdmin: false),
+            child: _buildLiveStatsCard(doc.id, data, isForAdmin: false),
           );
         },
       ),
@@ -95,24 +102,26 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
   }
 
   // ==========================================
-  // 🧩 COMMON CARD LOGIC (Used by Both)
+  // 🧩 LIVE STATS CARD (Shared Logic for Both)
   // ==========================================
-  Widget _buildModeratorCard(String docId, Map<String, dynamic> data, {required bool forAdmin}) {
+  Widget _buildLiveStatsCard(String docId, Map<String, dynamic> data, {required bool isForAdmin}) {
     String modName = data['moderatorName'] ?? 'Unknown';
     String scheduleId = data['scheduleId'] ?? '';
     String scheduleTitle = data['scheduleTitle'] ?? '';
     int commission = data['commissionPrice'] ?? 0;
     int totalWithdrawn = data['totalWithdrawn'] ?? 0;
     List history = data['withdrawalHistory'] ?? [];
-    Timestamp modJoinedAt = data['createdAt'] ?? Timestamp.now(); 
+    
+    // Testing ke liye Date Filter HATA rakha hai.
+    // Production ke liye uncomment kar lena:
+    // Timestamp modJoinedAt = data['createdAt'] ?? Timestamp.now(); 
 
-    // 🔥 CORE EARNING LOGIC (Sub-collection Query)
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(scheduleId)
-          .collection('allowed_users')
-          .where('grantedAt', isGreaterThanOrEqualTo: modJoinedAt) // Date Filter
+          .collection('allowed_users') // <-- Students Count Source
+          // .where('grantedAt', isGreaterThanOrEqualTo: modJoinedAt) // Date Filter (Currently Disabled for Testing)
           .snapshots(),
       builder: (context, userSnap) {
         
@@ -135,19 +144,17 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(forAdmin ? modName : scheduleTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        if(forAdmin) Text(scheduleTitle, style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold)),
-                        if(!forAdmin) Text("Commission: ₹$commission / student", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                        if(forAdmin) Text("Joined: ${DateFormat('dd MMM yy').format(modJoinedAt.toDate())}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        Text(isForAdmin ? modName : scheduleTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        if(isForAdmin) Text(scheduleTitle, style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold)),
+                        if(!isForAdmin) Text("Rate: ₹$commission / student", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                       ]),
                     ),
-                    if (forAdmin) 
+                    if (isForAdmin) 
                       Row(children: [
                         IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showEditModeratorDialog(docId, scheduleId, scheduleTitle, commission)),
                         IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => FirebaseFirestore.instance.collection('moderator_assignments').doc(docId).delete()),
@@ -155,19 +162,15 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
                   ],
                 ),
                 const Divider(),
-
-                // Stats Row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _infoCol("Students", "$studentCount"),
                     _infoCol("Earned", "₹$totalEarnings", color: Colors.blue),
-                    _infoCol(forAdmin ? "Paid" : "Received", "₹$totalWithdrawn", color: Colors.orange),
+                    _infoCol(isForAdmin ? "Paid" : "Received", "₹$totalWithdrawn", color: Colors.orange),
                   ],
                 ),
                 const SizedBox(height: 15),
-
-                // Balance Box
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -175,8 +178,6 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
                   child: Center(child: Text("Pending Payout: ₹$availableBalance", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green))),
                 ),
                 const SizedBox(height: 15),
-
-                // Buttons
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -184,7 +185,7 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
                       OutlinedButton.icon(icon: const Icon(Icons.history, size: 16), label: const Text("History"), onPressed: () => _showHistoryDialog(history)),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade50, foregroundColor: Colors.blue, elevation: 0), icon: const Icon(Icons.people, size: 16), label: const Text("Students"), onPressed: () => _showStudentListDialog(studentDocs, commission)),
-                      if (forAdmin) ...[
+                      if (isForAdmin) ...[
                         const SizedBox(width: 8),
                         ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white), icon: const Icon(Icons.attach_money, size: 16), label: const Text("Pay"), onPressed: () => _showAddWithdrawalDialog(docId, modName, totalWithdrawn, availableBalance)),
                       ]
@@ -200,7 +201,7 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
   }
 
   // ==========================================
-  // 🛠️ DIALOGS & HELPERS (Add, Edit, List)
+  // 🛠️ DIALOGS
   // ==========================================
 
   void _showAddModeratorDialog() {
