@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw; 
 import 'package:exambeing/models/question_model.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Added for Admin Check
 
 class TestSuccessScreen extends StatefulWidget {
   final List<Question>? questions;
@@ -411,6 +412,10 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 ADMIN CHECK
+    final user = FirebaseAuth.instance.currentUser;
+    final bool isAdmin = user != null && user.email == "opsiddh42@gmail.com";
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(title: const Text("Success"), elevation: 0),
@@ -458,12 +463,13 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
                 )),
                 const SizedBox(height: 10),
 
-                // BUTTON 3: CSV
-                SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: _generateCsv,
-                  icon: const Icon(Icons.table_chart, color: Colors.green),
-                  label: const Text("Download Excel (CSV)"),
-                )),
+                // BUTTON 3: CSV (🔥 RESTRICTED TO ADMIN)
+                if (isAdmin)
+                  SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                    onPressed: _generateCsv,
+                    icon: const Icon(Icons.table_chart, color: Colors.green),
+                    label: const Text("Download Excel (CSV)"),
+                  )),
               ]
             ],
           ),
