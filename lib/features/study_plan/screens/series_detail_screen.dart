@@ -6,7 +6,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 // 🔥 IMP: Yahan apni AttemptTestScreen wali file import karein
-// Agar wo same folder mein hai to aise hi rehne dein, warna path adjust karein
 import 'attempt_test_screen.dart'; 
 
 class SeriesDetailScreen extends StatefulWidget {
@@ -171,7 +170,6 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
                     onPressed: () {
                       if (isFree) {
                         // ✅ SUCCESS: Test Start karo
-                        // Hum yahan unique ID bana rahe hain taaki result save ho sake
                         String uniqueTestId = "${widget.scheduleDocId}_test_$index";
                         
                         Navigator.push(
@@ -180,7 +178,9 @@ class _SeriesDetailScreenState extends State<SeriesDetailScreen> {
                             builder: (context) => AttemptTestScreen(
                               testId: uniqueTestId,
                               examId: widget.scheduleDocId,
-                              testData: test, // Pura data pass kar diya
+                              testData: test,
+                              // 🔥 FIXED: Added 'weekId' here to solve Build Error
+                              weekId: 'premium_series_mode', 
                             )
                           )
                         );
