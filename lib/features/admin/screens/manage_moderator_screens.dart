@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async'; // Timer aur Microtask ke liye
 
 class ManageModeratorScreen extends StatefulWidget {
   const ManageModeratorScreen({super.key});
@@ -11,7 +12,7 @@ class ManageModeratorScreen extends StatefulWidget {
 }
 
 class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
-  // 🔥 ADMIN EMAIL
+  // 🔥 ADMIN EMAIL (Sirf isko sab dikhega)
   final String adminEmail = "opsiddh42@gmail.com";
 
   bool get isAdmin {
@@ -24,16 +25,16 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return const Scaffold(body: Center(child: Text("Please Login")));
 
-    // 🔥 LOGIC: Admin ko List, Moderator ko Dashboard
+    // 🔥 SECURITY CHECK:
     if (isAdmin) {
-      return _buildAdminView();
+      return _buildAdminView(); // Admin ko sab dikhao
     } else {
-      return _buildModeratorView(user);
+      return _buildModeratorView(user); // Moderator ko sirf apna dikhao
     }
   }
 
   // ==========================================
-  // 👮 ADMIN VIEW (List of All Moderators)
+  // 👮 ADMIN VIEW (Ye Calculation karega aur DB update karega)
   // ==========================================
   Widget _buildAdminView() {
     return Scaffold(
@@ -51,8 +52,8 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
             itemBuilder: (context, index) {
               var doc = snapshot.data!.docs[index];
               var data = doc.data() as Map<String, dynamic>;
-              // Admin ke liye Card (Full Access)
-              return _buildLiveStatsCard(doc.id, data, isForAdmin: true);
+              // Admin ke liye "Sync Card" jo data update karega
+              return _buildAdminSyncCard(doc.id, data);
             },
           );
         },
@@ -61,13 +62,13 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
   }
 
   // ==========================================
-  // 🧑‍🏫 MODERATOR VIEW (Personal Dashboard)
+  // 🧑‍🏫 MODERATOR VIEW (Sirf Apna Data Padhega)
   // ==========================================
   Widget _buildModeratorView(User user) {
     return Scaffold(
       appBar: AppBar(title: const Text("Partner Dashboard 🚀"), backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
       body: StreamBuilder<QuerySnapshot>(
-        // 🔥 STRICT FILTER: Sirf apna data dikhega
+        // 🔒 STRICT FILTER: Sirf wahi data lao jisme 'moderatorEmail' login user ke barabar ho
         stream: FirebaseFirestore.instance
             .collection('moderator_assignments')
             .where('moderatorEmail', isEqualTo: user.email!.trim().toLowerCase()) 
@@ -75,12 +76,12 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           
+          // Agar koi assignment nahi mila
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               const Icon(Icons.lock_outline, size: 60, color: Colors.grey), 
               const SizedBox(height: 10),
-              const Text("Account Not Linked."),
-              const SizedBox(height: 5),
+              const Text("Access Restricted."),
               Text("Logged in as: ${user.email}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ]));
           }
@@ -88,10 +89,10 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
           var doc = snapshot.data!.docs.first;
           var data = doc.data() as Map<String, dynamic>;
           
-          // Moderator ke liye Card (Read Only)
+          // Moderator ke liye "Read Only Card" (No Calculation, No Risk)
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: _buildLiveStatsCard(doc.id, data, isForAdmin: false),
+            child: _buildModeratorReadCard(doc.id, data),
           );
         },
       ),
@@ -99,40 +100,49 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
   }
 
   // ==========================================
-  // 🧩 LIVE STATS CARD (Shared Logic + Time Filter)
+  // 🔄 ADMIN CARD (With AUTO-SYNC Logic)
   // ==========================================
-  Widget _buildLiveStatsCard(String docId, Map<String, dynamic> data, {required bool isForAdmin}) {
+  Widget _buildAdminSyncCard(String docId, Map<String, dynamic> data) {
     String modName = data['moderatorName'] ?? 'Unknown';
-    String scheduleId = (data['scheduleId'] ?? '').toString().trim(); // Removing spaces safely
+    String scheduleId = (data['scheduleId'] ?? '').toString().trim();
     String scheduleTitle = data['scheduleTitle'] ?? '';
     int commission = data['commissionPrice'] ?? 0;
     int totalWithdrawn = data['totalWithdrawn'] ?? 0;
     List history = data['withdrawalHistory'] ?? [];
     
-    // 🔥 TIME FILTER: Moderator joining date
-    Timestamp modJoinedAt = data['createdAt'] ?? Timestamp.now(); 
+    // Database mein saved values (Check karne ke liye)
+    int savedStudentCount = data['studentCount'] ?? 0;
+    int savedTotalEarnings = data['totalEarnings'] ?? 0;
 
+    // 🔥 ADMIN LIVE CALCULATION KAREGA
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('study_schedules')
           .doc(scheduleId)
           .collection('allowed_users')
-          // 🔥🔥 TIME FILTER APPLIED HERE 🔥🔥
-          // Sirf wo students count honge jo Moderator banne ke baad aaye hain
-          .where('grantedAt', isGreaterThanOrEqualTo: modJoinedAt) 
+          // Koi Date Filter nahi - Sab count honge
           .snapshots(),
       builder: (context, userSnap) {
         
-        int studentCount = 0;
-        List<QueryDocumentSnapshot> studentDocs = [];
-
+        int liveStudentCount = 0;
         if (userSnap.hasData) {
-          studentDocs = userSnap.data!.docs;
-          studentCount = studentDocs.length;
+          liveStudentCount = userSnap.data!.docs.length;
         }
 
-        int totalEarnings = studentCount * commission;
-        int availableBalance = totalEarnings - totalWithdrawn;
+        int liveTotalEarnings = liveStudentCount * commission;
+        int liveAvailableBalance = liveTotalEarnings - totalWithdrawn;
+
+        // ⚡ AUTO-SYNC: Agar Naya Data aaya hai, to Database update kar do
+        if (liveStudentCount != savedStudentCount || liveTotalEarnings != savedTotalEarnings) {
+          // Future.microtask se crash nahi hoga
+          Future.microtask(() {
+             FirebaseFirestore.instance.collection('moderator_assignments').doc(docId).update({
+               'studentCount': liveStudentCount,
+               'totalEarnings': liveTotalEarnings,
+               'lastUpdated': FieldValue.serverTimestamp(),
+             });
+          });
+        }
 
         return Card(
           elevation: 4, margin: const EdgeInsets.only(bottom: 20),
@@ -142,62 +152,51 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(isForAdmin ? modName : scheduleTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        if(isForAdmin) Text(scheduleTitle, style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold)),
-                        if(!isForAdmin) Text("Commission: ₹$commission / student", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                        
-                        // Show Joining Date (Helpful to understand Time Filter)
-                        Text("Tracking since: ${DateFormat('dd MMM yy').format(modJoinedAt.toDate())}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        Text(modName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(scheduleTitle, style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold)),
+                        const Text("⚡ Auto-Syncing for Partner", style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
                       ]),
                     ),
-                    if (isForAdmin) 
-                      Row(children: [
-                        IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showEditModeratorDialog(docId, scheduleId, scheduleTitle, commission)),
-                        IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => FirebaseFirestore.instance.collection('moderator_assignments').doc(docId).delete()),
-                      ]),
+                    Row(children: [
+                      IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showEditModeratorDialog(docId, scheduleId, scheduleTitle, commission)),
+                      IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => FirebaseFirestore.instance.collection('moderator_assignments').doc(docId).delete()),
+                    ]),
                   ],
                 ),
                 const Divider(),
-
-                // Stats
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _infoCol("Students", "$studentCount"),
-                    _infoCol("Earned", "₹$totalEarnings", color: Colors.blue),
-                    _infoCol(isForAdmin ? "Paid" : "Received", "₹$totalWithdrawn", color: Colors.orange),
+                    _infoCol("Students", "$liveStudentCount"),
+                    _infoCol("Earned", "₹$liveTotalEarnings", color: Colors.blue),
+                    _infoCol("Paid", "₹$totalWithdrawn", color: Colors.orange),
                   ],
                 ),
                 const SizedBox(height: 15),
-
-                // Balance
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green)),
-                  child: Center(child: Text("Pending Payout: ₹$availableBalance", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green))),
+                  child: Center(child: Text("Pending Payout: ₹$liveAvailableBalance", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green))),
                 ),
                 const SizedBox(height: 15),
-
-                // Buttons
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
                       OutlinedButton.icon(icon: const Icon(Icons.history, size: 16), label: const Text("History"), onPressed: () => _showHistoryDialog(history)),
                       const SizedBox(width: 8),
-                      ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade50, foregroundColor: Colors.blue, elevation: 0), icon: const Icon(Icons.people, size: 16), label: const Text("Students"), onPressed: () => _showStudentListDialog(studentDocs, commission)),
-                      
-                      if (isForAdmin) ...[
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white), icon: const Icon(Icons.attach_money, size: 16), label: const Text("Pay"), onPressed: () => _showAddWithdrawalDialog(docId, modName, totalWithdrawn, availableBalance)),
-                      ]
+                      // Admin can see students list
+                      ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade50, foregroundColor: Colors.blue, elevation: 0), icon: const Icon(Icons.people, size: 16), label: const Text("Students"), onPressed: () {
+                          if (userSnap.hasData) _showStudentListDialog(userSnap.data!.docs, commission);
+                      }),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white), icon: const Icon(Icons.attach_money, size: 16), label: const Text("Pay"), onPressed: () => _showAddWithdrawalDialog(docId, modName, totalWithdrawn, liveAvailableBalance)),
                     ],
                   ),
                 )
@@ -210,6 +209,77 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
   }
 
   // ==========================================
+  // 👁️ MODERATOR CARD (Simple Read-Only)
+  // ==========================================
+  Widget _buildModeratorReadCard(String docId, Map<String, dynamic> data) {
+    String scheduleTitle = data['scheduleTitle'] ?? '';
+    int commission = data['commissionPrice'] ?? 0;
+    int totalWithdrawn = data['totalWithdrawn'] ?? 0;
+    List history = data['withdrawalHistory'] ?? [];
+
+    // 🔥 MODERATOR BAS DATABASE PADHEGA (No Calculation)
+    int studentCount = data['studentCount'] ?? 0;
+    int totalEarnings = data['totalEarnings'] ?? 0;
+    int availableBalance = totalEarnings - totalWithdrawn;
+
+    return Card(
+      elevation: 4, margin: const EdgeInsets.only(bottom: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(scheduleTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text("Commission: ₹$commission / student", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  ]),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10)),
+                  child: const Text("Verified ✅", style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
+                )
+              ],
+            ),
+            const Divider(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _infoCol("Students", "$studentCount"),
+                _infoCol("Earned", "₹$totalEarnings", color: Colors.blue),
+                _infoCol("Received", "₹$totalWithdrawn", color: Colors.orange),
+              ],
+            ),
+            const SizedBox(height: 15),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green)),
+              child: Center(child: Text("Pending Payout: ₹$availableBalance", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green))),
+            ),
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.history), 
+                    label: const Text("History"), 
+                    onPressed: () => _showHistoryDialog(history)
+                  ),
+                ),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
   // 🛠️ DIALOGS
   // ==========================================
 
@@ -218,7 +288,7 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
     showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Assign Moderator"), content: SingleChildScrollView(child: Column(children: [_tf(emailC, "Email"), _tf(nameC, "Name"), _tf(scheduleIdC, "Schedule ID"), _tf(scheduleTitleC, "Exam Name"), _tf(commissionC, "Commission", isNum: true)])), actions: [TextButton(onPressed: ()=>Navigator.pop(c), child: const Text("Cancel")), ElevatedButton(onPressed: () async {
       if(emailC.text.isNotEmpty && scheduleIdC.text.isNotEmpty) {
         await FirebaseFirestore.instance.collection('moderator_assignments').add({
-          'moderatorEmail': emailC.text.trim().toLowerCase(), 'moderatorName': nameC.text.trim(), 'scheduleId': scheduleIdC.text.trim(), 'scheduleTitle': scheduleTitleC.text.trim(), 'commissionPrice': int.tryParse(commissionC.text.trim())??0, 'totalWithdrawn': 0, 'withdrawalHistory': [], 'createdAt': FieldValue.serverTimestamp()
+          'moderatorEmail': emailC.text.trim().toLowerCase(), 'moderatorName': nameC.text.trim(), 'scheduleId': scheduleIdC.text.trim(), 'scheduleTitle': scheduleTitleC.text.trim(), 'commissionPrice': int.tryParse(commissionC.text.trim())??0, 'totalWithdrawn': 0, 'withdrawalHistory': [], 'studentCount': 0, 'totalEarnings': 0, 'createdAt': FieldValue.serverTimestamp()
         }); Navigator.pop(c);
       }
     }, child: const Text("Assign"))]));
