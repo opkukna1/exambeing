@@ -345,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-             // 🔥🔥 UPDATED: rootNavigator: true se bottom/top bars hide ho jayenge 🔥🔥
+             // 🔥🔥 UPDATED: FULL SCREEN NAVIGATION 🔥🔥
              Navigator.of(context, rootNavigator: true).push(
                MaterialPageRoute(builder: (context) => const BuyTestSeriesScreen()),
              );
@@ -417,7 +417,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return _buildCard(
       title: "Create\nCustom Test", subtitle: "By Topic",
       icon: Icons.auto_awesome, colors: [const Color(0xFF6A11CB), const Color(0xFF2575FC)],
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TestGeneratorScreen())),
+      // 🔥🔥 UPDATED: FULL SCREEN NAVIGATION 🔥🔥
+      onTap: () => Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute(builder: (context) => const TestGeneratorScreen())
+      ),
     );
   }
 
