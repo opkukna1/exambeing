@@ -10,15 +10,15 @@ import '../../admin/screens/manage_users_screen.dart';
 class TestListScreen extends StatelessWidget {
   final String examId;
   final String weekId;
-  final bool isLockedMode; // true = Demo User (Free), false = Premium User
-  final bool isFirstWeek; // 🔥 NEW PARAM: Checks if this is the very first week
+  final bool isLockedMode; // true = Demo User (Free)
+  final bool isFirstWeek; // Checks if Week 1
 
   const TestListScreen({
     super.key, 
     required this.examId, 
     required this.weekId,
     this.isLockedMode = false, 
-    this.isFirstWeek = false, // Default false
+    this.isFirstWeek = false, 
   });
 
   @override
@@ -39,7 +39,6 @@ class TestListScreen extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(
             title: const Text("Scheduled Tests"),
-            // 🔥 REMOVED: Demo Mode Banner as requested
             actions: [
               if (isHost)
                 const Padding(
@@ -81,15 +80,18 @@ class TestListScreen extends StatelessWidget {
                   return StreamBuilder<DocumentSnapshot>(
                     stream: FirebaseFirestore.instance.collection('users').doc(user.uid).collection('test_results').doc(test.id).snapshots(),
                     builder: (context, resultSnapshot) {
-                      bool isAttempted = resultSnapshot.hasData && resultSnapshot.data!.exists;
+                      
+                      bool isAttempted = false;
                       int attemptCount = 0;
-                      if (isAttempted) {
+
+                      if (resultSnapshot.hasData && resultSnapshot.data!.exists) {
+                        isAttempted = true;
                         var rData = resultSnapshot.data!.data() as Map<String, dynamic>;
-                        attemptCount = rData['attemptCount'] ?? 1;
+                        // Ensure we get a valid integer, default to 1 if missing
+                        attemptCount = (rData['attemptCount'] ?? 1) as int;
                       }
 
-                      // 🔥 LOGIC: Is this specific test Free?
-                      // Rule: Demo Mode ON + First Week + First Test (Index 0)
+                      // 🔥 Free Test Logic: Week 1 + Test 1
                       bool isFreeTest = isLockedMode && isFirstWeek && index == 0;
 
                       return Card(
@@ -100,7 +102,6 @@ class TestListScreen extends StatelessWidget {
                           title: Row(
                             children: [
                               Expanded(child: Text(data['testTitle'] ?? test.subject, style: const TextStyle(fontWeight: FontWeight.bold))),
-                              // Tag for Free Test
                               if (isFreeTest) 
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -117,12 +118,12 @@ class TestListScreen extends StatelessWidget {
                             test: test, 
                             data: data, 
                             isAttempted: isAttempted, 
-                            attemptCount: attemptCount, // For multiple attempts logic
+                            attemptCount: attemptCount, 
                             isHost: isHost, 
                             isMyTest: isMyTest, 
                             user: user, 
                             contactNum: contactNum,
-                            isFreeTest: isFreeTest // Passing the strict logic
+                            isFreeTest: isFreeTest 
                           ),
                         ),
                       );
@@ -141,90 +142,49 @@ class TestListScreen extends StatelessWidget {
     return "${date.day}/${date.month} - ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 
-  // 🔥 POPUP for Locked Tests
   void _showLockedPopup(BuildContext context) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.lock_person, color: Colors.deepPurple, size: 28),
-            SizedBox(width: 10),
-            Text("Premium Content"),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Unlock Full Series! 🚀",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            SizedBox(height: 10),
-            Text(
-              "To attempt all tests and access complete study material, please purchase the Test Series.",
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
+        title: const Row(children: [Icon(Icons.lock_person, color: Colors.deepPurple, size: 28), SizedBox(width: 10), Text("Premium Content")]),
+        content: const Text("Unlock Full Series! 🚀\nPlease purchase the Test Series to attempt this test."),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-            onPressed: () => Navigator.pop(ctx), // Or navigate to store
-            child: const Text("OK, Got it", style: TextStyle(color: Colors.white)),
-          )
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple), onPressed: () => Navigator.pop(ctx), child: const Text("OK, Got it"))
         ],
       ),
     );
   }
 
-  // 🔥 STRICT CHECK FUNCTION
   Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum, bool isFreeTest) async {
-    
-    // 🛑 1. SUPER STRICT LOCK CHECK
-    // Agar Locked Mode hai AUR yeh Free Test nahi hai -> Show Popup & Return
+    // 🛑 1. STRICT LOCK CHECK
     if (isLockedMode && !isFreeTest) {
       _showLockedPopup(context);
       return; 
     }
 
-    // 2. Show Loading
-    showDialog(
-      context: context, 
-      barrierDismissible: false, 
-      builder: (c) => const Center(child: CircularProgressIndicator())
-    );
+    showDialog(context: context, barrierDismissible: false, builder: (c) => const Center(child: CircularProgressIndicator()));
 
     try {
-      // 🟢 Agar Free Test hai (Week 1, Test 1), to DB check SKIP karo
+      // 🟢 Bypass Database check for Free Test
       if (isFreeTest) {
-        if (context.mounted) Navigator.of(context, rootNavigator: true).pop(); // Close Loading
+        if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
         _navigateToAttemptScreen(context, test);
         return;
       }
 
-      // 🔵 Premium User Check (Database Verification)
+      // 🔵 Premium User Check
       String emailKey = user.email!.trim().toLowerCase();
-      DocumentSnapshot permDoc = await FirebaseFirestore.instance
-          .collection('study_schedules').doc(examId)
-          .collection('allowed_users').doc(emailKey)
-          .get();
+      DocumentSnapshot permDoc = await FirebaseFirestore.instance.collection('study_schedules').doc(examId).collection('allowed_users').doc(emailKey).get();
 
-      if (context.mounted) Navigator.of(context, rootNavigator: true).pop(); // Close Loading
+      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
 
       if (!permDoc.exists) {
-        // Double Check: Agar logic se pass ho gaya par DB mein nahi hai
         if (context.mounted) _showPurchasePopup(context, contactNum); 
         return;
       }
 
-      // Check Expiry
       if (permDoc.data() != null) {
         Map<String, dynamic> permData = permDoc.data() as Map<String, dynamic>;
         if (permData.containsKey('expiryDate')) {
@@ -236,7 +196,6 @@ class TestListScreen extends StatelessWidget {
         }
       }
 
-      // Success -> Navigate
       if (context.mounted) _navigateToAttemptScreen(context, test);
 
     } catch (e) {
@@ -252,11 +211,7 @@ class TestListScreen extends StatelessWidget {
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(builder: (_) => AttemptTestScreen(
           testId: test.id,
-          testData: { 
-            'testTitle': test.subject,
-            'questions': questionsAsMaps, 
-            'settings': test.settings 
-          },
+          testData: { 'testTitle': test.subject, 'questions': questionsAsMaps, 'settings': test.settings },
           examId: examId,
           weekId: weekId,
       ))
@@ -264,22 +219,7 @@ class TestListScreen extends StatelessWidget {
   }
 
   void _showPurchasePopup(BuildContext context, String contact) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Row(children: [Icon(Icons.lock, color: Colors.red), SizedBox(width: 10), Text("Paid Test")]),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("This is a Premium Test.\nPlease buy the series."),
-              const SizedBox(height: 10),
-            ],
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))],
-        );
-      },
-    );
+    showDialog(context: context, builder: (context) => AlertDialog(title: const Text("Paid Test"), content: const Text("Please buy the series."), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))]));
   }
 
   Widget _buildActionButtons({
@@ -292,54 +232,62 @@ class TestListScreen extends StatelessWidget {
     required bool isMyTest, 
     required User user,
     required String contactNum,
-    required bool isFreeTest // 🔥 Logic Received
+    required bool isFreeTest 
   }) {
     DateTime now = DateTime.now();
     bool isLockedTime = now.isBefore(test.scheduledAt);
 
     if (isHost && isMyTest) {
-      return IconButton(
-        icon: const Icon(Icons.delete, color: Colors.red),
-        onPressed: () async {
+      return IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () async {
             bool confirm = await showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Delete Test?"), actions: [TextButton(onPressed: ()=>Navigator.pop(c,false), child: const Text("No")), TextButton(onPressed: ()=>Navigator.pop(c,true), child: const Text("Yes"))])) ?? false;
             if(confirm) await FirebaseFirestore.instance.collection('study_schedules').doc(examId).collection('weeks').doc(weekId).collection('tests').doc(test.id).delete();
-        },
-      );
+      });
     }
     
     if (isHost && !isMyTest) return const Text("Locked", style: TextStyle(fontSize: 10, color: Colors.grey));
 
-    // 🔥🔥 STRICT UI LOCK 🔥🔥
-    // Agar Locked Mode hai AUR yeh Free Test nahi hai -> GREY BUTTON + POPUP
+    // 🔒 Grey Lock for Non-Free, Non-Premium Users
     if (isLockedMode && !isFreeTest) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade400),
-        onPressed: () => _showLockedPopup(context), // Show Beautiful Popup
+        onPressed: () => _showLockedPopup(context),
         child: const Icon(Icons.lock, color: Colors.white, size: 18),
       );
     }
 
+    // 🏆 ATTEMPTED Logic
     if (isAttempted) {
-      // ✅ 2nd Attempt Logic for Premium Users
-      if (!isLockedMode && attemptCount < 2) {
+      // 🔥🔥🔥 FIX HERE: Allow Re-Attempt if Premium OR Free Test
+      bool canReAttempt = (!isLockedMode || isFreeTest) && attemptCount < 2;
+
+      if (canReAttempt) {
          return Row(
            mainAxisSize: MainAxisSize.min,
            children: [
              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, padding: const EdgeInsets.symmetric(horizontal: 10)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent, 
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(60, 36) // Ensure size
+                ),
                 onPressed: () => _checkAccessAndStart(context, test, user, contactNum, isFreeTest),
-                child: const Text("Re-Attempt", style: TextStyle(fontSize: 10)),
+                child: const Text("Re-Attempt", style: TextStyle(fontSize: 10, color: Colors.white)),
               ),
               const SizedBox(width: 5),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.grey, padding: const EdgeInsets.symmetric(horizontal: 10)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey, 
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(50, 36)
+                ),
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TestSolutionScreen(testId: test.id, originalQuestions: test.questions.map((q) => q.toMap()).toList()))),
-                child: const Text("Result", style: TextStyle(fontSize: 10)),
+                child: const Text("Result", style: TextStyle(fontSize: 10, color: Colors.white)),
               ),
            ],
          );
       }
-
+      
+      // Attempt Count >= 2
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TestSolutionScreen(testId: test.id, originalQuestions: test.questions.map((q) => q.toMap()).toList()))),
@@ -348,13 +296,10 @@ class TestListScreen extends StatelessWidget {
     }
 
     if (isLockedTime) {
-      return ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Starts at ${_formatDate(test.scheduledAt)}"))),
-        child: const Text("Wait"),
-      );
+      return ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent), onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Starts at ${_formatDate(test.scheduledAt)}"))), child: const Text("Wait"));
     }
 
+    // ✅ Start Button
     return ElevatedButton(
       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
       onPressed: () => _checkAccessAndStart(context, test, user, contactNum, isFreeTest), 
