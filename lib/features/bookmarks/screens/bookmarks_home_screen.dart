@@ -14,10 +14,9 @@ import 'package:exambeing/features/study_plan/screens/test_list_screen.dart';
 import 'package:exambeing/features/admin/screens/manage_students_screen.dart';
 
 class BookmarksHomeScreen extends StatefulWidget {
-  // 🔥 UPDATED: Added parameters to handle navigation from Store
   final String? examId;
   final String? examName;
-  final bool isPremiumAccess; // true = Purchased, false = Demo/Locked
+  final bool isPremiumAccess; 
 
   const BookmarksHomeScreen({
     super.key,
@@ -46,6 +45,9 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
   // Week Selection State
   String? selectedWeekId;
   Map<String, dynamic>? selectedWeekData;
+
+  // 🔥 NEW: Variable to store the ID of the very first week
+  String? _globalFirstWeekId;
 
   @override
   void initState() {
@@ -233,6 +235,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                 selectedExamName = data['examName'];
                                 selectedWeekId = null; 
                                 selectedWeekData = null;
+                                _globalFirstWeekId = null; // 🔥 Reset First Week ID
                               });
                             },
                             child: Container(
@@ -287,13 +290,19 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                       .collection('study_schedules')
                       .doc(selectedExamId)
                       .collection('weeks')
-                      .orderBy('unlockTime')
+                      .orderBy('unlockTime') // Ordered by date
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox();
                     var weeks = snapshot.data!.docs;
                     
                     if (weeks.isEmpty) return const Center(child: Text("No schedule added yet."));
+
+                    // 🔥🔥 CAPTURE THE ID OF THE FIRST WEEK 🔥🔥
+                    // Kyunki ye list 'unlockTime' se sorted hai, to index 0 hamesha pehla week hoga.
+                    if (weeks.isNotEmpty) {
+                      _globalFirstWeekId = weeks[0].id;
+                    }
 
                     return ListView.builder(
                       scrollDirection: Axis.horizontal,
@@ -426,8 +435,11 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                         onTap: () {
                           // 🔥 PASSING THE LOCK STATUS DOWN
                           // Agar widget.isPremiumAccess FALSE hai, to Locked Mode ON hoga
-                          // Agar user Admin hai, to Locked Mode OFF hoga
                           bool isLockedMode = !widget.isPremiumAccess && !isAdmin;
+
+                          // 🔥 CHECK IF THIS IS THE FIRST WEEK
+                          // Hum check kar rahe hain ki selectedWeekId kya _globalFirstWeekId ke barabar hai?
+                          bool isFirstWeek = (selectedWeekId == _globalFirstWeekId);
 
                           Navigator.push(
                             context, 
@@ -435,7 +447,8 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                               builder: (c) => TestListScreen(
                                 examId: selectedExamId!, 
                                 weekId: selectedWeekId!,
-                                isLockedMode: isLockedMode // 👈 Sending this to TestListScreen
+                                isLockedMode: isLockedMode,
+                                isFirstWeek: isFirstWeek, // 👈 Passing new flag
                               )
                             )
                           );
