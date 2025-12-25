@@ -38,7 +38,6 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
   @override
   void initState() {
     super.initState();
-    // 🔥 Full Screen Mode
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     questions = widget.testData['questions'] ?? [];
@@ -53,9 +52,7 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
 
   @override
   void dispose() {
-    // 🔥 Restore Normal UI
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    
     _timer?.cancel();
     _pageController.dispose();
     super.dispose();
@@ -128,19 +125,17 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
          answersForDb[qId] = optIndex;
       });
 
-      // 🔥🔥 LOGIC UPDATE: Check Previous Attempts 🔥🔥
+      // 🔥🔥 FIX: Get Current Count properly before saving 🔥🔥
       DocumentReference resultRef = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('test_results').doc(widget.testId);
       DocumentSnapshot existingDoc = await resultRef.get();
       
-      int attemptCount = 1; // Default
+      int newAttemptCount = 1; 
       if (existingDoc.exists) {
         var data = existingDoc.data() as Map<String, dynamic>;
-        // Agar pehle se attemptCount hai to +1 karo, nahi to maano ye 2nd attempt hai
-        int prevCount = data['attemptCount'] ?? 1;
-        attemptCount = prevCount + 1;
+        int prev = data['attemptCount'] ?? 1;
+        newAttemptCount = prev + 1; // Increment count
       }
 
-      // Save Result with Attempt Count
       await resultRef.set({
             'testId': widget.testId, 
             'testTitle': widget.testData['testTitle'] ?? 'Test Result', 
@@ -153,10 +148,9 @@ class _AttemptTestScreenState extends State<AttemptTestScreen> {
             'questionsSnapshot': finalQuestionsData, 
             'userResponse': answersForDb, 
             'settings': marking,
-            'attemptCount': attemptCount, // ✅ Saving count (1 or 2)
+            'attemptCount': newAttemptCount, // ✅ Saving correct count
       });
 
-      // Mark user as attempted in schedule (sirf array union, duplicate nahi hoga)
       await FirebaseFirestore.instance.collection('study_schedules').doc(widget.examId).collection('weeks').doc(widget.weekId).collection('tests').doc(widget.testId).update({
         'attemptedUsers': FieldValue.arrayUnion([user.uid])
       });
