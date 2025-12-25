@@ -1,220 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
-class ManageModeratorScreen extends StatefulWidget {
-  const ManageModeratorScreen({super.key});
+class ModeratorDashboardScreen extends StatelessWidget {
+  const ModeratorDashboardScreen({super.key});
 
-  @override
-  State<ManageModeratorScreen> createState() => _ManageModeratorScreenState();
-}
-
-class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
-  // 🔥 ADMIN CHECK
-  final String adminEmail = "opsiddh42@gmail.com";
-
-  bool get isAdmin {
-    final user = FirebaseAuth.instance.currentUser;
-    return user != null && user.email?.toLowerCase().trim() == adminEmail.toLowerCase().trim();
-  }
-
-  // --- 1. ADD MODERATOR DIALOG ---
-  void _showAddModeratorDialog() {
-    final emailC = TextEditingController();
-    final nameC = TextEditingController();
-    final scheduleIdC = TextEditingController(); 
-    final scheduleTitleC = TextEditingController(); 
-    final commissionC = TextEditingController(); 
-
+  // --- STUDENT LIST DIALOG ---
+  void _showStudentListDialog(BuildContext context, List<QueryDocumentSnapshot> students, int commissionRate) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Assign Moderator 🤝"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildTextField(emailC, "Moderator Email"),
-              const SizedBox(height: 10),
-              _buildTextField(nameC, "Name"),
-              const SizedBox(height: 10),
-              _buildTextField(scheduleIdC, "Schedule ID (Doc ID)"),
-              const SizedBox(height: 10),
-              _buildTextField(scheduleTitleC, "Exam Name"),
-              const SizedBox(height: 10),
-              _buildTextField(commissionC, "Commission (₹)", isNumber: true),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
-            onPressed: () async {
-              if (emailC.text.isNotEmpty && scheduleIdC.text.isNotEmpty) {
-                await FirebaseFirestore.instance.collection('moderator_assignments').add({
-                  'moderatorEmail': emailC.text.trim().toLowerCase(),
-                  'moderatorName': nameC.text.trim(),
-                  'scheduleId': scheduleIdC.text.trim(),
-                  'scheduleTitle': scheduleTitleC.text.trim(),
-                  'commissionPrice': int.tryParse(commissionC.text.trim()) ?? 0,
-                  'totalWithdrawn': 0, 
-                  'withdrawalHistory': [], 
-                  'createdAt': FieldValue.serverTimestamp(),
-                });
-                if (mounted) Navigator.pop(context);
-              }
-            },
-            child: const Text("Assign", style: TextStyle(color: Colors.white)),
-          )
-        ],
-      ),
-    );
-  }
-
-  // --- 2. 🔥 NEW: EDIT MODERATOR DIALOG ---
-  void _showEditModeratorDialog(String docId, String currentScheduleId, String currentTitle, int currentCommission) {
-    final scheduleIdC = TextEditingController(text: currentScheduleId);
-    final scheduleTitleC = TextEditingController(text: currentTitle);
-    final commissionC = TextEditingController(text: currentCommission.toString());
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Edit Details ✏️"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("Modify Schedule or Commission:", style: TextStyle(fontSize: 12, color: Colors.grey)),
-              const SizedBox(height: 15),
-              _buildTextField(scheduleIdC, "Schedule ID"),
-              const SizedBox(height: 10),
-              _buildTextField(scheduleTitleC, "Exam Name"),
-              const SizedBox(height: 10),
-              _buildTextField(commissionC, "Commission (₹)", isNumber: true),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            onPressed: () async {
-              if (scheduleIdC.text.isNotEmpty && commissionC.text.isNotEmpty) {
-                await FirebaseFirestore.instance.collection('moderator_assignments').doc(docId).update({
-                  'scheduleId': scheduleIdC.text.trim(),
-                  'scheduleTitle': scheduleTitleC.text.trim(),
-                  'commissionPrice': int.tryParse(commissionC.text.trim()) ?? 0,
-                });
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ Details Updated!")));
-                }
-              }
-            },
-            child: const Text("Update", style: TextStyle(color: Colors.white)),
-          )
-        ],
-      ),
-    );
-  }
-
-  // --- 3. WITHDRAWAL DIALOG ---
-  void _showAddWithdrawalDialog(String docId, String name, int currentWithdrawn, int availableBalance) {
-    final amountC = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Pay to $name 💸"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text("Balance: ₹$availableBalance", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-            TextField(controller: amountC, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Amount")),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () async {
-              int amount = int.tryParse(amountC.text.trim()) ?? 0;
-              if (amount > 0 && amount <= availableBalance) {
-                await FirebaseFirestore.instance.collection('moderator_assignments').doc(docId).update({
-                  'totalWithdrawn': FieldValue.increment(amount), 
-                  'withdrawalHistory': FieldValue.arrayUnion([{'amount': amount, 'date': DateTime.now().toIso8601String()}])
-                });
-                if (mounted) Navigator.pop(context);
-              }
-            },
-            child: const Text("Pay"),
-          )
-        ],
-      ),
-    );
-  }
-
-  // --- 4. PAYMENT HISTORY DIALOG ---
-  void _showHistoryDialog(List<dynamic> history) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Payout History 📜"),
-        content: SizedBox(
-          width: double.maxFinite, height: 300,
-          child: history.isEmpty ? const Center(child: Text("No payments yet.")) : ListView.builder(
-            itemCount: history.length,
-            itemBuilder: (context, index) {
-              var item = history[history.length - 1 - index];
-              return ListTile(
-                leading: const Icon(Icons.arrow_upward, color: Colors.red),
-                title: Text("Paid: ₹${item['amount']}"),
-                subtitle: Text(DateFormat('dd MMM, hh:mm a').format(DateTime.parse(item['date']))),
-              );
-            },
-          ),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close"))],
-      ),
-    );
-  }
-
-  // --- 5. STUDENT LIST DIALOG ---
-  void _showStudentListDialog(List<QueryDocumentSnapshot> students, int commissionRate) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Students List (${students.length}) 🎓"),
+        title: Text("My Students (${students.length}) 🎓"),
         content: SizedBox(
           width: double.maxFinite,
-          height: 400, 
+          height: 400,
           child: students.isEmpty 
-            ? const Center(child: Text("No students yet.")) 
+            ? const Center(child: Text("No students found after your joining date.")) 
             : ListView.builder(
                 itemCount: students.length,
                 itemBuilder: (context, index) {
                   var data = students[index].data() as Map<String, dynamic>;
-                  String email = data['email'] ?? 'Unknown Email';
-                  String displayName = data['displayName'] ?? email.split('@')[0];
+                  String email = data['email'] ?? 'Unknown';
+                  String name = data['displayName'] ?? email.split('@')[0];
                   Timestamp? grantedAt = data['grantedAt'];
+                  
                   String dateStr = grantedAt != null 
-                      ? DateFormat('dd MMM yyyy, hh:mm a').format(grantedAt.toDate())
-                      : "Unknown Date";
+                      ? DateFormat('dd MMM, hh:mm a').format(grantedAt.toDate())
+                      : "Unknown";
 
                   return Card(
+                    elevation: 0,
+                    color: Colors.grey.shade50,
                     margin: const EdgeInsets.only(bottom: 8),
                     child: ListTile(
-                      leading: CircleAvatar(backgroundColor: Colors.blue.shade100, child: const Icon(Icons.person, color: Colors.blue)),
-                      title: Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(email, style: const TextStyle(fontSize: 11)),
-                          Text("Bought: $dateStr", style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                      ]),
-                      trailing: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          const Text("Comm.", style: TextStyle(fontSize: 10, color: Colors.grey)),
-                          Text("+₹$commissionRate", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                      ]),
+                      dense: true,
+                      leading: const CircleAvatar(backgroundColor: Colors.deepPurple, radius: 15, child: Icon(Icons.person, color: Colors.white, size: 16)),
+                      title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      subtitle: Text("Joined: $dateStr", style: const TextStyle(fontSize: 11)),
+                      trailing: Text("+₹$commissionRate", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                     ),
                   );
                 },
@@ -225,22 +49,70 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController c, String label, {bool isNumber = false}) {
-    return TextField(controller: c, keyboardType: isNumber ? TextInputType.number : TextInputType.text, decoration: InputDecoration(labelText: label, border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))));
+  // --- HISTORY DIALOG ---
+  void _showHistoryDialog(BuildContext context, List<dynamic> history) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Payout History 🏦"),
+        content: SizedBox(
+          width: double.maxFinite, height: 300,
+          child: history.isEmpty ? const Center(child: Text("No payouts received yet.")) : ListView.builder(
+            itemCount: history.length,
+            itemBuilder: (context, index) {
+              var item = history[history.length - 1 - index];
+              return ListTile(
+                leading: const Icon(Icons.download_done, color: Colors.green),
+                title: Text("Received: ₹${item['amount']}"),
+                subtitle: Text(DateFormat('dd MMM yyyy').format(DateTime.parse(item['date']))),
+              );
+            },
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close"))],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!isAdmin) return const Scaffold(body: Center(child: Text("Access Denied")));
+    final user = FirebaseAuth.instance.currentUser;
+    
+    if (user == null) return const Scaffold(body: Center(child: Text("Please Login")));
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Manage Moderators 👥"), backgroundColor: Colors.white, foregroundColor: Colors.black),
-      floatingActionButton: FloatingActionButton(onPressed: _showAddModeratorDialog, backgroundColor: Colors.deepPurple, child: const Icon(Icons.add)),
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        title: const Text("Partner Dashboard 🚀"),
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+      ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('moderator_assignments').orderBy('createdAt', descending: true).snapshots(),
+        // 1. Moderator ka Assignment Document Dhoondho
+        stream: FirebaseFirestore.instance
+            .collection('moderator_assignments')
+            .where('moderatorEmail', isEqualTo: user.email!.trim().toLowerCase())
+            .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.person_off, size: 60, color: Colors.grey.shade400),
+                    const SizedBox(height: 10),
+                    const Text("No active partnership found.", style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text("Logged in as: ${user.email}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            );
+          }
+
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: snapshot.data!.docs.length,
@@ -248,118 +120,133 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
               var doc = snapshot.data!.docs[index];
               var data = doc.data() as Map<String, dynamic>;
 
-              String modName = data['moderatorName'] ?? 'Unknown';
+              // Data Extract
               String scheduleId = data['scheduleId'] ?? '';
-              String scheduleTitle = data['scheduleTitle'] ?? '';
+              String examName = data['scheduleTitle'] ?? 'Exam';
               int commission = data['commissionPrice'] ?? 0;
               int totalWithdrawn = data['totalWithdrawn'] ?? 0;
               List history = data['withdrawalHistory'] ?? [];
               
+              // 🔥 JOINING DATE (Filter Key)
               Timestamp modJoinedAt = data['createdAt'] ?? Timestamp.now(); 
 
+              // 2. 🔥 INNER STREAM: Real-Time Student Calculation (Exact logic from Admin Panel)
               return StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('study_schedules')
                     .doc(scheduleId)
-                    .collection('allowed_users')
-                    .where('grantedAt', isGreaterThanOrEqualTo: modJoinedAt)
+                    .collection('allowed_users') // Sub-collection
+                    .where('grantedAt', isGreaterThanOrEqualTo: modJoinedAt) // Date Filter
                     .snapshots(),
-                builder: (context, userSnap) {
+                builder: (context, studentSnap) {
                   
                   int studentCount = 0;
                   List<QueryDocumentSnapshot> studentDocs = [];
 
-                  if (userSnap.hasData) {
-                    studentDocs = userSnap.data!.docs;
+                  if (studentSnap.hasData) {
+                    studentDocs = studentSnap.data!.docs;
                     studentCount = studentDocs.length;
                   }
 
+                  // 💰 Calculations
                   int totalEarnings = studentCount * commission;
-                  int availableBalance = totalEarnings - totalWithdrawn;
+                  int pendingBalance = totalEarnings - totalWithdrawn;
 
                   return Card(
-                    elevation: 3, margin: const EdgeInsets.only(bottom: 20),
+                    elevation: 4,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    margin: const EdgeInsets.only(bottom: 20),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // HEADER ROW
+                          // HEADER
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Expanded(
-                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Text(modName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                  Text("Joined: ${DateFormat('dd MMM yy').format(modJoinedAt.toDate())}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                  Text(scheduleTitle, style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold)),
-                                ]),
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(color: Colors.deepPurple.shade50, borderRadius: BorderRadius.circular(10)),
+                                child: const Icon(Icons.school, color: Colors.deepPurple),
                               ),
-                              
-                              // 🔥🔥 EDIT & DELETE BUTTONS
-                              Row(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit, color: Colors.blue),
-                                    onPressed: () {
-                                      _showEditModeratorDialog(doc.id, scheduleId, scheduleTitle, commission);
-                                    },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () {
-                                      showDialog(context: context, builder: (c) => AlertDialog(
-                                        title: const Text("Delete Moderator?"),
-                                        content: const Text("This cannot be undone."),
-                                        actions: [
-                                          TextButton(onPressed: ()=>Navigator.pop(c), child: const Text("Cancel")),
-                                          TextButton(onPressed: (){
-                                            FirebaseFirestore.instance.collection('moderator_assignments').doc(doc.id).delete();
-                                            Navigator.pop(c);
-                                          }, child: const Text("Delete", style: TextStyle(color: Colors.red))),
-                                        ],
-                                      ));
-                                    }
-                                  ),
-                                ],
-                              )
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(examName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                    Text("Commission: ₹$commission / student", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
-                          const Divider(),
-                          
-                          // INFO ROW
+                          const Divider(height: 30),
+
+                          // STATS GRID
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              _infoCol("Students", "$studentCount"),
-                              _infoCol("Rate", "₹$commission"),
-                              _infoCol("Earned", "₹$totalEarnings", color: Colors.blue),
+                              _buildStatItem("Students", "$studentCount", Colors.blue),
+                              _buildStatItem("Total Earned", "₹$totalEarnings", Colors.deepPurple),
+                              _buildStatItem("Received", "₹$totalWithdrawn", Colors.orange),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _infoCol("Paid", "₹$totalWithdrawn", color: Colors.red),
-                              _infoCol("Balance", "₹$availableBalance", color: Colors.green, isBold: true),
-                            ],
-                          ),
-                          const SizedBox(height: 15),
                           
-                          // BUTTONS ROW
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          const SizedBox(height: 20),
+                          
+                          // BALANCE BOX
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(15),
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))]
+                            ),
+                            child: Column(
                               children: [
-                                OutlinedButton.icon(icon: const Icon(Icons.history, size: 16), label: const Text("History"), onPressed: () => _showHistoryDialog(history)),
-                                const SizedBox(width: 8),
-                                ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade50, foregroundColor: Colors.blue, elevation: 0), icon: const Icon(Icons.people, size: 16), label: const Text("Students"), onPressed: () => _showStudentListDialog(studentDocs, commission)),
-                                const SizedBox(width: 8),
-                                ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white), icon: const Icon(Icons.attach_money, size: 16), label: const Text("Pay"), onPressed: () => _showAddWithdrawalDialog(doc.id, modName, totalWithdrawn, availableBalance)),
+                                const Text("Pending Payout", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                const SizedBox(height: 5),
+                                Text("₹$pendingBalance", style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
                               ],
                             ),
-                          )
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // ACTION BUTTONS
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  icon: const Icon(Icons.people_outline),
+                                  label: const Text("Students"),
+                                  onPressed: () => _showStudentListDialog(context, studentDocs, commission),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
+                                  icon: const Icon(Icons.history),
+                                  label: const Text("History"),
+                                  onPressed: () => _showHistoryDialog(context, history),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // 🔥 DEBUG INFO (Only shows if 0 students found, to help you check)
+                          if (studentCount == 0)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 15),
+                              child: Text(
+                                "Debug: Tracking Schedule ID: $scheduleId\nCounting students joined after: ${DateFormat('dd MMM yyyy').format(modJoinedAt.toDate())}",
+                                style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+                                textAlign: TextAlign.center,
+                              ),
+                            )
                         ],
                       ),
                     ),
@@ -373,12 +260,12 @@ class _ManageModeratorScreenState extends State<ManageModeratorScreen> {
     );
   }
 
-  Widget _infoCol(String label, String value, {Color color = Colors.black, bool isBold = false}) {
+  Widget _buildStatItem(String label, String value, Color color) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-        Text(value, style: TextStyle(fontSize: isBold ? 20 : 16, fontWeight: FontWeight.bold, color: color)),
+        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );
   }
