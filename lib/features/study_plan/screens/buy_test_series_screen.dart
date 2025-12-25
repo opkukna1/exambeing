@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'series_detail_screen.dart'; // 👈 Import the new screen
+// 🔥 IMP: Import path check kar lena (agar alag folder me hai to adjust karein)
+import 'series_detail_screen.dart'; 
 
 class BuyTestSeriesScreen extends StatefulWidget {
   const BuyTestSeriesScreen({super.key});
@@ -185,32 +186,38 @@ class _BuyTestSeriesScreenState extends State<BuyTestSeriesScreen> with WidgetsB
                               // 🔥🔥 MODIFIED BUTTONS ROW 🔥🔥
                               Row(
                                 children: [
-                                  // 1. FREE DEMO BUTTON (Small)
+                                  // 1. CHECK SCHEDULE & TEST BUTTON (Renamed & Linked)
                                   if (!isOwned)
                                   Expanded(
-                                    flex: 4,
+                                    flex: 5, // Thoda space badha diya text fit hone ke liye
                                     child: OutlinedButton(
                                       style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 5),
                                         side: const BorderSide(color: Colors.deepPurple),
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
                                       ),
                                       onPressed: () {
-                                        // Go to Schedule Screen
+                                        // ✅ LINKED to SeriesDetailScreen
                                         Navigator.push(context, MaterialPageRoute(builder: (_) => SeriesDetailScreen(
                                           scheduleDocId: scheduleId, 
                                           title: data['title'] ?? 'Schedule'
                                         )));
                                       },
-                                      child: const Text("📄 Demo / Schedule", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      child: const Text(
+                                        "Check Schedule & Test", // 👈 Renamed Here
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                        textAlign: TextAlign.center,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                   ),
                                   
-                                  if (!isOwned) const SizedBox(width: 10),
+                                  if (!isOwned) const SizedBox(width: 8),
 
-                                  // 2. BUY BUTTON (Big)
+                                  // 2. BUY BUTTON
                                   Expanded(
-                                    flex: 6, // Buy button thoda bada rahega
+                                    flex: 5,
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: isOwned ? Colors.green : Colors.black,
