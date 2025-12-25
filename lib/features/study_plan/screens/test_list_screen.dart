@@ -11,12 +11,14 @@ class TestListScreen extends StatelessWidget {
   final String examId;
   final String weekId;
   final bool isLockedMode; // true = Demo User (Free), false = Premium User
+  final bool isFirstWeek; // 🔥 NEW PARAM: Checks if this is the very first week
 
   const TestListScreen({
     super.key, 
     required this.examId, 
     required this.weekId,
     this.isLockedMode = false, 
+    this.isFirstWeek = false, // Default false
   });
 
   @override
@@ -37,18 +39,7 @@ class TestListScreen extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(
             title: const Text("Scheduled Tests"),
-            // 🔥 FIX: Removed 'const' before PreferredSize because Container cannot be const
-            bottom: isLockedMode && !isHost 
-              ? PreferredSize(
-                  preferredSize: const Size.fromHeight(30),
-                  child: Container(
-                    color: Colors.orange,
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    child: const Text("DEMO MODE: First Test Free", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ),
-                )
-              : null,
+            // 🔥 REMOVED: Demo Mode Banner as requested
             actions: [
               if (isHost)
                 const Padding(
@@ -91,6 +82,15 @@ class TestListScreen extends StatelessWidget {
                     stream: FirebaseFirestore.instance.collection('users').doc(user.uid).collection('test_results').doc(test.id).snapshots(),
                     builder: (context, resultSnapshot) {
                       bool isAttempted = resultSnapshot.hasData && resultSnapshot.data!.exists;
+                      int attemptCount = 0;
+                      if (isAttempted) {
+                        var rData = resultSnapshot.data!.data() as Map<String, dynamic>;
+                        attemptCount = rData['attemptCount'] ?? 1;
+                      }
+
+                      // 🔥 LOGIC: Is this specific test Free?
+                      // Rule: Demo Mode ON + First Week + First Test (Index 0)
+                      bool isFreeTest = isLockedMode && isFirstWeek && index == 0;
 
                       return Card(
                         elevation: 4,
@@ -101,7 +101,7 @@ class TestListScreen extends StatelessWidget {
                             children: [
                               Expanded(child: Text(data['testTitle'] ?? test.subject, style: const TextStyle(fontWeight: FontWeight.bold))),
                               // Tag for Free Test
-                              if (isLockedMode && index == 0) 
+                              if (isFreeTest) 
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(4)),
@@ -117,11 +117,12 @@ class TestListScreen extends StatelessWidget {
                             test: test, 
                             data: data, 
                             isAttempted: isAttempted, 
+                            attemptCount: attemptCount, // For multiple attempts logic
                             isHost: isHost, 
                             isMyTest: isMyTest, 
                             user: user, 
                             contactNum: contactNum,
-                            index: index 
+                            isFreeTest: isFreeTest // Passing the strict logic
                           ),
                         ),
                       );
@@ -140,12 +141,56 @@ class TestListScreen extends StatelessWidget {
     return "${date.day}/${date.month} - ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 
+  // 🔥 POPUP for Locked Tests
+  void _showLockedPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.lock_person, color: Colors.deepPurple, size: 28),
+            SizedBox(width: 10),
+            Text("Premium Content"),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Unlock Full Series! 🚀",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            SizedBox(height: 10),
+            Text(
+              "To attempt all tests and access complete study material, please purchase the Test Series.",
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            onPressed: () => Navigator.pop(ctx), // Or navigate to store
+            child: const Text("OK, Got it", style: TextStyle(color: Colors.white)),
+          )
+        ],
+      ),
+    );
+  }
+
   // 🔥 STRICT CHECK FUNCTION
-  Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum, int index) async {
+  Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum, bool isFreeTest) async {
     
     // 🛑 1. SUPER STRICT LOCK CHECK
-    if (isLockedMode && index > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("🔒 Please Buy the Series to unlock this test."), backgroundColor: Colors.red));
+    // Agar Locked Mode hai AUR yeh Free Test nahi hai -> Show Popup & Return
+    if (isLockedMode && !isFreeTest) {
+      _showLockedPopup(context);
       return; 
     }
 
@@ -157,8 +202,8 @@ class TestListScreen extends StatelessWidget {
     );
 
     try {
-      // 🟢 Agar LockedMode hai lekin Index == 0 hai (Free Test), to DB check skip karo
-      if (isLockedMode && index == 0) {
+      // 🟢 Agar Free Test hai (Week 1, Test 1), to DB check SKIP karo
+      if (isFreeTest) {
         if (context.mounted) Navigator.of(context, rootNavigator: true).pop(); // Close Loading
         _navigateToAttemptScreen(context, test);
         return;
@@ -174,6 +219,7 @@ class TestListScreen extends StatelessWidget {
       if (context.mounted) Navigator.of(context, rootNavigator: true).pop(); // Close Loading
 
       if (!permDoc.exists) {
+        // Double Check: Agar logic se pass ho gaya par DB mein nahi hai
         if (context.mounted) _showPurchasePopup(context, contactNum); 
         return;
       }
@@ -241,11 +287,12 @@ class TestListScreen extends StatelessWidget {
     required TestModel test, 
     required Map<String, dynamic> data,
     required bool isAttempted, 
+    required int attemptCount,
     required bool isHost, 
     required bool isMyTest, 
     required User user,
     required String contactNum,
-    required int index 
+    required bool isFreeTest // 🔥 Logic Received
   }) {
     DateTime now = DateTime.now();
     bool isLockedTime = now.isBefore(test.scheduledAt);
@@ -263,17 +310,36 @@ class TestListScreen extends StatelessWidget {
     if (isHost && !isMyTest) return const Text("Locked", style: TextStyle(fontSize: 10, color: Colors.grey));
 
     // 🔥🔥 STRICT UI LOCK 🔥🔥
-    if (isLockedMode && index > 0) {
+    // Agar Locked Mode hai AUR yeh Free Test nahi hai -> GREY BUTTON + POPUP
+    if (isLockedMode && !isFreeTest) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade400),
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("🔒 Buy Series to Unlock"), duration: Duration(seconds: 1)));
-        },
+        onPressed: () => _showLockedPopup(context), // Show Beautiful Popup
         child: const Icon(Icons.lock, color: Colors.white, size: 18),
       );
     }
 
     if (isAttempted) {
+      // ✅ 2nd Attempt Logic for Premium Users
+      if (!isLockedMode && attemptCount < 2) {
+         return Row(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+             ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, padding: const EdgeInsets.symmetric(horizontal: 10)),
+                onPressed: () => _checkAccessAndStart(context, test, user, contactNum, isFreeTest),
+                child: const Text("Re-Attempt", style: TextStyle(fontSize: 10)),
+              ),
+              const SizedBox(width: 5),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.grey, padding: const EdgeInsets.symmetric(horizontal: 10)),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TestSolutionScreen(testId: test.id, originalQuestions: test.questions.map((q) => q.toMap()).toList()))),
+                child: const Text("Result", style: TextStyle(fontSize: 10)),
+              ),
+           ],
+         );
+      }
+
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TestSolutionScreen(testId: test.id, originalQuestions: test.questions.map((q) => q.toMap()).toList()))),
@@ -291,8 +357,8 @@ class TestListScreen extends StatelessWidget {
 
     return ElevatedButton(
       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-      onPressed: () => _checkAccessAndStart(context, test, user, contactNum, index), 
-      child: Text(isLockedMode && index == 0 ? "Free" : "Start"),
+      onPressed: () => _checkAccessAndStart(context, test, user, contactNum, isFreeTest), 
+      child: Text(isFreeTest ? "Free" : "Start"),
     );
   }
 }
