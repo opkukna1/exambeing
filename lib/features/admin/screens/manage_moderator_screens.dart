@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 class ModeratorDashboardScreen extends StatelessWidget {
   const ModeratorDashboardScreen({super.key});
 
-  // --- STUDENT LIST DIALOG ---
+  // --- STUDENT LIST DIALOG (Jaisa Admin me tha) ---
   void _showStudentListDialog(BuildContext context, List<QueryDocumentSnapshot> students, int commissionRate) {
     showDialog(
       context: context,
@@ -16,7 +16,7 @@ class ModeratorDashboardScreen extends StatelessWidget {
           width: double.maxFinite,
           height: 400,
           child: students.isEmpty 
-            ? const Center(child: Text("No students found after your joining date.")) 
+            ? const Center(child: Text("No students yet.")) 
             : ListView.builder(
                 itemCount: students.length,
                 itemBuilder: (context, index) {
@@ -57,7 +57,7 @@ class ModeratorDashboardScreen extends StatelessWidget {
         title: const Text("Payout History 🏦"),
         content: SizedBox(
           width: double.maxFinite, height: 300,
-          child: history.isEmpty ? const Center(child: Text("No payouts received yet.")) : ListView.builder(
+          child: history.isEmpty ? const Center(child: Text("No payouts yet.")) : ListView.builder(
             itemCount: history.length,
             itemBuilder: (context, index) {
               var item = history[history.length - 1 - index];
@@ -83,12 +83,12 @@ class ModeratorDashboardScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text("Partner Dashboard 🚀"),
+        title: const Text("My Earnings & Students 🚀"),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // 1. Moderator ka Assignment Document Dhoondho
+        // 1. Pehla Stream: Moderator Assignment dhoondho (Email se)
         stream: FirebaseFirestore.instance
             .collection('moderator_assignments')
             .where('moderatorEmail', isEqualTo: user.email!.trim().toLowerCase())
@@ -98,17 +98,13 @@ class ModeratorDashboardScreen extends StatelessWidget {
           
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.person_off, size: 60, color: Colors.grey.shade400),
-                    const SizedBox(height: 10),
-                    const Text("No active partnership found.", style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text("Logged in as: ${user.email}", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  ],
-                ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.person_off, size: 60, color: Colors.grey.shade400),
+                  const SizedBox(height: 10),
+                  const Text("No Moderator Account Found.", style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
               ),
             );
           }
@@ -120,22 +116,20 @@ class ModeratorDashboardScreen extends StatelessWidget {
               var doc = snapshot.data!.docs[index];
               var data = doc.data() as Map<String, dynamic>;
 
-              // Data Extract
               String scheduleId = data['scheduleId'] ?? '';
               String examName = data['scheduleTitle'] ?? 'Exam';
               int commission = data['commissionPrice'] ?? 0;
               int totalWithdrawn = data['totalWithdrawn'] ?? 0;
               List history = data['withdrawalHistory'] ?? [];
-              
-              // 🔥 JOINING DATE (Filter Key)
               Timestamp modJoinedAt = data['createdAt'] ?? Timestamp.now(); 
 
-              // 2. 🔥 INNER STREAM: Real-Time Student Calculation (Exact logic from Admin Panel)
+              // 2. 🔥 INNER STREAM (YEHI MISSING THA): Students Count Logic
+              // Admin screen jaisa same logic yahan lagaya hai
               return StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('study_schedules')
                     .doc(scheduleId)
-                    .collection('allowed_users') // Sub-collection
+                    .collection('allowed_users') // Sub-collection check
                     .where('grantedAt', isGreaterThanOrEqualTo: modJoinedAt) // Date Filter
                     .snapshots(),
                 builder: (context, studentSnap) {
@@ -148,7 +142,7 @@ class ModeratorDashboardScreen extends StatelessWidget {
                     studentCount = studentDocs.length;
                   }
 
-                  // 💰 Calculations
+                  // 💰 Calculations (Real-time)
                   int totalEarnings = studentCount * commission;
                   int pendingBalance = totalEarnings - totalWithdrawn;
 
@@ -161,7 +155,7 @@ class ModeratorDashboardScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // HEADER
+                          // Header
                           Row(
                             children: [
                               Container(
@@ -175,7 +169,7 @@ class ModeratorDashboardScreen extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(examName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                    Text("Commission: ₹$commission / student", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                    Text("Commission: ₹$commission per student", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                                   ],
                                 ),
                               ),
@@ -183,19 +177,19 @@ class ModeratorDashboardScreen extends StatelessWidget {
                           ),
                           const Divider(height: 30),
 
-                          // STATS GRID
+                          // Stats Grid
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               _buildStatItem("Students", "$studentCount", Colors.blue),
-                              _buildStatItem("Total Earned", "₹$totalEarnings", Colors.deepPurple),
+                              _buildStatItem("Earned", "₹$totalEarnings", Colors.deepPurple),
                               _buildStatItem("Received", "₹$totalWithdrawn", Colors.orange),
                             ],
                           ),
                           
                           const SizedBox(height: 20),
                           
-                          // BALANCE BOX
+                          // Big Balance Box
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(15),
@@ -215,13 +209,13 @@ class ModeratorDashboardScreen extends StatelessWidget {
 
                           const SizedBox(height: 20),
 
-                          // ACTION BUTTONS
+                          // Action Buttons
                           Row(
                             children: [
                               Expanded(
                                 child: OutlinedButton.icon(
                                   icon: const Icon(Icons.people_outline),
-                                  label: const Text("Students"),
+                                  label: const Text("See Students"),
                                   onPressed: () => _showStudentListDialog(context, studentDocs, commission),
                                 ),
                               ),
@@ -236,17 +230,6 @@ class ModeratorDashboardScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-
-                          // 🔥 DEBUG INFO (Only shows if 0 students found, to help you check)
-                          if (studentCount == 0)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 15),
-                              child: Text(
-                                "Debug: Tracking Schedule ID: $scheduleId\nCounting students joined after: ${DateFormat('dd MMM yyyy').format(modJoinedAt.toDate())}",
-                                style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
-                                textAlign: TextAlign.center,
-                              ),
-                            )
                         ],
                       ),
                     ),
