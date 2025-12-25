@@ -37,15 +37,15 @@ class TestListScreen extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(
             title: const Text("Scheduled Tests"),
-            // 🔥 Banner to show user status (Optional debugging help)
+            // 🔥 FIX: Removed 'const' before PreferredSize because Container cannot be const
             bottom: isLockedMode && !isHost 
-              ? const PreferredSize(
-                  preferredSize: Size.fromHeight(30),
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(30),
                   child: Container(
                     color: Colors.orange,
                     width: double.infinity,
                     alignment: Alignment.center,
-                    child: Text("DEMO MODE: First Test Free", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: const Text("DEMO MODE: First Test Free", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                 )
               : null,
@@ -74,17 +74,11 @@ class TestListScreen extends StatelessWidget {
                 return const Center(child: Text("No tests scheduled yet."));
               }
 
-              // Tests ko List mein convert kar rahe hain taaki index sahi mile (Reverse order issue fix)
               var docs = testSnapshot.data!.docs;
 
               return ListView.builder(
                 itemCount: docs.length,
                 itemBuilder: (context, index) {
-                  // 🔥 IMPORTANT: List agar descending hai (Newest first), to humein logic lagana padega.
-                  // Filhal simple rakhte hain: List ka jo sabse last item hai wo Test 1 hota hai usually.
-                  // LEKIN, aapke system mein hum index 0 (List ke hisab se) ko free manenge ya oldest ko?
-                  // SIMPLE RULE: Is List ka jo 'index' hai, wahi use karenge.
-                  
                   final doc = docs[index];
                   final data = doc.data() as Map<String, dynamic>;
                   final test = TestModel.fromMap(data, doc.id);
@@ -107,7 +101,7 @@ class TestListScreen extends StatelessWidget {
                             children: [
                               Expanded(child: Text(data['testTitle'] ?? test.subject, style: const TextStyle(fontWeight: FontWeight.bold))),
                               // Tag for Free Test
-                              if (isLockedMode && index == 0) // 🔥 Index 0 is Free
+                              if (isLockedMode && index == 0) 
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(4)),
@@ -127,7 +121,7 @@ class TestListScreen extends StatelessWidget {
                             isMyTest: isMyTest, 
                             user: user, 
                             contactNum: contactNum,
-                            index: index // Index pass kiya
+                            index: index 
                           ),
                         ),
                       );
@@ -150,7 +144,6 @@ class TestListScreen extends StatelessWidget {
   Future<void> _checkAccessAndStart(BuildContext context, TestModel test, User user, String contactNum, int index) async {
     
     // 🛑 1. SUPER STRICT LOCK CHECK
-    // Agar Mode Locked hai AUR Index > 0 hai -> ROK DO YAHIN.
     if (isLockedMode && index > 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("🔒 Please Buy the Series to unlock this test."), backgroundColor: Colors.red));
       return; 
@@ -166,7 +159,6 @@ class TestListScreen extends StatelessWidget {
     try {
       // 🟢 Agar LockedMode hai lekin Index == 0 hai (Free Test), to DB check skip karo
       if (isLockedMode && index == 0) {
-        // Direct Entry for Demo Test
         if (context.mounted) Navigator.of(context, rootNavigator: true).pop(); // Close Loading
         _navigateToAttemptScreen(context, test);
         return;
@@ -271,12 +263,10 @@ class TestListScreen extends StatelessWidget {
     if (isHost && !isMyTest) return const Text("Locked", style: TextStyle(fontSize: 10, color: Colors.grey));
 
     // 🔥🔥 STRICT UI LOCK 🔥🔥
-    // Agar Locked Mode hai AUR ye Pehla Test (Index 0) NAHI hai
     if (isLockedMode && index > 0) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade400),
         onPressed: () {
-          // Toast message
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("🔒 Buy Series to Unlock"), duration: Duration(seconds: 1)));
         },
         child: const Icon(Icons.lock, color: Colors.white, size: 18),
@@ -299,10 +289,8 @@ class TestListScreen extends StatelessWidget {
       );
     }
 
-    // ✅ Green Start Button for Index 0 (Free) OR Premium Users
     return ElevatedButton(
       style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-      // Pass Index to function for double security
       onPressed: () => _checkAccessAndStart(context, test, user, contactNum, index), 
       child: Text(isLockedMode && index == 0 ? "Free" : "Start"),
     );
