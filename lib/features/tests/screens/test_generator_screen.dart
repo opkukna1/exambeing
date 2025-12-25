@@ -1,11 +1,12 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Clipboard ke liye
+import 'package:flutter/services.dart'; 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // User Check ke liye
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/features/tests/screens/test_success_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Added for tracking daily limit
 
 class TestGeneratorScreen extends StatefulWidget {
   const TestGeneratorScreen({super.key});
@@ -17,41 +18,34 @@ class TestGeneratorScreen extends StatefulWidget {
 class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
   final Map<String, int> _topicCounts = {};
   
-  // टोटल सवाल गिनने का getter
+  // Getter for total questions
   int get _totalQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
   
   bool _isLoading = false;
   RewardedAd? _rewardedAd; 
 
-  // --- PREMIUM LOGIC VARIABLES ---
-  bool _isPremium = false; // Default Free
-  int _maxQuestionsLimit = 25; // Default Limit for Free Users
+  // --- ADMIN & LIMIT VARIABLES ---
+  bool _isAdmin = false; 
+  int _maxQuestionsLimit = 25; // Default for normal users
+  final int _adminLimit = 200; // Limit for Admin
+  final int _dailyTestLimit = 3; // Max tests per day for normal users
 
   @override
   void initState() {
     super.initState();
-    _checkSubscriptionStatus(); // Check User Status
+    _checkUserStatus(); 
     _loadRewardedAd();
   }
 
-  // --- 0. CHECK SUBSCRIPTION STATUS ---
-  Future<void> _checkSubscriptionStatus() async {
+  // --- 0. CHECK USER STATUS (ADMIN CHECK) ---
+  Future<void> _checkUserStatus() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      try {
-        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-        if (doc.exists) {
-          final data = doc.data();
-          // Check if field exists and equals 'yes'
-          if (data != null && data['paid_for_gold'] == 'yes') {
-            setState(() {
-              _isPremium = true;
-              _maxQuestionsLimit = 200; // Premium Limit
-            });
-          }
-        }
-      } catch (e) {
-        debugPrint("Error checking subscription: $e");
+      if (user.email == "opsiddh42@gmail.com") {
+        setState(() {
+          _isAdmin = true;
+          _maxQuestionsLimit = _adminLimit;
+        });
       }
     }
   }
@@ -84,102 +78,97 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         .snapshots();
   }
 
-  // --- 3. SHOW PREMIUM POPUP ---
-  void _showPremiumDialog() {
+  // --- 3. DAILY LIMIT CHECK LOGIC ---
+  Future<bool> _canGenerateTest() async {
+    if (_isAdmin) return true; // Admins have no daily limit
+
+    final prefs = await SharedPreferences.getInstance();
+    final String todayKey = "test_gen_${DateTime.now().toIso8601String().split('T')[0]}"; // Key like test_gen_2023-10-27
+    int testsGeneratedToday = prefs.getInt(todayKey) ?? 0;
+
+    if (testsGeneratedToday >= _dailyTestLimit) {
+      _showDailyLimitReachedDialog();
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _incrementTestCount() async {
+    if (_isAdmin) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final String todayKey = "test_gen_${DateTime.now().toIso8601String().split('T')[0]}";
+    int testsGeneratedToday = prefs.getInt(todayKey) ?? 0;
+    await prefs.setInt(todayKey, testsGeneratedToday + 1);
+  }
+
+  // --- 4. POPUPS ---
+  void _showDailyLimitReachedDialog() {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          title: const Row(
-            children: [
-              Icon(Icons.workspace_premium, color: Colors.amber, size: 28),
-              SizedBox(width: 10),
-              Text("Upgrade Required"),
-            ],
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor: Colors.white,
+          contentPadding: const EdgeInsets.all(20),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.hourglass_empty_rounded, size: 40, color: Colors.orange),
+              ),
+              const SizedBox(height: 20),
               const Text(
-                "Free users can generate tests up to 25 questions only.",
-                style: TextStyle(fontSize: 14, color: Colors.grey),
+                "Daily Limit Reached",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
               ),
               const SizedBox(height: 10),
               const Text(
-                "To unlock 200 Questions Limit, Subscribe Now!",
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                "You have generated 3 tests today. Please come back after 24 hours to generate more tests.",
                 textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.5),
               ),
-              const SizedBox(height: 15),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.green)
+              const SizedBox(height: 25),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Got it"),
                 ),
-                child: Column(
-                  children: [
-                    const Text("Contact Exambeing Team via WhatsApp:", style: TextStyle(fontSize: 12)),
-                    const SizedBox(height: 5),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "8005576670",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy, color: Colors.green),
-                          onPressed: () {
-                            Clipboard.setData(const ClipboardData(text: "8005576670"));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Number Copied!"), duration: Duration(seconds: 1)),
-                            );
-                          },
-                        )
-                      ],
-                    ),
-                  ],
-                ),
-              )
+              ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
-              onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
-            ),
-          ],
         );
       },
     );
   }
 
-  // --- 4. COUNTER UPDATE LOGIC (MODIFIED) ---
+  // --- 5. COUNTER UPDATE LOGIC ---
   void _updateCount(String topicId, int delta) {
     int current = _topicCounts[topicId] ?? 0;
     
-    // अगर हम जोड़ रहे हैं (Positive Delta)
+    // Check if adding exceeds limit
     if (delta > 0) {
-      // चेक करो कि क्या लिमिट पार हो रही है
       if (_totalQuestions + delta > _maxQuestionsLimit) {
-        if (!_isPremium) {
-          // अगर फ्री यूजर है और 25 से ऊपर जा रहा है -> POPUP दिखाओ
-          _showPremiumDialog();
-        } else {
-          // अगर प्रीमियम यूजर है और 200 से ऊपर जा रहा है -> SNACKBAR दिखाओ
-          ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text("Maximum limit of 200 questions reached!"))
-          );
-        }
-        return; // आगे मत बढ़ो
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(
+             content: Text("Maximum limit is $_maxQuestionsLimit questions."),
+             duration: const Duration(seconds: 2),
+           )
+        );
+        return; 
       }
     }
 
@@ -193,8 +182,9 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     });
   }
 
-  // --- 5. GENERATE FUNCTION ---
+  // --- 6. GENERATE FUNCTION ---
   Future<void> _generateTest() async {
+    // 1. Basic Validation
     if (_totalQuestions == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select at least one question!"))
@@ -202,11 +192,17 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       return;
     }
 
-    // Double Check Limit (Safety)
+    // 2. Max Questions Limit Check (Safety)
     if (_totalQuestions > _maxQuestionsLimit) {
-       if(!_isPremium) _showPremiumDialog();
+       ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text("Maximum limit is $_maxQuestionsLimit questions."))
+       );
        return;
     }
+
+    // 3. Check Daily Limit
+    bool canProceed = await _canGenerateTest();
+    if (!canProceed) return;
 
     setState(() => _isLoading = true);
 
@@ -254,6 +250,9 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
       }
 
       finalQuestionsList.shuffle();
+
+      // Update Daily Count Here
+      await _incrementTestCount();
 
       setState(() => _isLoading = false);
 
@@ -307,18 +306,17 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
     );
   }
 
-  // --- 6. UI BUILD ---
+  // --- 7. UI BUILD ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Custom Test Maker 🛠️"),
         actions: [
-          // Premium Badge in AppBar
-          if (_isPremium)
+          if (_isAdmin)
             const Padding(
               padding: EdgeInsets.only(right: 16.0),
-              child: Icon(Icons.verified, color: Colors.amber),
+              child: Icon(Icons.admin_panel_settings, color: Colors.redAccent),
             )
         ],
       ),
@@ -327,24 +325,24 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
         children: [
            Container(
              padding: const EdgeInsets.all(12),
-             color: _isPremium ? Colors.amber.shade50 : Colors.deepPurple.shade50,
+             color: _isAdmin ? Colors.red.shade50 : Colors.blue.shade50,
              child: Row(
                children: [
                  Icon(
-                   _isPremium ? Icons.star : Icons.info_outline, 
+                   _isAdmin ? Icons.shield : Icons.info, 
                    size: 16, 
-                   color: _isPremium ? Colors.amber[800] : Colors.deepPurple
+                   color: _isAdmin ? Colors.red : Colors.blue
                  ),
                  const SizedBox(width: 8),
                  Expanded(
                    child: Text(
-                     _isPremium 
-                       ? "Premium Unlocked! You can create tests up to 200 Questions." 
-                       : "Free Limit: 25 Questions. Upgrade for more.", 
+                     _isAdmin 
+                       ? "Admin Mode: Limit 200 Questions. No Daily Limit." 
+                       : "Daily Limit: 3 Tests/Day. Max 25 Questions per test.", 
                      style: TextStyle(
                        fontSize: 12, 
-                       color: _isPremium ? Colors.brown : Colors.black87,
-                       fontWeight: _isPremium ? FontWeight.bold : FontWeight.normal
+                       color: Colors.black87,
+                       fontWeight: FontWeight.w500
                      )
                    )
                  ),
@@ -460,13 +458,12 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text("Total Qs", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                // LIMIT Display Dynamic hai ab
                 Text(
                   "$_totalQuestions / $_maxQuestionsLimit", 
                   style: TextStyle(
                     fontSize: 20, 
                     fontWeight: FontWeight.bold, 
-                    color: _totalQuestions == _maxQuestionsLimit ? Colors.orange : Colors.black
+                    color: _totalQuestions >= _maxQuestionsLimit ? Colors.orange : Colors.black
                   )
                 ),
               ],
@@ -475,7 +472,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
             Expanded(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _isPremium ? Colors.amber[800] : Colors.deepPurple,
+                  backgroundColor: _isAdmin ? Colors.redAccent : Colors.deepPurple,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -483,7 +480,7 @@ class _TestGeneratorScreenState extends State<TestGeneratorScreen> {
                 onPressed: _isLoading ? null : _generateTest,
                 child: _isLoading 
                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                   : Text(_isPremium ? "GENERATE GOLD TEST 🏆" : "GENERATE TEST 🚀", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                   : Text(_isAdmin ? "GENERATE ADMIN TEST 🛡️" : "GENERATE TEST 🚀", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
