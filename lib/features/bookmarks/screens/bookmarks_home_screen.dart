@@ -22,7 +22,7 @@ class BookmarksHomeScreen extends StatefulWidget {
     super.key,
     this.examId,
     this.examName,
-    this.isPremiumAccess = true // Default true for normal usage
+    this.isPremiumAccess = true 
   });
 
   @override
@@ -30,10 +30,8 @@ class BookmarksHomeScreen extends StatefulWidget {
 }
 
 class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
-  // 🔒 ADMIN CHECK
   final String adminEmail = "opsiddh42@gmail.com";
   
-  // Safe Admin Check
   bool get isAdmin {
     final user = FirebaseAuth.instance.currentUser;
     return user != null && user.email?.toLowerCase().trim() == adminEmail.toLowerCase().trim();
@@ -46,20 +44,18 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
   String? selectedWeekId;
   Map<String, dynamic>? selectedWeekData;
 
-  // 🔥 NEW: Variable to store the ID of the very first week
-  String? _globalFirstWeekId;
+  // 🔥 NEW STRICT LOGIC: Variable to track if selected week is the FIRST one
+  bool _isSelectedWeekFirst = false;
 
   @override
   void initState() {
     super.initState();
-    // 🔥 AUTO-SELECT: Agar Store se aaye hain to Exam select kar lo
     if (widget.examId != null) {
       selectedExamId = widget.examId;
       selectedExamName = widget.examName;
     }
   }
 
-  // 1️⃣ ADMIN: Create New Exam
   void _addNewExam() {
     TextEditingController nameController = TextEditingController();
     showDialog(
@@ -90,15 +86,10 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
     );
   }
 
-  // 2️⃣ ADMIN: Add Week Schedule
   void _addWeekSchedule(String examId) {
-    Navigator.push(
-      context, 
-      MaterialPageRoute(builder: (c) => CreateWeekSchedule(examId: examId))
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (c) => CreateWeekSchedule(examId: examId)));
   }
 
-  // 3️⃣ Show Schedule Dialog (User View)
   void _showScheduleDialog(List<dynamic> topics, String title) {
     showDialog(
       context: context,
@@ -125,8 +116,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    
-    // Safety check for Login
     if (user == null || user.email == null) {
       return const Scaffold(body: Center(child: Text("Please Login to view your Plan")));
     }
@@ -140,16 +129,10 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
         foregroundColor: Colors.black,
         actions: [
           if (isAdmin) ...[
-            // 👥 MANAGE STUDENTS BUTTON
             IconButton(
               icon: const Icon(Icons.people_alt, color: Colors.deepPurple),
               tooltip: "Manage Students",
-              onPressed: () {
-                Navigator.push(
-                  context, 
-                  MaterialPageRoute(builder: (c) => const ManageStudentsScreen())
-                );
-              },
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const ManageStudentsScreen())),
             ),
             IconButton(
               icon: const Icon(Icons.add_circle, color: Colors.deepPurple),
@@ -163,10 +146,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            
-            // ------------------------------------------------
-            // 1️⃣ SECTION: EXAM SELECTION (Horizontal)
-            // ------------------------------------------------
+            // 1️⃣ EXAM SELECTION
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text("Choose Exam", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
@@ -178,7 +158,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                   var exams = snapshot.data!.docs;
-
                   if (exams.isEmpty) return const Padding(padding: EdgeInsets.all(16), child: Text("No Exams Found"));
 
                   return ListView.builder(
@@ -189,44 +168,25 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                       var doc = exams[index];
                       var data = doc.data() as Map<String, dynamic>;
                       
-                      // 🔥🔥 LOGIC: Check Permission (Dual Check + Demo Check)
                       return StreamBuilder<DocumentSnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection('study_schedules')
-                            .doc(doc.id)
-                            .collection('allowed_users')
-                            .doc(user.email!.trim().toLowerCase())
-                            .snapshots(),
+                        stream: FirebaseFirestore.instance.collection('study_schedules').doc(doc.id).collection('allowed_users').doc(user.email!.trim().toLowerCase()).snapshots(),
                         builder: (context, permSnap) {
-                          
                           bool isAllowed = false;
-                          
-                          // Rule 1: Admin sees everything
                           if (isAdmin) {
                             isAllowed = true;
-                          } 
-                          // Rule 2: Coming from Store Link (Demo Mode or Bought)
-                          else if (widget.examId == doc.id) {
+                          } else if (widget.examId == doc.id) {
                             isAllowed = true;
-                          }
-                          // Rule 3: Check Subcollection (Primary Method)
-                          else if (permSnap.hasData && permSnap.data!.exists) {
+                          } else if (permSnap.hasData && permSnap.data!.exists) {
                             isAllowed = true; 
-                          }
-                          // Rule 4: Check Array (Backup Method)
-                          else {
+                          } else {
                              if (data.containsKey('purchasedUsers')) {
                                List users = List.from(data['purchasedUsers'] ?? []);
-                               if (users.contains(user.email)) {
-                                 isAllowed = true;
-                               }
+                               if (users.contains(user.email)) isAllowed = true;
                              }
                           }
 
-                          // ⛔ HIDE IF NOT ALLOWED
                           if (!isAllowed) return const SizedBox.shrink();
 
-                          // ✅ SHOW CARD IF ALLOWED
                           bool isSelected = selectedExamId == doc.id;
                           return GestureDetector(
                             onTap: () {
@@ -235,7 +195,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                 selectedExamName = data['examName'];
                                 selectedWeekId = null; 
                                 selectedWeekData = null;
-                                _globalFirstWeekId = null; // 🔥 Reset First Week ID
+                                _isSelectedWeekFirst = false; // Reset
                               });
                             },
                             child: Container(
@@ -248,10 +208,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                 boxShadow: isSelected ? [BoxShadow(color: Colors.deepPurple.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : [],
                               ),
                               child: Center(
-                                child: Text(
-                                  data['examName'] ?? "Exam",
-                                  style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
-                                ),
+                                child: Text(data['examName'] ?? "Exam", style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
                               ),
                             ),
                           );
@@ -265,9 +222,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
 
             const SizedBox(height: 10),
 
-            // ------------------------------------------------
-            // 2️⃣ SECTION: WEEK SELECTION (Horizontal)
-            // ------------------------------------------------
+            // 2️⃣ WEEK SELECTION
             if (selectedExamId != null) ...[
                Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -295,14 +250,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox();
                     var weeks = snapshot.data!.docs;
-                    
                     if (weeks.isEmpty) return const Center(child: Text("No schedule added yet."));
-
-                    // 🔥🔥 CAPTURE THE ID OF THE FIRST WEEK 🔥🔥
-                    // Kyunki ye list 'unlockTime' se sorted hai, to index 0 hamesha pehla week hoga.
-                    if (weeks.isNotEmpty) {
-                      _globalFirstWeekId = weeks[0].id;
-                    }
 
                     return ListView.builder(
                       scrollDirection: Axis.horizontal,
@@ -317,9 +265,14 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
 
                         return GestureDetector(
                           onTap: isLocked ? null : () {
+                            // 🔥🔥 SUPER SIMPLE LOGIC 🔥🔥
+                            // Agar index 0 hai, to ye Pehla Week hai. Simple.
+                            bool isFirst = (index == 0); 
+
                             setState(() {
                               selectedWeekId = weekDoc.id;
                               selectedWeekData = data;
+                              _isSelectedWeekFirst = isFirst; // 🔥 Store karo
                             });
                           },
                           child: Container(
@@ -350,9 +303,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
 
             const Divider(height: 30),
 
-            // ------------------------------------------------
-            // 3️⃣ SECTION: MAIN 4 BUTTONS (Action Center)
-            // ------------------------------------------------
+            // 3️⃣ ACTION CENTER
             if (selectedWeekId != null && selectedWeekData != null) ...[
               Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -368,8 +319,6 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                 mainAxisSpacing: 16,
                 childAspectRatio: 1.3,
                 children: [
-                  
-                  // 🟡 Button 1: Schedule
                   _buildActionButton(
                     icon: Icons.list_alt, 
                     label: "Schedule", 
@@ -377,69 +326,37 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                     onTap: () => _showScheduleDialog(selectedWeekData!['linkedTopics'] ?? [], selectedWeekData!['weekTitle'])
                   ),
 
-                  // 🟢 Button 2: Notes
                   _buildActionButton(
                     icon: Icons.menu_book, 
                     label: "Notes", 
                     color: Colors.green, 
                     onTap: () {
-                      List<dynamic> dataToSend = selectedWeekData != null && selectedWeekData!.containsKey('scheduleData')
-                          ? selectedWeekData!['scheduleData']
-                          : [];
-
-                      Navigator.push(context, MaterialPageRoute(builder: (c) => LinkedNotesScreen(
-                        weekTitle: selectedWeekData!['weekTitle'],
-                        scheduleData: dataToSend
-                      )));
+                      List<dynamic> dataToSend = selectedWeekData != null && selectedWeekData!.containsKey('scheduleData') ? selectedWeekData!['scheduleData'] : [];
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => LinkedNotesScreen(weekTitle: selectedWeekData!['weekTitle'], scheduleData: dataToSend)));
                     }
                   ),
 
-                  // 🟣 Button 3: Test
+                  // 🔥 TEST BUTTON (Passing the simple Logic)
                   StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('study_schedules').doc(selectedExamId)
-                        .collection('weeks').doc(selectedWeekId)
-                        .collection('tests')
-                        .snapshots(),
+                    stream: FirebaseFirestore.instance.collection('study_schedules').doc(selectedExamId).collection('weeks').doc(selectedWeekId).collection('tests').snapshots(),
                     builder: (context, testSnapshot) {
-                      
                       String label = "Tests";
                       Color color = Colors.grey;
                       IconData icon = Icons.assignment;
                       int testCount = 0;
 
-                      if (testSnapshot.hasData) {
-                        testCount = testSnapshot.data!.docs.length;
-                      }
-
-                      if (testCount > 0) {
-                        label = "$testCount Test(s)";
-                        color = Colors.deepPurple;
-                        icon = Icons.quiz;
-                      } else {
-                        label = "No Tests";
-                        color = Colors.grey.shade400;
-                        icon = Icons.do_not_disturb_on;
-                      }
-
-                      if (isAdmin) {
-                        label = "Manage Tests";
-                        color = Colors.redAccent;
-                        icon = Icons.settings_suggest;
-                      }
+                      if (testSnapshot.hasData) testCount = testSnapshot.data!.docs.length;
+                      if (testCount > 0) { label = "$testCount Test(s)"; color = Colors.deepPurple; icon = Icons.quiz; }
+                      else { label = "No Tests"; color = Colors.grey.shade400; icon = Icons.do_not_disturb_on; }
+                      if (isAdmin) { label = "Manage Tests"; color = Colors.redAccent; icon = Icons.settings_suggest; }
 
                       return _buildActionButton(
                         icon: icon, 
                         label: label, 
                         color: color, 
                         onTap: () {
-                          // 🔥 PASSING THE LOCK STATUS DOWN
-                          // Agar widget.isPremiumAccess FALSE hai, to Locked Mode ON hoga
+                          // 1. Locked Mode (Demo)?
                           bool isLockedMode = !widget.isPremiumAccess && !isAdmin;
-
-                          // 🔥 CHECK IF THIS IS THE FIRST WEEK
-                          // Hum check kar rahe hain ki selectedWeekId kya _globalFirstWeekId ke barabar hai?
-                          bool isFirstWeek = (selectedWeekId == _globalFirstWeekId);
 
                           Navigator.push(
                             context, 
@@ -448,7 +365,7 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                                 examId: selectedExamId!, 
                                 weekId: selectedWeekId!,
                                 isLockedMode: isLockedMode,
-                                isFirstWeek: isFirstWeek, // 👈 Passing new flag
+                                isFirstWeek: _isSelectedWeekFirst, // 👈 PASSING THE STRICT BOOLEAN
                               )
                             )
                           );
@@ -457,35 +374,22 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                     },
                   ),
 
-                  // 🔵 Button 4: Result
                   _buildActionButton(
                     icon: Icons.bar_chart, 
                     label: "Result", 
                     color: Colors.blue, 
-                    onTap: () {
-                       Navigator.push(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(
-                        examId: selectedExamId!,
-                        examName: selectedExamName ?? "Exam"
-                      )));
-                    }
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => StudyResultsScreen(examId: selectedExamId!, examName: selectedExamName ?? "Exam")))
                   ),
                 ],
               ),
               
               const SizedBox(height: 20),
 
-              // ------------------------------------------------
-              // 4️⃣ SECTION: ADMIN EXTRA CONTROLS
-              // ------------------------------------------------
               if (isAdmin) ...[
                 Container(
                   margin: const EdgeInsets.all(16),
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.shade200)
-                  ),
+                  decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red.shade200)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -496,35 +400,16 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
                         runSpacing: 10,
                         children: [
                           _buildAdminButton(Icons.add_box, "Add Week", () => _addWeekSchedule(selectedExamId!)),
-                          
-                          _buildAdminButton(Icons.edit_document, "Edit Schedule", () {
-                             Navigator.push(context, MaterialPageRoute(builder: (c) => EditWeekSchedule(
-                               examId: selectedExamId!,
-                               weekId: selectedWeekId!,
-                               currentData: selectedWeekData!,
-                             )));
-                          }),
-
-                          _buildAdminButton(Icons.add_task, "Add Test", () {
-                             Navigator.push(context, MaterialPageRoute(builder: (c) => CreateTestScreen(
-                              examId: selectedExamId!,
-                              weekId: selectedWeekId!
-                            )));
-                          }),
+                          _buildAdminButton(Icons.edit_document, "Edit Schedule", () => Navigator.push(context, MaterialPageRoute(builder: (c) => EditWeekSchedule(examId: selectedExamId!, weekId: selectedWeekId!, currentData: selectedWeekData!,)))),
+                          _buildAdminButton(Icons.add_task, "Add Test", () => Navigator.push(context, MaterialPageRoute(builder: (c) => CreateTestScreen(examId: selectedExamId!, weekId: selectedWeekId!)))),
                         ],
                       ),
                     ],
                   ),
                 )
               ]
-
             ] else if (selectedExamId != null) ...[
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.only(top: 50),
-                  child: Text("👆 Select a Week above to see actions", style: TextStyle(color: Colors.grey)),
-                ),
-              )
+              const Center(child: Padding(padding: EdgeInsets.only(top: 50), child: Text("👆 Select a Week above to see actions", style: TextStyle(color: Colors.grey))))
             ]
           ],
         ),
@@ -532,49 +417,24 @@ class _BookmarksHomeScreenState extends State<BookmarksHomeScreen> {
     );
   }
 
-  // Helper Widget for Main User Buttons
   Widget _buildActionButton({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 4))],
-          border: Border.all(color: Colors.grey.shade200)
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 4))], border: Border.all(color: Colors.grey.shade200)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-              child: Icon(icon, color: color, size: 30),
-            ),
+            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 30)),
             const SizedBox(height: 10),
-            Text(
-              label, 
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)
-            )
+            Text(label, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))
           ],
         ),
       ),
     );
   }
 
-  // Helper Widget for Admin Buttons
   Widget _buildAdminButton(IconData icon, String label, VoidCallback onTap) {
-    return ElevatedButton.icon(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.red,
-        elevation: 0,
-        side: const BorderSide(color: Colors.red, width: 1)
-      ),
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-    );
+    return ElevatedButton.icon(onPressed: onTap, style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.red, elevation: 0, side: const BorderSide(color: Colors.red, width: 1)), icon: Icon(icon, size: 18), label: Text(label));
   }
 }
