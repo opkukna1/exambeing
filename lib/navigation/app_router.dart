@@ -29,7 +29,7 @@ import 'package:exambeing/features/admin/screens/admin_smart_upload.dart';
 import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
 import 'package:exambeing/features/tests/screens/test_success_screen.dart';
 
-// ✅ NEW: NOTIFICATION SCREEN IMPORT (Added here)
+// ✅ NEW: NOTIFICATION SCREEN IMPORT
 import 'package:exambeing/features/home/screens/notification_screen.dart';
 
 import 'package:exambeing/features/bookmarks/screens/bookmarked_question_detail_screen.dart';
@@ -113,14 +113,7 @@ final GoRouter router = GoRouter(
         GoRoute(path: '/test-series', builder: (context, state) => const TestSeriesScreen()),
         GoRoute(path: '/bookmarks_home', builder: (context, state) => const BookmarksHomeScreen()),
         GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
-        
-        // Other Tab Routes (Jo tabs me dikhne chahiye)
-        GoRoute(path: '/my-notes', builder: (context, state) => const MyNotesScreen()),
-        
         GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
-        GoRoute(path: '/pomodoro', builder: (context, state) => const PomodoroScreen()),
-        GoRoute(path: '/todo-list', builder: (context, state) => const TodoListScreen()),
-        GoRoute(path: '/timetable', builder: (context, state) => const TimetableScreen()),
       ],
     ),
     
@@ -128,11 +121,33 @@ final GoRouter router = GoRouter(
     // 🛑 FULL SCREEN ROUTES (Yahan Tabs NAHI dikhenge)
     // =================================================================
 
-    // ✅ NEW: NOTIFICATION SCREEN ROUTE 🔔 (Added)
+    // ✅ NEW: NOTIFICATION SCREEN ROUTE 🔔
     GoRoute(
       path: '/notifications',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const NotificationScreen(),
+    ),
+
+    // ✅ FULL SCREEN TOOLS & NOTES (MOVED HERE) 🔥🔥🔥
+    GoRoute(
+      path: '/my-notes',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const MyNotesScreen(),
+    ),
+    GoRoute(
+      path: '/pomodoro',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const PomodoroScreen(),
+    ),
+    GoRoute(
+      path: '/todo-list',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const TodoListScreen(),
+    ),
+    GoRoute(
+      path: '/timetable',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const TimetableScreen(),
     ),
 
     // ✅ Public Notes (Full Screen)
