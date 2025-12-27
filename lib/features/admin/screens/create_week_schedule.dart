@@ -15,7 +15,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
   // --- Controllers ---
   final _weekTitleController = TextEditingController();
   
-  // 🔥 Controllers for Auto-Complete
+  // 🔥 Controllers for Fields
   final TextEditingController _subjController = TextEditingController();
   final TextEditingController _subSubjController = TextEditingController();
   final TextEditingController _topicController = TextEditingController();
@@ -24,15 +24,14 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
   DateTime? _examDate;
 
   // --- Data Variables ---
-  List<dynamic> combinedHierarchy = []; 
+  List<dynamic> combinedHierarchy = []; // Main Data Source
   bool isLoading = true; 
   String? loadingMessage = "Checking permissions...";
 
-  // --- Selections ---
-  Map<String, dynamic>? selectedSubject;
-  Map<String, dynamic>? selectedSubSubject;
-  Map<String, dynamic>? selectedTopic;
-  Map<String, dynamic>? selectedSubTopic;
+  // --- Current Selections (For filtering child lists) ---
+  Map<String, dynamic>? _selectedSubjectMap;
+  Map<String, dynamic>? _selectedSubSubjectMap;
+  Map<String, dynamic>? _selectedTopicMap;
 
   final List<Map<String, dynamic>> _addedTopics = [];
 
@@ -73,29 +72,31 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     Navigator.pop(context); 
   }
 
-  // 🧠 2. SMART FETCH (Global + Personal)
+  // 🧠 2. SMART FETCH
   Future<void> _fetchCombinedHierarchy(String userId) async {
     try {
       List<dynamic> globalList = [];
       List<dynamic> teacherList = [];
 
-      // 1. Fetch Global Hierarchy (Admin wala)
+      // Global
       DocumentSnapshot globalDoc = await FirebaseFirestore.instance.collection('app_metadata').doc('notes_index').get();
       if (globalDoc.exists) globalList = globalDoc['hierarchy'] as List<dynamic>;
 
-      // 2. Fetch Teacher's Personal Hierarchy (Jo usne pehle add kiya tha)
+      // Personal
       DocumentSnapshot teacherDoc = await FirebaseFirestore.instance
-          .collection('teachers')
+          .collection('users')
           .doc(userId)
-          .collection('private_data')
-          .doc('my_hierarchy')
+          .collection('my_custom_topics')
+          .doc('hierarchy_doc')
           .get();
       
-      if (teacherDoc.exists) teacherList = teacherDoc['hierarchy'] as List<dynamic>;
+      if (teacherDoc.exists && teacherDoc.data() != null) {
+        Map<String, dynamic> data = teacherDoc.data() as Map<String, dynamic>;
+        if (data.containsKey('hierarchy')) teacherList = data['hierarchy'] as List<dynamic>;
+      }
 
-      // 3. Merge Lists (Duplicates Handle karne ke liye Set use kar sakte hain, par abhi simple merge)
-      // Note: Hum teacher list ko pehle rakhenge taaki uske custom topics upar aayein
       setState(() {
+        // Merge lists (Teacher first for priority)
         combinedHierarchy = [...teacherList, ...globalList]; 
         isLoading = false; 
       });
@@ -104,109 +105,67 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     }
   }
 
-  // 🧠 3. SMART SAVE (Auto-Learn Logic)
+  // 🧠 3. SMART SAVE (Logic to insert New Data into Tree)
   Future<void> _saveTopicToTeacherDictionary(Map<String, dynamic> newEntry) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     try {
       final docRef = FirebaseFirestore.instance
-          .collection('teachers')
+          .collection('users')
           .doc(user.uid)
-          .collection('private_data')
-          .doc('my_hierarchy');
+          .collection('my_custom_topics')
+          .doc('hierarchy_doc');
 
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         DocumentSnapshot snapshot = await transaction.get(docRef);
         List<dynamic> currentHierarchy = [];
 
-        if (snapshot.exists) {
-          currentHierarchy = snapshot['hierarchy'] as List<dynamic>;
+        if (snapshot.exists && snapshot.data() != null) {
+          Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+          if (data.containsKey('hierarchy')) currentHierarchy = List.from(data['hierarchy']);
         }
 
-        // Logic: Check karo Subject -> SubSubject -> Topic hierarchy exist karti hai kya
-        // Agar nahi karti to add karo. Ye deep nested check hai.
-        
-        bool subjectFound = false;
-        for (var subj in currentHierarchy) {
-          if (subj['name'] == newEntry['subject']) {
-            subjectFound = true;
-            // Subject mil gaya, ab SubSubject check karo
-            List subSubjects = subj['subSubjects'] ?? [];
-            bool subSubjFound = false;
-            
-            for (var subSubj in subSubjects) {
-              if (subSubj['name'] == newEntry['subSubject']) {
-                subSubjFound = true;
-                // SubSubject mil gaya, ab Topic check karo
-                List topics = subSubj['topics'] ?? [];
-                bool topicFound = false;
+        // --- Recursive Check & Insert Logic ---
+        // 1. Find or Create Subject
+        var subjIndex = currentHierarchy.indexWhere((e) => e['name'].toString().toLowerCase() == newEntry['subject'].toString().toLowerCase());
+        if (subjIndex == -1) {
+          currentHierarchy.add({'id': DateTime.now().millisecondsSinceEpoch.toString(), 'name': newEntry['subject'], 'subSubjects': []});
+          subjIndex = currentHierarchy.length - 1;
+        }
 
-                for (var topic in topics) {
-                  if (topic['name'] == newEntry['topic']) {
-                    topicFound = true;
-                    // Topic mil gaya, ab SubTopic check karo
-                    List subTopics = topic['subTopics'] ?? [];
-                    bool subTopicFound = false;
-                    for (var subTop in subTopics) {
-                      if (subTop['name'] == newEntry['subTopic']) {
-                         subTopicFound = true;
-                         break;
-                      }
-                    }
-                    if(!subTopicFound && newEntry['subTopic'].toString().isNotEmpty) {
-                       subTopics.add({'id': DateTime.now().millisecondsSinceEpoch.toString(), 'name': newEntry['subTopic']});
-                       topic['subTopics'] = subTopics; // Update ref
-                    }
-                    break;
-                  }
-                }
-                if(!topicFound) {
-                   topics.add({
-                     'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                     'name': newEntry['topic'],
-                     'subTopics': newEntry['subTopic'].toString().isNotEmpty ? [{'id': 'auto', 'name': newEntry['subTopic']}] : []
-                   });
-                   subSubj['topics'] = topics;
-                }
-                break;
-              }
-            }
-            if (!subSubjFound) {
-              subSubjects.add({
-                'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                'name': newEntry['subSubject'],
-                'topics': [{
-                    'id': 'auto', 
-                    'name': newEntry['topic'],
-                    'subTopics': newEntry['subTopic'].toString().isNotEmpty ? [{'id': 'auto', 'name': newEntry['subTopic']}] : []
-                }]
-              });
-              subj['subSubjects'] = subSubjects;
-            }
-            break;
+        // 2. Find or Create SubSubject
+        List subSubjects = currentHierarchy[subjIndex]['subSubjects'] ?? [];
+        var subSubjIndex = subSubjects.indexWhere((e) => e['name'].toString().toLowerCase() == newEntry['subSubject'].toString().toLowerCase());
+        if (subSubjIndex == -1) {
+          subSubjects.add({'id': 'auto', 'name': newEntry['subSubject'], 'topics': []});
+          subSubjIndex = subSubjects.length - 1;
+        }
+
+        // 3. Find or Create Topic
+        List topics = subSubjects[subSubjIndex]['topics'] ?? [];
+        var topicIndex = topics.indexWhere((e) => e['name'].toString().toLowerCase() == newEntry['topic'].toString().toLowerCase());
+        if (topicIndex == -1) {
+          topics.add({'id': 'auto', 'name': newEntry['topic'], 'subTopics': []});
+          topicIndex = topics.length - 1;
+        }
+
+        // 4. Find or Create SubTopic (if exists)
+        if (newEntry['subTopic'].toString().isNotEmpty) {
+          List subTopics = topics[topicIndex]['subTopics'] ?? [];
+          var subTopIndex = subTopics.indexWhere((e) => e['name'].toString().toLowerCase() == newEntry['subTopic'].toString().toLowerCase());
+          if (subTopIndex == -1) {
+            subTopics.add({'id': 'auto', 'name': newEntry['subTopic']});
           }
+          topics[topicIndex]['subTopics'] = subTopics;
         }
 
-        if (!subjectFound) {
-          currentHierarchy.add({
-            'id': DateTime.now().millisecondsSinceEpoch.toString(),
-            'name': newEntry['subject'],
-            'subSubjects': [{
-                'id': 'auto',
-                'name': newEntry['subSubject'],
-                'topics': [{
-                    'id': 'auto', 
-                    'name': newEntry['topic'],
-                    'subTopics': newEntry['subTopic'].toString().isNotEmpty ? [{'id': 'auto', 'name': newEntry['subTopic']}] : []
-                }]
-            }]
-          });
-        }
+        // Re-assign lists back to parents (Reference update)
+        subSubjects[subSubjIndex]['topics'] = topics;
+        currentHierarchy[subjIndex]['subSubjects'] = subSubjects;
 
         transaction.set(docRef, {'hierarchy': currentHierarchy}, SetOptions(merge: true));
       });
-      
     } catch (e) {
       debugPrint("Auto-Save Error: $e");
     }
@@ -220,27 +179,32 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     }
   }
 
+  // 🔥 ADD BUTTON LOGIC
   void _addTopicToList() {
-    if (_subjController.text.isNotEmpty && _topicController.text.isNotEmpty) {
-      Map<String, dynamic> newItem = {
-        'subject': _subjController.text.trim(),
-        'subSubject': _subSubjController.text.trim(),
-        'topic': _topicController.text.trim(),
-        'subTopic': _subTopController.text.trim(),
-        'isCustom': true // Mark as custom initially
-      };
-
-      // 🔥 Background mein save karo future use ke liye
-      _saveTopicToTeacherDictionary(newItem);
-
-      setState(() {
-        _addedTopics.add(newItem);
-        _topicController.clear();
-        _subTopController.clear();
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Subject and Topic are required")));
+    // Basic Validation
+    if (_subjController.text.trim().isEmpty || _topicController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Subject and Topic are required!")));
+      return;
     }
+
+    Map<String, dynamic> newItem = {
+      'subject': _subjController.text.trim(),
+      'subSubject': _subSubjController.text.trim(),
+      'topic': _topicController.text.trim(),
+      'subTopic': _subTopController.text.trim(),
+      'isCustom': true 
+    };
+
+    // Save to DB in background (Auto-Learn)
+    _saveTopicToTeacherDictionary(newItem);
+
+    setState(() {
+      _addedTopics.add(newItem);
+      // Clear specific fields to allow adding next topic easily
+      _topicController.clear();
+      _subTopController.clear();
+      // NOTE: We keep Subject/SubSubject filled so teacher can add multiple topics to same subject easily
+    });
   }
 
   void _saveSchedule() async {
@@ -248,7 +212,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     if (user == null) return;
 
     if (_weekTitleController.text.isEmpty || _examDate == null || _addedTopics.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("All fields required!")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Title, Date and at least 1 Topic required!")));
       return;
     }
 
@@ -271,32 +235,53 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     }
   }
 
-  Widget _buildAutocomplete(String label, TextEditingController controller, List<dynamic> options, Function(Map<String, dynamic>) onSelected) {
+  // 🎨 SMART AUTOCOMPLETE WIDGET
+  Widget _buildSmartAutocomplete({
+    required String label,
+    required TextEditingController controller,
+    required List<dynamic> dataList,
+    required Function(Map<String, dynamic>) onSelected,
+    required VoidCallback onClear,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Autocomplete<Map<String, dynamic>>(
-        optionsBuilder: (v) {
-          if (v.text.isEmpty) return const Iterable.empty();
-          return options.where((o) => o['name'].toString().toLowerCase().contains(v.text.toLowerCase())).map((e) => e as Map<String, dynamic>);
+        optionsBuilder: (TextEditingValue textValue) {
+          if (textValue.text.isEmpty) return dataList.map((e) => e as Map<String, dynamic>); // Show all if empty
+          return dataList.where((option) {
+            return option['name'].toString().toLowerCase().contains(textValue.text.toLowerCase());
+          }).map((e) => e as Map<String, dynamic>);
         },
-        displayStringForOption: (o) => o['name'],
-        onSelected: (s) { 
-          controller.text = s['name']; 
-          onSelected(s); 
+        displayStringForOption: (option) => option['name'],
+        onSelected: (selection) {
+          controller.text = selection['name'];
+          onSelected(selection);
         },
-        fieldViewBuilder: (ctx, tCtrl, fNode, _) {
-          // Sync internal text field with our controller
-          if (tCtrl.text != controller.text) {
-             tCtrl.text = controller.text;
-             tCtrl.selection = TextSelection.fromPosition(TextPosition(offset: tCtrl.text.length));
+        fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
+          // Sync controllers: If parent clears, this should reflect
+          if (textController.text != controller.text) {
+            textController.text = controller.text;
+            textController.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
           }
+          
           return TextField(
-            controller: tCtrl, 
-            focusNode: fNode, 
-            decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), suffixIcon: const Icon(Icons.arrow_drop_down)), 
-            onChanged: (v) {
-              controller.text = v;
-            }
+            controller: textController,
+            focusNode: focusNode,
+            decoration: InputDecoration(
+              labelText: label,
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () {
+                  controller.clear();
+                  textController.clear();
+                  onClear();
+                },
+              )
+            ),
+            onChanged: (val) {
+              controller.text = val; // Manual typing updates main controller
+            },
           );
         },
       ),
@@ -305,13 +290,18 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
 
   @override
   Widget build(BuildContext context) {
+    // 🛠️ Prepare Lists based on Selections
+    List subSubjectsList = _selectedSubjectMap?['subSubjects'] ?? [];
+    List topicsList = _selectedSubSubjectMap?['topics'] ?? [];
+    List subTopicsList = _selectedTopicMap?['subTopics'] ?? [];
+
     return Scaffold(
       appBar: AppBar(title: const Text("Create Schedule")),
       body: isLoading ? Center(child: Text(loadingMessage ?? "")) : SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            TextField(controller: _weekTitleController, decoration: const InputDecoration(labelText: "Schedule Title (e.g., Week 1)", border: OutlineInputBorder())),
+            TextField(controller: _weekTitleController, decoration: const InputDecoration(labelText: "Schedule Title", border: OutlineInputBorder())),
             const SizedBox(height: 10),
             ListTile(
               title: Text(_examDate == null ? "Select Unlock Date" : DateFormat('dd MMM - hh:mm a').format(_examDate!)), 
@@ -321,24 +311,79 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
             ),
             const Divider(height: 30),
             
-            // 🔥 Smart Autocomplete Fields
-            _buildAutocomplete("Subject", _subjController, combinedHierarchy, (v) => setState(() => selectedSubject = v)),
-            _buildAutocomplete("Sub-Subject", _subSubjController, selectedSubject?['subSubjects'] ?? [], (v) => setState(() => selectedSubSubject = v)),
-            _buildAutocomplete("Topic", _topicController, selectedSubSubject?['topics'] ?? [], (v) => setState(() => selectedTopic = v)),
-            _buildAutocomplete("Sub-Topic", _subTopController, selectedTopic?['subTopics'] ?? [], (v) => setState(() => selectedSubTopic = v)),
+            // 1. SUBJECT
+            _buildSmartAutocomplete(
+              label: "Subject",
+              controller: _subjController,
+              dataList: combinedHierarchy,
+              onSelected: (val) {
+                setState(() {
+                  _selectedSubjectMap = val;
+                  // Clear children
+                  _subSubjController.clear(); _selectedSubSubjectMap = null;
+                  _topicController.clear(); _selectedTopicMap = null;
+                  _subTopController.clear();
+                });
+              },
+              onClear: () => setState(() { _selectedSubjectMap = null; }),
+            ),
+
+            // 2. SUB-SUBJECT
+            _buildSmartAutocomplete(
+              label: "Sub-Subject",
+              controller: _subSubjController,
+              dataList: subSubjectsList,
+              onSelected: (val) {
+                setState(() {
+                  _selectedSubSubjectMap = val;
+                  // Clear children
+                  _topicController.clear(); _selectedTopicMap = null;
+                  _subTopController.clear();
+                });
+              },
+              onClear: () => setState(() { _selectedSubSubjectMap = null; }),
+            ),
+
+            // 3. TOPIC
+            _buildSmartAutocomplete(
+              label: "Topic",
+              controller: _topicController,
+              dataList: topicsList,
+              onSelected: (val) {
+                setState(() {
+                  _selectedTopicMap = val;
+                  // Clear children
+                  _subTopController.clear();
+                });
+              },
+              onClear: () => setState(() { _selectedTopicMap = null; }),
+            ),
+
+            // 4. SUB-TOPIC
+            _buildSmartAutocomplete(
+              label: "Sub-Topic (Optional)",
+              controller: _subTopController,
+              dataList: subTopicsList,
+              onSelected: (val) {}, // No children
+              onClear: () {},
+            ),
             
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton.icon(
+              child: ElevatedButton.icon(
                 onPressed: _addTopicToList, 
                 icon: const Icon(Icons.add),
                 label: const Text("ADD TOPIC"),
-                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12))
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade50, 
+                  foregroundColor: Colors.blue,
+                  padding: const EdgeInsets.symmetric(vertical: 12)
+                )
               ),
             ),
             const SizedBox(height: 20),
             
-            // List of Added Topics
+            // LIST OF ADDED TOPICS
             if (_addedTopics.isNotEmpty) ...[
                const Align(alignment: Alignment.centerLeft, child: Text("Selected Topics:", style: TextStyle(fontWeight: FontWeight.bold))),
                ListView.builder(
@@ -348,8 +393,8 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
                  itemBuilder: (c, i) => Card(
                    margin: const EdgeInsets.symmetric(vertical: 4),
                    child: ListTile(
-                     title: Text("${_addedTopics[i]['topic']} (${_addedTopics[i]['subTopic']})"), 
-                     subtitle: Text("${_addedTopics[i]['subject']} > ${_addedTopics[i]['subSubject']}"),
+                     title: Text("${_addedTopics[i]['topic']}"), 
+                     subtitle: Text("${_addedTopics[i]['subject']} > ${_addedTopics[i]['subSubject']} > ${_addedTopics[i]['subTopic']}"),
                      trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => setState(() => _addedTopics.removeAt(i)))
                    ),
                  )
@@ -365,7 +410,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
               ), 
-              child: const Text("SAVE & PUBLISH", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
+              child: const Text("SAVE SCHEDULE", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
             )
           ],
         ),
