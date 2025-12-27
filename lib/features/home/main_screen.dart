@@ -9,8 +9,7 @@ import 'package:exambeing/services/auth_service.dart';
 import 'package:exambeing/features/admin/screens/manage_moderator_screens.dart';
 import 'package:exambeing/features/moderator/screens/moderator_dashboard_screen.dart';
 
-// ✅ IMPORT FULL SCREEN WIDGETS (Ensure these paths are correct in your project)
-// Replace these with your actual file paths if they differ
+// ✅ IMPORT FULL SCREEN WIDGETS
 import 'package:exambeing/features/notes/screens/my_notes_screen.dart'; 
 import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
 import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
@@ -77,12 +76,10 @@ class _MainScreenState extends State<MainScreen> {
           iconTheme: const IconThemeData(color: Colors.black),
         ),
         
-        // 🔥 MODERN DRAWER
         drawer: const AppDrawer(),
         
         body: widget.child,
 
-        // ✨ MODERN BOTTOM NAVIGATION BAR
         bottomNavigationBar: Container(
           color: Colors.transparent,
           child: SafeArea(
@@ -139,7 +136,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// 🔥🔥 MODERN APP DRAWER 🔥🔥
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 
@@ -148,7 +144,6 @@ class AppDrawer extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     final authService = AuthService();
     
-    // 🔒 Admin Check
     final bool isAdmin = user?.email?.toLowerCase().trim() == "opsiddh42@gmail.com";
 
     return Drawer(
@@ -156,7 +151,6 @@ class AppDrawer extends StatelessWidget {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.only(topRight: Radius.circular(20), bottomRight: Radius.circular(20))),
       child: Column(
         children: [
-          // 🎨 1. MODERN HEADER
           Container(
             padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
             decoration: const BoxDecoration(
@@ -198,38 +192,36 @@ class AppDrawer extends StatelessWidget {
             ),
           ),
 
-          // 📜 2. SCROLLABLE LIST ITEMS
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
               children: [
-                
-                // --- GENERAL ---
                 _buildDrawerItem(context, Icons.home_rounded, "Home", () => context.go('/')),
                 _buildDrawerItem(context, Icons.auto_stories_rounded, "Self Study", () => context.go('/bookmarks_home')),
                 
-                // 🔥 FULL SCREEN: My Notes
+                // 🔥 FIX: 'const' removed from MyNotesScreen
                 _buildDrawerItem(context, Icons.note_alt_rounded, "My Notes", () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const MyNotesScreen()));
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => MyNotesScreen()));
                 }),
 
                 const SizedBox(height: 15),
                 _buildSectionTitle("Study Tools"),
                 
-                // --- TOOLS (🔥 FULL SCREEN) ---
+                // 🔥 FIX: 'const' removed from PomodoroScreen
                 _buildDrawerItem(context, Icons.timer_rounded, "Pomodoro Timer", () {
-                   Navigator.push(context, MaterialPageRoute(builder: (context) => const PomodoroScreen()));
+                   Navigator.push(context, MaterialPageRoute(builder: (context) => PomodoroScreen()));
                 }),
                 
+                // 🔥 FIX: 'const' removed from ToDoListScreen
                 _buildDrawerItem(context, Icons.check_circle_rounded, "To-Do List", () {
-                   Navigator.push(context, MaterialPageRoute(builder: (context) => const ToDoListScreen()));
+                   Navigator.push(context, MaterialPageRoute(builder: (context) => ToDoListScreen()));
                 }),
                 
+                // 🔥 FIX: 'const' removed from TimetableScreen
                 _buildDrawerItem(context, Icons.calendar_month_rounded, "My Timetable", () {
-                   Navigator.push(context, MaterialPageRoute(builder: (context) => const TimetableScreen()));
+                   Navigator.push(context, MaterialPageRoute(builder: (context) => TimetableScreen()));
                 }),
 
-                // --- 🔥 SPECIAL ACCESS SECTION (Dynamic) ---
                 if (user != null)
                   StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
@@ -247,27 +239,27 @@ class AppDrawer extends StatelessWidget {
                             const SizedBox(height: 15),
                             _buildSectionTitle("Management Panel 🛡️"),
 
-                            // 1️⃣ ADMIN ONLY: Manage Moderators
                             if (isAdmin)
                               _buildDrawerItem(
                                 context, 
                                 Icons.admin_panel_settings_rounded, 
                                 "Manage Moderators", 
                                 () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (c) => const ManageModeratorScreen()));
+                                  // 🔥 const is likely safe here as I wrote that file, but removing to be absolutely safe
+                                  Navigator.push(context, MaterialPageRoute(builder: (c) => ManageModeratorScreen()));
                                 },
                                 isSpecial: true,
                                 specialColor: Colors.redAccent
                               ),
 
-                            // 2️⃣ ADMIN & MODERATOR: Dashboard
                             if (isAdmin || isModerator)
                               _buildDrawerItem(
                                 context, 
                                 Icons.analytics_rounded, 
                                 "Moderator Dashboard", 
                                 () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (c) => const ModeratorDashboardScreen()));
+                                  // 🔥 const is likely safe here as I wrote that file, but removing to be absolutely safe
+                                  Navigator.push(context, MaterialPageRoute(builder: (c) => ModeratorDashboardScreen()));
                                 },
                                 isSpecial: true,
                                 specialColor: Colors.deepPurple
@@ -282,7 +274,6 @@ class AppDrawer extends StatelessWidget {
             ),
           ),
 
-          // 🚪 3. FOOTER (LOGOUT/LOGIN)
           Container(
             padding: const EdgeInsets.all(10),
             child: _buildDrawerItem(
@@ -309,7 +300,6 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  // ✨ HELPER: Drawer Item Builder
   Widget _buildDrawerItem(BuildContext context, IconData icon, String title, VoidCallback onTap, {bool isSpecial = false, Color? specialColor, bool isLogout = false}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -344,7 +334,7 @@ class AppDrawer extends StatelessWidget {
         ),
         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
         onTap: () {
-          Navigator.pop(context); // Close drawer first
+          Navigator.pop(context); 
           onTap(); 
         },
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
