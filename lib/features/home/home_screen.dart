@@ -14,7 +14,7 @@ import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
 import 'package:exambeing/services/ai_analysis_service.dart'; 
 import 'package:badges/badges.dart' as badges;
 
-// 🔥🔥🔥 NEW IMPORT (Jo aapne manga tha) 🔥🔥🔥
+// 🔥🔥🔥 NEW IMPORT
 import 'package:exambeing/features/study_plan/screens/buy_test_series_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
@@ -26,7 +26,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _displayName = "Aspirant";
-  
+   
   // 🔥 1. Loading State (For AI Overlay)
   bool _isLoading = false; 
 
@@ -34,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserName();
-    _activateLuckyTrial();
+    // _activateLuckyTrial(); // ❌ REMOVED: No more 3-month free popup
     AdManager.loadInterstitialAd();
     _saveDeviceToken(); 
   }
@@ -78,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<int> _getUnreadCount(List<QueryDocumentSnapshot> docs) async {
     final prefs = await SharedPreferences.getInstance();
     final int lastCheck = prefs.getInt('last_notification_check') ?? 0;
-    
+     
     int unread = 0;
     for (var doc in docs) {
       final Timestamp? ts = doc['timestamp'];
@@ -97,8 +97,8 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // --- 3. LUCKY TRIAL LOGIC ---
-  Future<void> _activateLuckyTrial() async {
+  // --- 3. LUCKY TRIAL LOGIC (DISABLED) ---
+  /* Future<void> _activateLuckyTrial() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     final prefs = await SharedPreferences.getInstance();
@@ -124,6 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+  */
 
   // --- 4. 🤖 AI ANALYSIS LOGIC ---
   void _onAiAnalyzePressed() async {
@@ -216,10 +217,10 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _buildWelcomeCard(context),
             const SizedBox(height: 25),
-            
+             
             _buildDailyTestCard(context),
             const SizedBox(height: 20),
-            
+             
             Row(
               children: [
                 Expanded(child: _buildModernCustomTestCard()),
@@ -230,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔥 NEW: Buy Test Series Button
+            // 🔥 NEW: Buy Test Series Button (Color Updated)
             _buildBuyTestSeriesCard(),
 
             const SizedBox(height: 20),
@@ -291,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const Text('Let\'s Crack It!', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 24)),
           ],
         ),
-        
+         
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection('notifications').snapshots(),
           builder: (context, snapshot) {
@@ -301,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: IconButton(icon: const Icon(Icons.notifications_none, color: Colors.black), onPressed: _handleNotificationClick),
               );
             }
-            
+             
             return FutureBuilder<int>(
               future: _getUnreadCount(snapshot.data!.docs),
               initialData: 0,
@@ -324,20 +325,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✅ NEW WIDGET: Buy Test Series Card (Linked to correct screen)
+  // ✅ UPDATED: Buy Test Series Card (Colors Matched with Theme)
   Widget _buildBuyTestSeriesCard() {
     return Container(
       width: double.infinity, 
       height: 80,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
+        // 🔥 Changed Gradient to match other cards (Teal/Green mix or Deep Purple mix)
+        // Using a rich Teal-Green gradient to look professional and matching
         gradient: const LinearGradient(
-          colors: [Color(0xFFF2994A), Color(0xFFF2C94C)], 
+          colors: [Color(0xFF00B09B), Color(0xFF96C93D)], 
           begin: Alignment.centerLeft, 
           end: Alignment.centerRight
         ),
         boxShadow: [
-          BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))
+          BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))
         ],
       ),
       child: Material(
@@ -345,7 +348,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-             // 🔥🔥 UPDATED: FULL SCREEN NAVIGATION 🔥🔥
              Navigator.of(context, rootNavigator: true).push(
                MaterialPageRoute(builder: (context) => const BuyTestSeriesScreen()),
              );
@@ -453,7 +455,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final data = snapshot.data!.data() as Map<String, dynamic>;
         final subtitle = data['subtitle'] ?? "Daily Practice Test";
         final questionIds = List<String>.from(data['questionIds'] ?? []);
-        
+         
         return Container(width: double.infinity, decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), gradient: const LinearGradient(colors: [Color(0xFF11998e), Color(0xFF38ef7d)]), boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))]), child: Padding(padding: const EdgeInsets.all(20.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.calendar_today, color: Colors.white, size: 12), const SizedBox(width: 6), Text(fullDate, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))])), const SizedBox(height: 15), Text(subtitle, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)), const SizedBox(height: 5), Text("${questionIds.length} Important Questions", style: const TextStyle(color: Colors.white70, fontSize: 15)), const SizedBox(height: 20), SizedBox(width: double.infinity, height: 50, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF11998e), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), onPressed: () { AdManager.showInterstitialAd(() { context.push('/test-screen', extra: {'ids': questionIds}); }); }, child: const Text("Start Today's Test", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))))])));
       },
     );
