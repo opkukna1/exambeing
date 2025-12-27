@@ -9,6 +9,13 @@ import 'package:exambeing/services/auth_service.dart';
 import 'package:exambeing/features/admin/screens/manage_moderator_screens.dart';
 import 'package:exambeing/features/moderator/screens/moderator_dashboard_screen.dart';
 
+// ✅ IMPORT FULL SCREEN WIDGETS (Ensure these paths are correct in your project)
+// Replace these with your actual file paths if they differ
+import 'package:exambeing/features/notes/screens/my_notes_screen.dart'; 
+import 'package:exambeing/features/tools/screens/pomodoro_screen.dart';
+import 'package:exambeing/features/tools/screens/todo_list_screen.dart';
+import 'package:exambeing/features/tools/screens/timetable_screen.dart';
+
 class MainScreen extends StatefulWidget {
   final Widget child;
   const MainScreen({super.key, required this.child});
@@ -60,7 +67,7 @@ class _MainScreenState extends State<MainScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.grey.shade50,
-        extendBody: false, // Prevents content overlap
+        extendBody: false, 
         
         appBar: AppBar(
           title: Image.asset('assets/logo.png', height: 40),
@@ -70,7 +77,7 @@ class _MainScreenState extends State<MainScreen> {
           iconTheme: const IconThemeData(color: Colors.black),
         ),
         
-        // 🔥 MODERN DRAWER ATTACHED HERE
+        // 🔥 MODERN DRAWER
         drawer: const AppDrawer(),
         
         body: widget.child,
@@ -132,7 +139,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// 🔥🔥 MODERN APP DRAWER WITH ADMIN & MODERATOR LOGIC 🔥🔥
+// 🔥🔥 MODERN APP DRAWER 🔥🔥
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 
@@ -154,7 +161,7 @@ class AppDrawer extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF6A11CB), Color(0xFF2575FC)], // Deep Purple to Blue
+                colors: [Color(0xFF6A11CB), Color(0xFF2575FC)], 
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -200,15 +207,27 @@ class AppDrawer extends StatelessWidget {
                 // --- GENERAL ---
                 _buildDrawerItem(context, Icons.home_rounded, "Home", () => context.go('/')),
                 _buildDrawerItem(context, Icons.auto_stories_rounded, "Self Study", () => context.go('/bookmarks_home')),
-                _buildDrawerItem(context, Icons.note_alt_rounded, "My Notes", () => context.push('/my-notes')),
+                
+                // 🔥 FULL SCREEN: My Notes
+                _buildDrawerItem(context, Icons.note_alt_rounded, "My Notes", () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const MyNotesScreen()));
+                }),
 
                 const SizedBox(height: 15),
                 _buildSectionTitle("Study Tools"),
                 
-                // --- TOOLS ---
-                _buildDrawerItem(context, Icons.timer_rounded, "Pomodoro Timer", () => context.push('/pomodoro')),
-                _buildDrawerItem(context, Icons.check_circle_rounded, "To-Do List", () => context.push('/todo-list')),
-                _buildDrawerItem(context, Icons.calendar_month_rounded, "My Timetable", () => context.push('/timetable')),
+                // --- TOOLS (🔥 FULL SCREEN) ---
+                _buildDrawerItem(context, Icons.timer_rounded, "Pomodoro Timer", () {
+                   Navigator.push(context, MaterialPageRoute(builder: (context) => const PomodoroScreen()));
+                }),
+                
+                _buildDrawerItem(context, Icons.check_circle_rounded, "To-Do List", () {
+                   Navigator.push(context, MaterialPageRoute(builder: (context) => const ToDoListScreen()));
+                }),
+                
+                _buildDrawerItem(context, Icons.calendar_month_rounded, "My Timetable", () {
+                   Navigator.push(context, MaterialPageRoute(builder: (context) => const TimetableScreen()));
+                }),
 
                 // --- 🔥 SPECIAL ACCESS SECTION (Dynamic) ---
                 if (user != null)
@@ -235,8 +254,7 @@ class AppDrawer extends StatelessWidget {
                                 Icons.admin_panel_settings_rounded, 
                                 "Manage Moderators", 
                                 () {
-                                  // 🔥 REMOVED manual Navigator.pop here because _buildDrawerItem handles it
-                                  Navigator.push(context, MaterialPageRoute(builder: (c) => ManageModeratorScreen()));
+                                  Navigator.push(context, MaterialPageRoute(builder: (c) => const ManageModeratorScreen()));
                                 },
                                 isSpecial: true,
                                 specialColor: Colors.redAccent
@@ -249,8 +267,7 @@ class AppDrawer extends StatelessWidget {
                                 Icons.analytics_rounded, 
                                 "Moderator Dashboard", 
                                 () {
-                                  // 🔥 REMOVED manual Navigator.pop here because _buildDrawerItem handles it
-                                  Navigator.push(context, MaterialPageRoute(builder: (c) => ModeratorDashboardScreen()));
+                                  Navigator.push(context, MaterialPageRoute(builder: (c) => const ModeratorDashboardScreen()));
                                 },
                                 isSpecial: true,
                                 specialColor: Colors.deepPurple
@@ -293,7 +310,6 @@ class AppDrawer extends StatelessWidget {
   }
 
   // ✨ HELPER: Drawer Item Builder
-  // 🔥 FIX APPLIED HERE: Added automatic Navigator.pop(context)
   Widget _buildDrawerItem(BuildContext context, IconData icon, String title, VoidCallback onTap, {bool isSpecial = false, Color? specialColor, bool isLogout = false}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -328,8 +344,7 @@ class AppDrawer extends StatelessWidget {
         ),
         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
         onTap: () {
-          // 🔥🔥 AUTOMATICALLY CLOSE DRAWER BEFORE NAVIGATION 🔥🔥
-          Navigator.pop(context); 
+          Navigator.pop(context); // Close drawer first
           onTap(); 
         },
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -338,7 +353,6 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  // ✨ HELPER: Section Title
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 16, bottom: 8),
