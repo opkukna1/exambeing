@@ -15,7 +15,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
   // --- Controllers ---
   final _weekTitleController = TextEditingController();
   
-  // 🔥 Controllers for Fields
+  // 🔥 Controllers
   final TextEditingController _subjController = TextEditingController();
   final TextEditingController _subSubjController = TextEditingController();
   final TextEditingController _topicController = TextEditingController();
@@ -24,14 +24,15 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
   DateTime? _examDate;
 
   // --- Data Variables ---
-  List<dynamic> combinedHierarchy = []; // Main Data Source
+  List<dynamic> combinedHierarchy = []; 
   bool isLoading = true; 
   String? loadingMessage = "Checking permissions...";
 
-  // --- Current Selections (For filtering child lists) ---
+  // --- Selections (To store IDs) ---
   Map<String, dynamic>? _selectedSubjectMap;
   Map<String, dynamic>? _selectedSubSubjectMap;
   Map<String, dynamic>? _selectedTopicMap;
+  // SubTopic doesn't usually have children, so map isn't strictly needed for filtering, but good for ID
 
   final List<Map<String, dynamic>> _addedTopics = [];
 
@@ -96,7 +97,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
       }
 
       setState(() {
-        // Merge lists (Teacher first for priority)
         combinedHierarchy = [...teacherList, ...globalList]; 
         isLoading = false; 
       });
@@ -105,10 +105,18 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     }
   }
 
-  // 🧠 3. SMART SAVE (Logic to insert New Data into Tree)
-  Future<void> _saveTopicToTeacherDictionary(Map<String, dynamic> newEntry) async {
+  // 🧠 3. SMART SAVE (Logic to insert New Data & Return IDs)
+  Future<Map<String, String>> _saveTopicToTeacherDictionary(Map<String, dynamic> newEntry) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    // Default IDs (Agar DB save fail ho jaye to temporary IDs use karenge)
+    Map<String, String> generatedIds = {
+      'subjId': DateTime.now().millisecondsSinceEpoch.toString(),
+      'subSubjId': 'auto_${DateTime.now().millisecondsSinceEpoch}',
+      'topicId': 'auto_${DateTime.now().millisecondsSinceEpoch}',
+      'subTopId': 'auto_${DateTime.now().millisecondsSinceEpoch}'
+    };
+
+    if (user == null) return generatedIds;
 
     try {
       final docRef = FirebaseFirestore.instance
@@ -127,40 +135,59 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
         }
 
         // --- Recursive Check & Insert Logic ---
-        // 1. Find or Create Subject
+        
+        // 1. Subject
         var subjIndex = currentHierarchy.indexWhere((e) => e['name'].toString().toLowerCase() == newEntry['subject'].toString().toLowerCase());
         if (subjIndex == -1) {
-          currentHierarchy.add({'id': DateTime.now().millisecondsSinceEpoch.toString(), 'name': newEntry['subject'], 'subSubjects': []});
+          String newId = DateTime.now().millisecondsSinceEpoch.toString();
+          currentHierarchy.add({'id': newId, 'name': newEntry['subject'], 'subSubjects': []});
           subjIndex = currentHierarchy.length - 1;
+          generatedIds['subjId'] = newId;
+        } else {
+          generatedIds['subjId'] = currentHierarchy[subjIndex]['id'].toString();
         }
 
-        // 2. Find or Create SubSubject
+        // 2. SubSubject
         List subSubjects = currentHierarchy[subjIndex]['subSubjects'] ?? [];
         var subSubjIndex = subSubjects.indexWhere((e) => e['name'].toString().toLowerCase() == newEntry['subSubject'].toString().toLowerCase());
         if (subSubjIndex == -1) {
-          subSubjects.add({'id': 'auto', 'name': newEntry['subSubject'], 'topics': []});
+          String newId = "auto_${DateTime.now().millisecondsSinceEpoch}";
+          subSubjects.add({'id': newId, 'name': newEntry['subSubject'], 'topics': []});
           subSubjIndex = subSubjects.length - 1;
+          generatedIds['subSubjId'] = newId;
+        } else {
+          generatedIds['subSubjId'] = subSubjects[subSubjIndex]['id'].toString();
         }
 
-        // 3. Find or Create Topic
+        // 3. Topic
         List topics = subSubjects[subSubjIndex]['topics'] ?? [];
         var topicIndex = topics.indexWhere((e) => e['name'].toString().toLowerCase() == newEntry['topic'].toString().toLowerCase());
         if (topicIndex == -1) {
-          topics.add({'id': 'auto', 'name': newEntry['topic'], 'subTopics': []});
+          String newId = "auto_${DateTime.now().millisecondsSinceEpoch}";
+          topics.add({'id': newId, 'name': newEntry['topic'], 'subTopics': []});
           topicIndex = topics.length - 1;
+          generatedIds['topicId'] = newId;
+        } else {
+          generatedIds['topicId'] = topics[topicIndex]['id'].toString();
         }
 
-        // 4. Find or Create SubTopic (if exists)
+        // 4. SubTopic
         if (newEntry['subTopic'].toString().isNotEmpty) {
           List subTopics = topics[topicIndex]['subTopics'] ?? [];
           var subTopIndex = subTopics.indexWhere((e) => e['name'].toString().toLowerCase() == newEntry['subTopic'].toString().toLowerCase());
           if (subTopIndex == -1) {
-            subTopics.add({'id': 'auto', 'name': newEntry['subTopic']});
+            String newId = "auto_${DateTime.now().millisecondsSinceEpoch}";
+            subTopics.add({'id': newId, 'name': newEntry['subTopic']});
+            generatedIds['subTopId'] = newId;
+          } else {
+            generatedIds['subTopId'] = subTopics[subTopIndex]['id'].toString();
           }
           topics[topicIndex]['subTopics'] = subTopics;
+        } else {
+          generatedIds['subTopId'] = '';
         }
 
-        // Re-assign lists back to parents (Reference update)
+        // Update Tree
         subSubjects[subSubjIndex]['topics'] = topics;
         currentHierarchy[subjIndex]['subSubjects'] = subSubjects;
 
@@ -169,6 +196,8 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     } catch (e) {
       debugPrint("Auto-Save Error: $e");
     }
+    
+    return generatedIds;
   }
 
   void _pickDate() async {
@@ -179,14 +208,15 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
     }
   }
 
-  // 🔥 ADD BUTTON LOGIC
-  void _addTopicToList() {
+  // 🔥 ADD BUTTON LOGIC (NOW SAVES IDs)
+  void _addTopicToList() async {
     // Basic Validation
     if (_subjController.text.trim().isEmpty || _topicController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Subject and Topic are required!")));
       return;
     }
 
+    // Prepare Entry
     Map<String, dynamic> newItem = {
       'subject': _subjController.text.trim(),
       'subSubject': _subSubjController.text.trim(),
@@ -195,16 +225,42 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
       'isCustom': true 
     };
 
-    // Save to DB in background (Auto-Learn)
-    _saveTopicToTeacherDictionary(newItem);
+    // 1. Try to get IDs from selections (if user picked from dropdown)
+    String? sId = _selectedSubjectMap?['id']?.toString();
+    String? ssId = _selectedSubSubjectMap?['id']?.toString();
+    String? tId = _selectedTopicMap?['id']?.toString();
+    // For SubTopic, we iterate to find ID
+    String? stId;
+    if (_selectedTopicMap != null && newItem['subTopic'].isNotEmpty) {
+       List subTops = _selectedTopicMap!['subTopics'] ?? [];
+       var found = subTops.firstWhere((e) => e['name'].toString().toLowerCase() == newItem['subTopic'].toString().toLowerCase(), orElse: () => null);
+       if(found != null) stId = found['id'].toString();
+    }
 
-    setState(() {
-      _addedTopics.add(newItem);
-      // Clear specific fields to allow adding next topic easily
-      _topicController.clear();
-      _subTopController.clear();
-      // NOTE: We keep Subject/SubSubject filled so teacher can add multiple topics to same subject easily
-    });
+    // 2. If IDs missing (User typed new stuff), Save to DB and get generated IDs
+    if (sId == null || ssId == null || tId == null) {
+       // Show loading indicator briefly if needed, but for now we await
+       Map<String, String> ids = await _saveTopicToTeacherDictionary(newItem);
+       sId ??= ids['subjId'];
+       ssId ??= ids['subSubjId'];
+       tId ??= ids['topicId'];
+       stId ??= ids['subTopId'];
+    }
+
+    // 3. Add IDs to the Item
+    newItem['subjId'] = sId;
+    newItem['subSubjId'] = ssId;
+    newItem['topicId'] = tId;
+    newItem['subTopId'] = stId ?? '';
+
+    if (mounted) {
+      setState(() {
+        _addedTopics.add(newItem);
+        _topicController.clear();
+        _subTopController.clear();
+        // Keeping Subject/SubSubject filled for convenience
+      });
+    }
   }
 
   void _saveSchedule() async {
@@ -222,8 +278,10 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
         'unlockTime': Timestamp.fromDate(_examDate!),
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': user.uid, 
-        'linkedTopics': _addedTopics.map((e) => "${e['topic']} (${e['subTopic']})").toList(),
+        // We save the FULL OBJECT here including IDs
         'scheduleData': _addedTopics, 
+        // Simple list for display purposes if needed
+        'linkedTopics': _addedTopics.map((e) => "${e['topic']} (${e['subTopic']})").toList(),
       });
 
       if (mounted) {
@@ -247,7 +305,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Autocomplete<Map<String, dynamic>>(
         optionsBuilder: (TextEditingValue textValue) {
-          if (textValue.text.isEmpty) return dataList.map((e) => e as Map<String, dynamic>); // Show all if empty
+          if (textValue.text.isEmpty) return dataList.map((e) => e as Map<String, dynamic>);
           return dataList.where((option) {
             return option['name'].toString().toLowerCase().contains(textValue.text.toLowerCase());
           }).map((e) => e as Map<String, dynamic>);
@@ -258,7 +316,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
           onSelected(selection);
         },
         fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
-          // Sync controllers: If parent clears, this should reflect
           if (textController.text != controller.text) {
             textController.text = controller.text;
             textController.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
@@ -280,7 +337,10 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
               )
             ),
             onChanged: (val) {
-              controller.text = val; // Manual typing updates main controller
+              controller.text = val;
+              // If user types manually, clear the 'Selection Map' because ID might not match anymore
+              if (_selectedSubjectMap != null && label == 'Subject') onClear();
+              // Similar logic can be added for others, but strictly clearing ensures data integrity
             },
           );
         },
@@ -290,7 +350,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
 
   @override
   Widget build(BuildContext context) {
-    // 🛠️ Prepare Lists based on Selections
     List subSubjectsList = _selectedSubjectMap?['subSubjects'] ?? [];
     List topicsList = _selectedSubSubjectMap?['topics'] ?? [];
     List subTopicsList = _selectedTopicMap?['subTopics'] ?? [];
@@ -319,7 +378,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
               onSelected: (val) {
                 setState(() {
                   _selectedSubjectMap = val;
-                  // Clear children
                   _subSubjController.clear(); _selectedSubSubjectMap = null;
                   _topicController.clear(); _selectedTopicMap = null;
                   _subTopController.clear();
@@ -336,7 +394,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
               onSelected: (val) {
                 setState(() {
                   _selectedSubSubjectMap = val;
-                  // Clear children
                   _topicController.clear(); _selectedTopicMap = null;
                   _subTopController.clear();
                 });
@@ -352,7 +409,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
               onSelected: (val) {
                 setState(() {
                   _selectedTopicMap = val;
-                  // Clear children
                   _subTopController.clear();
                 });
               },
@@ -364,7 +420,7 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
               label: "Sub-Topic (Optional)",
               controller: _subTopController,
               dataList: subTopicsList,
-              onSelected: (val) {}, // No children
+              onSelected: (val) {},
               onClear: () {},
             ),
             
@@ -383,7 +439,6 @@ class _CreateWeekScheduleState extends State<CreateWeekSchedule> {
             ),
             const SizedBox(height: 20),
             
-            // LIST OF ADDED TOPICS
             if (_addedTopics.isNotEmpty) ...[
                const Align(alignment: Alignment.centerLeft, child: Text("Selected Topics:", style: TextStyle(fontWeight: FontWeight.bold))),
                ListView.builder(
