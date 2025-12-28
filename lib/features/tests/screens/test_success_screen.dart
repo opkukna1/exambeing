@@ -7,7 +7,8 @@ import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw; 
 import 'package:exambeing/models/question_model.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Added for Admin Check
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Required for user role check
 
 class TestSuccessScreen extends StatefulWidget {
   final List<Question>? questions;
@@ -29,6 +30,11 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   late List<Question> finalQuestions;
   late String finalTopicName;
   bool isGenerating = false;
+  
+  // Permission flags
+  bool canDownloadPdf = false;
+  bool isAdmin = false;
+  bool isLoadingPermissions = true;
 
   // --- ADMIN INPUT CONTROLLERS ---
   final TextEditingController _examNameController = TextEditingController(text: "MOCK TEST SERIES");
@@ -41,6 +47,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
   void initState() {
     super.initState();
     _initializeData();
+    _checkPermissions();
   }
 
   void _initializeData() {
@@ -65,9 +72,44 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     _marksController.text = "${finalQuestions.length * 2}";
   }
 
-  // 🧹 CLEAN TEXT FUNCTION
+  // 🔒 CHECK PERMISSIONS FROM FIRESTORE
+  Future<void> _checkPermissions() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      if (user.email == "opsiddh42@gmail.com") {
+        setState(() {
+          isAdmin = true;
+          canDownloadPdf = true;
+          isLoadingPermissions = false;
+        });
+        return;
+      }
+
+      try {
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          final data = userDoc.data();
+          // Check for 'download' field being 'yes'
+          if (data != null && data['download'] == 'yes') {
+            setState(() {
+              canDownloadPdf = true;
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Error checking permissions: $e");
+      }
+    }
+    setState(() {
+      isLoadingPermissions = false;
+    });
+  }
+
+  // 🧹 CLEAN TEXT FUNCTION (STRONGER REGEX)
   String _cleanQuestionText(String text) {
-    return text.replaceAll(RegExp(r'\s*\(\s*(Exam|Year|SSC|RPSC|UPSC)\s*:.*?\)', caseSensitive: false), '').trim();
+    // Removes patterns like (Exam: ...), (Year: ...), (SSC ...), etc. at the end of the string
+    // Also handles variations in spacing and parenthesis
+    return text.replaceAll(RegExp(r'\s*\(.*?(Exam|Year|SSC|RPSC|UPSC|Bank|Railway).*?\)\s*$', caseSensitive: false), '').trim();
   }
 
   // 📝 ADMIN INPUT DIALOG
@@ -116,7 +158,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
     return TextField(controller: ctrl, decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()));
   }
 
-  // 🔥 CORE FUNCTION: HTML TO PDF (With Margins Fixed)
+  // 🔥 CORE FUNCTION: HTML TO PDF
   Future<void> _printHtml({required bool isAnswerKey}) async {
     setState(() => isGenerating = true);
 
@@ -127,7 +169,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       final totalQs = finalQuestions.length;
 
       // ------------------------------------
-      // 1. CSS STYLES (Margin Fixed Here)
+      // 1. CSS STYLES
       // ------------------------------------
       String htmlContent = """
       <!DOCTYPE html>
@@ -136,10 +178,9 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
         <meta charset="UTF-8">
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700;800&family=Arimo:wght@400;700&display=swap" rel="stylesheet">
         <style>
-            /* 🔥 PAGE MARGINS FIXED HERE */
             @page { 
                 size: A4; 
-                margin-top: 20mm;    /* Top Margin added */
+                margin-top: 20mm; 
                 margin-bottom: 15mm; 
                 margin-left: 15mm; 
                 margin-right: 15mm; 
@@ -166,7 +207,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
             /* --- COVER PAGE --- */
             .a4-page {
-                width: 100%; /* Adapt to margins */
+                width: 100%;
                 min-height: 90vh;
                 position: relative;
                 page-break-after: always; 
@@ -218,11 +259,15 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
             .options-list { margin-left: 10px; font-size: 12px; }
             .option-item { margin-bottom: 2px; }
             
-            /* ANSWER KEY */
-            .ans-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
-            .ans-table th { background-color: #333; color: white; padding: 8px; text-align: left; }
-            .ans-table td { padding: 6px; border: 1px solid #ddd; }
-            .ans-table tr:nth-child(even) { background-color: #f2f2f2; }
+            /* ANSWER KEY STYLES */
+            .correct-option { font-weight: bold; color: black; }
+            .explanation-box {
+                margin-top: 5px;
+                padding: 5px;
+                background-color: #f0f0f0;
+                font-size: 11px;
+                border-left: 2px solid #333;
+            }
         </style>
       </head>
       <body>
@@ -233,143 +278,149 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
       // 2. CONTENT GENERATION
       // ------------------------------------
       
-      if (isAnswerKey) {
-        htmlContent += """
-        <div style="text-align:center; font-weight:bold; font-size:24px; margin-bottom:10px;">ANSWER KEY</div>
-        <div style="text-align:center; font-size:16px; margin-bottom:20px;">$topicName</div>
-        <table class='ans-table'><tr><th width="10%">Q.No</th><th>Correct Answer</th></tr>
-        """;
-        List<String> labels = ["(A)", "(B)", "(C)", "(D)", "(E)"];
-        for (int i = 0; i < finalQuestions.length; i++) {
-          final q = finalQuestions[i];
-          String ansText = q.options.isNotEmpty ? q.options[q.correctAnswerIndex] : "-";
-          String ansLabel = (q.correctAnswerIndex < 4) ? "<b>${labels[q.correctAnswerIndex]}</b>" : "";
-          htmlContent += "<tr><td>${i+1}</td><td>$ansLabel $ansText</td></tr>";
-        }
-        htmlContent += "</table>";
+      // HEADER PAGE (Common for both Paper and Answer Key now, but title changes slightly for key if desired)
+      String displayTitle = isAnswerKey ? "$examName - ANSWER KEY & EXPL" : "$examName";
+      
+      htmlContent += """
+      <div class="a4-page">
+          <div class="header-grid">
+              <div class="header-left hindi-font">
+                  पुस्तिका में प्रश्नों की संख्या : $totalQs<br>
+                  No. of Questions in Booklet : $totalQs<br>
+                  <div style="margin-top: 15px; font-size: 16px;">Paper Code : <b>${isAnswerKey ? 'KEY-01' : '01'}</b></div>
+              </div>
 
-      } else {
-        // --- COVER PAGE ---
-        htmlContent += """
-        <div class="a4-page">
-            <div class="header-grid">
-                <div class="header-left hindi-font">
-                    पुस्तिका में प्रश्नों की संख्या : $totalQs<br>
-                    No. of Questions in Booklet : $totalQs<br>
-                    <div style="margin-top: 15px; font-size: 16px;">Paper Code : <b>01</b></div>
-                </div>
+              <div class="header-center">
+                  <div class="exam-name-box">$displayTitle</div>
+                  <div class="paper-title">$topicName</div>
+              </div>
 
-                <div class="header-center">
-                    <div class="exam-name-box">$examName</div>
-                    <div class="paper-title">$topicName</div>
-                </div>
+              <div class="header-right">
+                  <div style="height: 40px;"></div>
+                  <div class="hindi-font" style="font-size: 10px; margin-top: 25px; text-align: right;">
+                      प्रश्न पुस्तिका संख्या व बारकोड /<br>
+                      Question Booklet No. & Barcode
+                  </div>
+              </div>
+          </div>
 
-                <div class="header-right">
-                    <div style="height: 40px;"></div>
-                    <div class="hindi-font" style="font-size: 10px; margin-top: 25px; text-align: right;">
-                        प्रश्न पुस्तिका संख्या व बारकोड /<br>
-                        Question Booklet No. & Barcode
-                    </div>
-                </div>
-            </div>
+          <div class="warning-box hindi-font">
+              प्रश्न पुस्तिका के पेपर की सील/पॉलिथिन बैग को खोलने पर प्रश्न पत्र हल करने से पूर्व परीक्षार्थी यह सुनिश्चित कर लें कि :-
+              <ul style="padding-left: 20px; margin: 4px 0;">
+                  <li>प्रश्न पुस्तिका संख्या तथा ओ.एम.आर. उत्तर-पत्रक पर अंकित बारकोड संख्या समान है।</li>
+                  <li>सभी $totalQs प्रश्न सही मुद्रित हैं।</li>
+              </ul>
+              किसी भी प्रकार की विसंगति या दोषपूर्ण होने पर परीक्षार्थी वीक्षक से दूसरी प्रश्न पुस्तिका प्राप्त कर लें। यह सुनिश्चित करने की जिम्मेदारी अभ्यर्थी की होगी।<br>
+              <span style="font-family: 'Arimo', sans-serif; display: block; margin-top: 8px;">
+              On opening the paper seal/polythene bag of the Question Booklet before attempting the question paper the candidate should ensure that:-
+              <ul style="padding-left: 20px; margin: 4px 0;">
+                  <li>Question Booklet Number and Barcode Number of OMR Answer Sheet are same.</li>
+                  <li>All pages & Questions of Question Booklet and OMR Answer Sheet are properly printed.</li>
+              </ul>
+              If there is any discrepancy/defect, candidate must obtain another Question Booklet from Invigilator.
+              </span>
+          </div>
 
-            <div class="warning-box hindi-font">
-                प्रश्न पुस्तिका के पेपर की सील/पॉलिथिन बैग को खोलने पर प्रश्न पत्र हल करने से पूर्व परीक्षार्थी यह सुनिश्चित कर लें कि :-
-                <ul style="padding-left: 20px; margin: 4px 0;">
-                    <li>प्रश्न पुस्तिका संख्या तथा ओ.एम.आर. उत्तर-पत्रक पर अंकित बारकोड संख्या समान है।</li>
-                    <li>सभी $totalQs प्रश्न सही मुद्रित हैं।</li>
-                </ul>
-                किसी भी प्रकार की विसंगति या दोषपूर्ण होने पर परीक्षार्थी वीक्षक से दूसरी प्रश्न पुस्तिका प्राप्त कर लें। यह सुनिश्चित करने की जिम्मेदारी अभ्यर्थी की होगी।<br>
-                <span style="font-family: 'Arimo', sans-serif; display: block; margin-top: 8px;">
-                On opening the paper seal/polythene bag of the Question Booklet before attempting the question paper the candidate should ensure that:-
-                <ul style="padding-left: 20px; margin: 4px 0;">
-                    <li>Question Booklet Number and Barcode Number of OMR Answer Sheet are same.</li>
-                    <li>All pages & Questions of Question Booklet and OMR Answer Sheet are properly printed.</li>
-                </ul>
-                If there is any discrepancy/defect, candidate must obtain another Question Booklet from Invigilator.
-                </span>
-            </div>
+          <div class="instructions-container">
+              <div class="col col-left hindi-font">
+                  <div class="col-header">परीक्षार्थियों के लिए निर्देश</div>
+                  <ol class="instruction-list">
+                      <li>प्रत्येक प्रश्न के लिये एक विकल्प भरना अनिवार्य है।</li>
+                      <li>सभी प्रश्नों के अंक समान हैं।</li>
+                      <li>एक से अधिक उत्तर देने की दशा में प्रश्न के उत्तर को गलत माना जाएगा।</li>
+                      <li><b>OMR उत्तर-पत्रक</b> में केवल <b>नीले बॉल पॉइंट पेन</b> से विवरण भरें।</li>
+                      <li>कृपया अपना रोल नम्बर ओ.एम.आर. उत्तर-पत्रक पर सावधानीपूर्वक सही भरें।</li>
+                      <li>ओ.एम.आर. उत्तर-पत्रक में करेक्शन पेन/व्हाइटनर/ब्लेड का उपयोग निषिद्ध है।</li>
+                      <li><b>प्रत्येक गलत उत्तर के लिए प्रश्न अंक का 1/3 भाग काटा जायेगा।</b></li>
+                      <li>प्रत्येक प्रश्न के पाँच विकल्प दिए गये हैं (A, B, C, D, E)।</li>
+                      <li><b>यदि आप प्रश्न का उत्तर नहीं देना चाहते हैं, तो उत्तर-पत्रक में पांचवें (E) विकल्प को गहरा करें।</b> यदि पांच में से कोई भी गोला गहरा नहीं किया जाता है, तो <b>1/3 भाग काटा जायेगा।</b></li>
+                      <li>मोबाइल फोन अथवा इलेक्ट्रॉनिक यंत्र का परीक्षा हॉल में प्रयोग पूर्णतया वर्जित है।</li>
+                  </ol>
+              </div>
 
-            <div class="instructions-container">
-                <div class="col col-left hindi-font">
-                    <div class="col-header">परीक्षार्थियों के लिए निर्देश</div>
-                    <ol class="instruction-list">
-                        <li>प्रत्येक प्रश्न के लिये एक विकल्प भरना अनिवार्य है।</li>
-                        <li>सभी प्रश्नों के अंक समान हैं।</li>
-                        <li>एक से अधिक उत्तर देने की दशा में प्रश्न के उत्तर को गलत माना जाएगा।</li>
-                        <li><b>OMR उत्तर-पत्रक</b> में केवल <b>नीले बॉल पॉइंट पेन</b> से विवरण भरें।</li>
-                        <li>कृपया अपना रोल नम्बर ओ.एम.आर. उत्तर-पत्रक पर सावधानीपूर्वक सही भरें।</li>
-                        <li>ओ.एम.आर. उत्तर-पत्रक में करेक्शन पेन/व्हाइटनर/ब्लेड का उपयोग निषिद्ध है।</li>
-                        <li><b>प्रत्येक गलत उत्तर के लिए प्रश्न अंक का 1/3 भाग काटा जायेगा।</b></li>
-                        <li>प्रत्येक प्रश्न के पाँच विकल्प दिए गये हैं (A, B, C, D, E)।</li>
-                        <li><b>यदि आप प्रश्न का उत्तर नहीं देना चाहते हैं, तो उत्तर-पत्रक में पांचवें (E) विकल्प को गहरा करें।</b> यदि पांच में से कोई भी गोला गहरा नहीं किया जाता है, तो <b>1/3 भाग काटा जायेगा।</b></li>
-                        <li>मोबाइल फोन अथवा इलेक्ट्रॉनिक यंत्र का परीक्षा हॉल में प्रयोग पूर्णतया वर्जित है।</li>
-                    </ol>
-                </div>
+              <div class="col col-right">
+                  <div class="col-header">INSTRUCTIONS FOR CANDIDATES</div>
+                  <ol class="instruction-list">
+                      <li>It is mandatory to fill one option for each question.</li>
+                      <li>All questions carry equal marks.</li>
+                      <li>If more than one answer is marked, it would be treated as wrong answer.</li>
+                      <li>Fill in the particulars carefully with <b>BLUE BALL POINT PEN</b> only.</li>
+                      <li>Please correctly fill your Roll Number in OMR Answer Sheet.</li>
+                      <li>Use of Correction Pen/Whitener in the OMR Answer Sheet is strictly forbidden.</li>
+                      <li><b>1/3 part of the mark(s) of each question will be deducted for each wrong answer.</b></li>
+                      <li>Each question has five options marked as A, B, C, D, E.</li>
+                      <li><b>If you are not attempting a question, then you have to darken the circle 'E'. If none of the five circles is darkened, 1/3 part of the marks shall be deducted.</b></li>
+                      <li>Mobile Phone or any other electronic gadget is strictly prohibited.</li>
+                  </ol>
+              </div>
+          </div>
 
-                <div class="col col-right">
-                    <div class="col-header">INSTRUCTIONS FOR CANDIDATES</div>
-                    <ol class="instruction-list">
-                        <li>It is mandatory to fill one option for each question.</li>
-                        <li>All questions carry equal marks.</li>
-                        <li>If more than one answer is marked, it would be treated as wrong answer.</li>
-                        <li>Fill in the particulars carefully with <b>BLUE BALL POINT PEN</b> only.</li>
-                        <li>Please correctly fill your Roll Number in OMR Answer Sheet.</li>
-                        <li>Use of Correction Pen/Whitener in the OMR Answer Sheet is strictly forbidden.</li>
-                        <li><b>1/3 part of the mark(s) of each question will be deducted for each wrong answer.</b></li>
-                        <li>Each question has five options marked as A, B, C, D, E.</li>
-                        <li><b>If you are not attempting a question, then you have to darken the circle 'E'. If none of the five circles is darkened, 1/3 part of the marks shall be deducted.</b></li>
-                        <li>Mobile Phone or any other electronic gadget is strictly prohibited.</li>
-                    </ol>
-                </div>
-            </div>
+          <div class="footer-warning">
+              <b>Warning:</b> If a candidate is found copying, F.I.R. would be lodged against him/her under <b>Rajasthan Public Examination Act, 2022</b>.
+          </div>
 
-            <div class="footer-warning">
-                <b>Warning:</b> If a candidate is found copying, F.I.R. would be lodged against him/her under <b>Rajasthan Public Examination Act, 2022</b>.
-            </div>
+          <div class="bottom-text">
+              उत्तर-पत्रक में दो प्रतियां हैं - मूल प्रति और कार्बन प्रति। परीक्षा समाप्ति पर परीक्षा कक्ष छोड़ने से पूर्व परीक्षार्थी उत्तर-पत्रक की दोनों प्रतियां वीक्षक को सौंपेंगे।
+          </div>
 
-            <div class="bottom-text">
-                उत्तर-पत्रक में दो प्रतियां हैं - मूल प्रति और कार्बन प्रति। परीक्षा समाप्ति पर परीक्षा कक्ष छोड़ने से पूर्व परीक्षार्थी उत्तर-पत्रक की दोनों प्रतियां वीक्षक को सौंपेंगे।
-            </div>
+          <div class="page-footer">
+              <div style="font-size: 24px;">00 - 🌑</div>
+              <div>[ QR CODE ]</div>
+          </div>
+      </div>
+      """;
 
-            <div class="page-footer">
-                <div style="font-size: 24px;">00 - 🌑</div>
-                <div>[ QR CODE ]</div>
-            </div>
-        </div>
-        """;
+      // --- QUESTIONS LIST (Format is same for both, Answer Key just adds styling and explanation) ---
+      htmlContent += """
+      <div class="questions-page">
+      <div class="page-header">$examName - $topicName ${isAnswerKey ? '(Solution)' : ''}</div>
+      <div class="questions-wrapper">
+      """;
 
-        // --- QUESTIONS LIST ---
-        htmlContent += """
-        <div class="questions-page">
-        <div class="page-header">$examName - $topicName</div>
-        <div class="questions-wrapper">
-        """;
+      List<String> labels = ["(A)", "(B)", "(C)", "(D)"];
 
-        List<String> labels = ["(A)", "(B)", "(C)", "(D)"];
+      for (int i = 0; i < finalQuestions.length; i++) {
+        final q = finalQuestions[i];
+        String displayQuestion = _cleanQuestionText(q.questionText);
+        
+        String optionsHtml = "<div class='options-list'>";
+        for(int j=0; j<q.options.length; j++) {
+          if(j < 4) {
+            String optionText = q.options[j];
+            String prefix = "";
+            String cssClass = "option-item";
 
-        for (int i = 0; i < finalQuestions.length; i++) {
-          final q = finalQuestions[i];
-          String displayQuestion = _cleanQuestionText(q.questionText);
-          
-          String optionsHtml = "<div class='options-list'>";
-          for(int j=0; j<q.options.length; j++) {
-            if(j < 4) {
-              optionsHtml += "<div class='option-item'><b>${labels[j]}</b> ${q.options[j]}</div>";
+            // 🔥 MARK CORRECT ANSWER IN ANSWER KEY MODE
+            if (isAnswerKey && j == q.correctAnswerIndex) {
+              prefix = "✅ "; // Right Check Mark
+              cssClass += " correct-option"; // Bold Style
             }
-          }
-          optionsHtml += "<div class='option-item'><b>(E)</b> अनुतरित प्रश्न</div>";
-          optionsHtml += "</div>";
 
-          htmlContent += """
-          <div class="question-box">
-            <div class="q-text">Q${i+1}. $displayQuestion</div>
-            $optionsHtml
+            optionsHtml += "<div class='$cssClass'>$prefix<b>${labels[j]}</b> $optionText</div>";
+          }
+        }
+        optionsHtml += "<div class='option-item'><b>(E)</b> अनुतरित प्रश्न</div>";
+        optionsHtml += "</div>";
+
+        // 🔥 ADD EXPLANATION IN ANSWER KEY MODE
+        String explanationHtml = "";
+        if (isAnswerKey && q.explanation.isNotEmpty) {
+          explanationHtml = """
+          <div class="explanation-box">
+            <b>Explanation:</b> ${q.explanation}
           </div>
           """;
         }
-        htmlContent += "</div></div>";
+
+        htmlContent += """
+        <div class="question-box">
+          <div class="q-text">Q${i+1}. $displayQuestion</div>
+          $optionsHtml
+          $explanationHtml
+        </div>
+        """;
       }
+      htmlContent += "</div></div>";
 
       htmlContent += "</body></html>";
 
@@ -378,7 +429,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
           format: format,
           html: htmlContent,
         ),
-        name: isAnswerKey ? 'Answer_Key' : 'Question_Paper',
+        name: isAnswerKey ? 'Solution_Paper' : 'Question_Paper',
       );
 
     } catch (e) {
@@ -412,14 +463,12 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 ADMIN CHECK
-    final user = FirebaseAuth.instance.currentUser;
-    final bool isAdmin = user != null && user.email == "opsiddh42@gmail.com";
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(title: const Text("Success"), elevation: 0),
-      body: Center(
+      body: isLoadingPermissions 
+        ? const Center(child: CircularProgressIndicator()) 
+        : Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
@@ -431,7 +480,7 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               Text("Topic: $finalTopicName\nQuestions: ${finalQuestions.length}", textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 40),
 
-              // ATTEMPT BUTTON
+              // ATTEMPT BUTTON (Always visible)
               SizedBox(
                 width: double.infinity, height: 50,
                 child: ElevatedButton(
@@ -442,34 +491,39 @@ class _TestSuccessScreenState extends State<TestSuccessScreen> {
               ),
               const SizedBox(height: 20), const Divider(), const SizedBox(height: 10),
               
-              const Text("Downloads", style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 15),
+              if (canDownloadPdf || isAdmin) ...[
+                const Text("Downloads", style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 15),
 
-              if (isGenerating) const CircularProgressIndicator() else ...[
-                
-                // BUTTON 1: Question Paper
-                SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: () => _showExamDetailsDialog(context), 
-                  icon: const Icon(Icons.print, color: Colors.blue),
-                  label: const Text("Print Question Paper (PDF)"),
-                )),
-                const SizedBox(height: 10),
-                
-                // BUTTON 2: Answer Key
-                SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                  onPressed: () => _printHtml(isAnswerKey: true), 
-                  icon: const Icon(Icons.vpn_key, color: Colors.orange),
-                  label: const Text("Print Answer Key (Table PDF)"),
-                )),
-                const SizedBox(height: 10),
-
-                // BUTTON 3: CSV (🔥 RESTRICTED TO ADMIN)
-                if (isAdmin)
+                if (isGenerating) const CircularProgressIndicator() else ...[
+                  
+                  // BUTTON 1: Question Paper
                   SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                    onPressed: _generateCsv,
-                    icon: const Icon(Icons.table_chart, color: Colors.green),
-                    label: const Text("Download Excel (CSV)"),
+                    onPressed: () => _showExamDetailsDialog(context), 
+                    icon: const Icon(Icons.print, color: Colors.blue),
+                    label: const Text("Print Question Paper (PDF)"),
                   )),
+                  const SizedBox(height: 10),
+                  
+                  // BUTTON 2: Answer Key with Explanation
+                  SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                    onPressed: () => _printHtml(isAnswerKey: true), 
+                    icon: const Icon(Icons.check_circle_outline, color: Colors.orange),
+                    label: const Text("Print Answer Key (With Expl)"),
+                  )),
+                  const SizedBox(height: 10),
+
+                  // BUTTON 3: CSV (🔥 RESTRICTED TO ADMIN ONLY)
+                  if (isAdmin)
+                    SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                      onPressed: _generateCsv,
+                      icon: const Icon(Icons.table_chart, color: Colors.green),
+                      label: const Text("Download Excel (CSV)"),
+                    )),
+                ]
+              ] else ...[
+                 // Optional: Show a message or just show nothing if user can't download
+                 // const Text("Downloads not available for this account.", style: TextStyle(color: Colors.grey, fontSize: 12)),
               ]
             ],
           ),
