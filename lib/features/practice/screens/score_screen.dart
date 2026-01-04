@@ -97,8 +97,10 @@ class _ScoreScreenState extends State<ScoreScreen> {
         }
       }
 
-      // --- Firebase Stats Update ---
+      // --- Firebase Stats Update (With Monthly Logic) ---
       final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final now = DateTime.now();
+      final currentMonthID = "${now.year}-${now.month}"; // e.g. "2024-5"
       
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final userDoc = await transaction.get(userRef);
@@ -116,6 +118,19 @@ class _ScoreScreenState extends State<ScoreScreen> {
         int newCorrect = (currentStats['correct'] ?? 0) + widget.correctCount;
         int newWrong = (currentStats['wrong'] ?? 0) + widget.wrongCount;
 
+        // 🔥 MONTHLY LOGIC ADDED HERE
+        String dbMonth = currentStats['month_id'] ?? "";
+        int currentMonthlyScore = currentStats['monthly_score'] ?? 0;
+        int updatedMonthlyScore;
+
+        if (dbMonth != currentMonthID) {
+          // New Month -> Reset score to current test's score
+          updatedMonthlyScore = widget.correctCount;
+        } else {
+          // Same Month -> Add to existing monthly score
+          updatedMonthlyScore = currentMonthlyScore + widget.correctCount;
+        }
+
         String subjectKey = widget.topicName.replaceAll('.', '_'); 
         if (!currentSubjects.containsKey(subjectKey)) {
           currentSubjects[subjectKey] = {'total': 0, 'correct': 0};
@@ -130,6 +145,9 @@ class _ScoreScreenState extends State<ScoreScreen> {
             'correct': newCorrect,
             'wrong': newWrong,
             'subjects': currentSubjects,
+            // New Monthly Fields
+            'monthly_score': updatedMonthlyScore, 
+            'month_id': currentMonthID, 
           },
           // Legacy support
           'tests_taken': newTotalTests,
