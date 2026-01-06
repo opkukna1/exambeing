@@ -48,17 +48,23 @@ class _AdminQuestionBankScreenState extends State<AdminQuestionBankScreen> {
             onPressed: () async {
               if (_newSubjectController.text.isNotEmpty) {
                 String name = _newSubjectController.text.trim();
+                
+                // Add to Firestore
                 DocumentReference ref = await FirebaseFirestore.instance.collection('bank_subjects').add({
                   'name': name,
                   'createdAt': FieldValue.serverTimestamp(),
                 });
+
+                // 🔥 UPDATE STATE INSTANTLY
                 setState(() {
                   selectedSubjectId = ref.id;
                   selectedSubjectName = name;
-                  selectedTopicId = null; // Reset topic
+                  selectedTopicId = null; // Reset topic so user has to add/select new
+                  selectedTopicName = null;
                 });
+
                 _newSubjectController.clear();
-                Navigator.pop(ctx);
+                if(mounted) Navigator.pop(ctx);
               }
             },
             child: const Text("Create"),
@@ -84,18 +90,21 @@ class _AdminQuestionBankScreenState extends State<AdminQuestionBankScreen> {
             onPressed: () async {
               if (_newTopicController.text.isNotEmpty) {
                 String name = _newTopicController.text.trim();
+                
                 DocumentReference ref = await FirebaseFirestore.instance.collection('bank_topics').add({
                   'name': name,
                   'subjectId': selectedSubjectId,
                   'subjectName': selectedSubjectName,
                   'createdAt': FieldValue.serverTimestamp(),
                 });
+
                 setState(() {
                   selectedTopicId = ref.id;
                   selectedTopicName = name;
                 });
+
                 _newTopicController.clear();
-                Navigator.pop(ctx);
+                if(mounted) Navigator.pop(ctx);
               }
             },
             child: const Text("Create"),
@@ -127,7 +136,6 @@ class _AdminQuestionBankScreenState extends State<AdminQuestionBankScreen> {
       ];
       if (_optEController.text.isNotEmpty) options.add(_optEController.text.trim());
 
-      // Filter empty options
       options = options.where((e) => e.isNotEmpty).toList();
 
       await FirebaseFirestore.instance.collection('bank_questions').add({
@@ -143,12 +151,14 @@ class _AdminQuestionBankScreenState extends State<AdminQuestionBankScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saved to Question Bank! ✅"), backgroundColor: Colors.green));
-      _clearForm();
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saved to Question Bank! ✅"), backgroundColor: Colors.green));
+        _clearForm();
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
-      setState(() => _isSaving = false);
+      if(mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -175,18 +185,25 @@ class _AdminQuestionBankScreenState extends State<AdminQuestionBankScreen> {
       setState(() => _isSaving = true);
       try {
         final file = File(result.files.single.path!);
-        final input = file.openRead();
-        final fields = await input.transform(utf8.decoder).transform(const CsvToListConverter()).toList();
+        String csvString;
+        try {
+          csvString = await file.readAsString();
+        } catch (e) {
+          // If UTF-8 fails, try latin1 (common for Excel CSVs)
+          csvString = await file.readAsString(encoding: latin1);
+        }
+        
+        // Fix line endings
+        csvString = csvString.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
 
-        // Batch write for speed
+        final fields = const CsvToListConverter().convert(csvString);
+
         WriteBatch batch = FirebaseFirestore.instance.batch();
         int count = 0;
 
-        // Skip Header Row (Index 0) - Start from 1
         for (int i = 1; i < fields.length; i++) {
           var row = fields[i];
-          // CSV Format: Question, OptA, OptB, OptC, OptD, CorrectIndex (0-3), Explanation, Difficulty
-          if (row.length < 6) continue; // Skip invalid rows
+          if (row.length < 6) continue;
 
           DocumentReference docRef = FirebaseFirestore.instance.collection('bank_questions').doc();
           
@@ -208,20 +225,19 @@ class _AdminQuestionBankScreenState extends State<AdminQuestionBankScreen> {
           });
           
           count++;
-          // Commit batch every 400 writes (limit is 500)
           if (count % 400 == 0) {
             await batch.commit();
             batch = FirebaseFirestore.instance.batch();
           }
         }
-        await batch.commit(); // Final commit
+        await batch.commit();
 
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$count questions uploaded successfully!"), backgroundColor: Colors.green));
+        if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$count questions uploaded successfully!"), backgroundColor: Colors.green));
 
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("CSV Error: $e"), backgroundColor: Colors.red));
+        if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("CSV Error: $e"), backgroundColor: Colors.red));
       } finally {
-        setState(() => _isSaving = false);
+        if(mounted) setState(() => _isSaving = false);
       }
     }
   }
@@ -243,13 +259,18 @@ class _AdminQuestionBankScreenState extends State<AdminQuestionBankScreen> {
             const Text("1. Select/Create Hierarchy", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 10),
             
-            // Subject Dropdown
+            // 🔥 SUBJECT DROPDOWN
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('bank_subjects').orderBy('name').snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const LinearProgressIndicator();
                 var subjects = snapshot.data!.docs;
                 
+                // Ensure selected ID is valid (if deleted externally)
+                if (selectedSubjectId != null && !subjects.any((doc) => doc.id == selectedSubjectId)) {
+                   selectedSubjectId = null;
+                }
+
                 return Row(
                   children: [
                     Expanded(
@@ -264,7 +285,7 @@ class _AdminQuestionBankScreenState extends State<AdminQuestionBankScreen> {
                           setState(() {
                             selectedSubjectId = val;
                             selectedSubjectName = subjects.firstWhere((d) => d.id == val)['name'];
-                            selectedTopicId = null; // Reset topic when subject changes
+                            selectedTopicId = null; // Reset Topic
                             selectedTopicName = null;
                           });
                         },
@@ -277,15 +298,20 @@ class _AdminQuestionBankScreenState extends State<AdminQuestionBankScreen> {
             ),
             const SizedBox(height: 15),
 
-            // Topic Dropdown (Dependent on Subject)
-            if (selectedSubjectId != null)
+            // 🔥 TOPIC DROPDOWN (ONLY SHOWS IF SUBJECT SELECTED)
+            if (selectedSubjectId != null) ...[
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance.collection('bank_topics')
                     .where('subjectId', isEqualTo: selectedSubjectId)
                     .orderBy('name').snapshots(),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const SizedBox();
+                  if (!snapshot.hasData) return const LinearProgressIndicator();
                   var topics = snapshot.data!.docs;
+
+                  // Ensure selected ID is valid
+                  if (selectedTopicId != null && !topics.any((doc) => doc.id == selectedTopicId)) {
+                     selectedTopicId = null;
+                  }
 
                   return Row(
                     children: [
@@ -309,6 +335,11 @@ class _AdminQuestionBankScreenState extends State<AdminQuestionBankScreen> {
                     ],
                   );
                 },
+              ),
+            ] else 
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text("👆 Select a Subject to see Topics", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
               ),
 
             const Divider(height: 40, thickness: 2),
@@ -386,7 +417,10 @@ class _AdminQuestionBankScreenState extends State<AdminQuestionBankScreen> {
                 ),
               ),
             ] else 
-              const Center(child: Text("Select Subject & Topic to start adding questions", style: TextStyle(color: Colors.grey))),
+              const Center(child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: Text("⚠️ Select both Subject & Topic to start adding questions", style: TextStyle(color: Colors.red)),
+              )),
           ],
         ),
       ),
