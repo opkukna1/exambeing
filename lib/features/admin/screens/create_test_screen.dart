@@ -1,12 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
+import 'dart:convert'; // For CSV
+import 'dart:io';      // For File
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart'; // 🔥 Required
+import 'package:csv/csv.dart'; // 🔥 Required
 
 class CreateTestScreen extends StatefulWidget {
   final String examId;
@@ -38,8 +38,9 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
 
   // --- Auto Generator State ---
   final Map<String, int> _topicCounts = {}; 
-  final Map<String, String> _topicDifficulty = {}; // 🔥 New: Difficulty Map
-  bool _useQuestionBank = false; // 🔥 New: Source Switch (False = General, True = Bank)
+  // 🔥 NEW: Difficulty Map & Source Toggle
+  final Map<String, String> _topicDifficulty = {}; 
+  bool _useQuestionBank = false; // False = General, True = Question Bank
 
   int get _totalSelectedQuestions => _topicCounts.values.fold(0, (sum, count) => sum + count);
 
@@ -49,12 +50,13 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     _checkPermissions(); 
   }
 
-  // 🔒 SECURITY CHECK
+  // 🔒 SECURITY CHECK (Host & Ownership)
   Future<void> _checkPermissions() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) { _showErrorAndExit("Please login first."); return; }
 
     try {
+      // 1. Check if Host
       DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (!userDoc.exists) return;
       
@@ -64,6 +66,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         return; 
       }
 
+      // 2. Check if Week belongs to this Host
       DocumentSnapshot weekDoc = await FirebaseFirestore.instance
           .collection('study_schedules').doc(widget.examId)
           .collection('weeks').doc(widget.weekId).get();
@@ -71,15 +74,16 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       if (!weekDoc.exists) { _showErrorAndExit("Week not found."); return; }
 
       String creatorId = weekDoc['createdBy'] ?? ''; 
+      
       if (creatorId != user.uid) { 
-        _showErrorAndExit("Access Denied: Not your schedule."); 
+        _showErrorAndExit("Access Denied: You can only add tests to YOUR own schedules."); 
         return; 
       }
 
       if (mounted) setState(() => _isLoadingPage = false);
 
     } catch (e) {
-      _showErrorAndExit("Error: $e");
+      _showErrorAndExit("Error checking permissions: $e");
     }
   }
 
@@ -89,16 +93,212 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     Navigator.pop(context); 
   }
 
-  // --- CSV Logic (Same as before) ---
+  // 🔥 CSV PARSER (Bilkul waisa hi jaisa aapne diya tha)
   void _pickAndParseCSV() async {
-    // ... (Old CSV Code remains same - keeping it short here for brevity) ...
-    // Just copy the CSV function from previous correct version
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+      );
+
+      if (result != null) {
+        setState(() => _isGenerating = true);
+        
+        File file = File(result.files.single.path!);
+        String csvString;
+        try {
+          csvString = await file.readAsString();
+        } catch (e) {
+          csvString = await file.readAsString(encoding: latin1);
+        }
+
+        csvString = csvString.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+        
+        List<List<dynamic>> fields = const CsvToListConverter(eol: '\n').convert(csvString);
+
+        if (fields.isNotEmpty && fields[0].length < 2) {
+           debugPrint("Comma failed, trying Semicolon...");
+           fields = const CsvToListConverter(fieldDelimiter: ';', eol: '\n').convert(csvString);
+        }
+
+        if (fields.isEmpty) {
+           setState(() => _isGenerating = false);
+           _showErrorDialog("File is empty or could not be read.");
+           return;
+        }
+
+        int addedCount = 0;
+        int skippedCount = 0;
+        String debugLog = "";
+
+        for (int i = 1; i < fields.length; i++) {
+          List<dynamic> row = fields[i];
+          if (row.length < 6) {
+             if (row.isNotEmpty) debugLog += "Row $i skipped: Length ${row.length}\n";
+            skippedCount++;
+            continue; 
+          }
+
+          String question = row[0].toString().trim();
+          String optA = row[1].toString().trim();
+          String optB = row[2].toString().trim();
+          String optC = row[3].toString().trim();
+          String optD = row[4].toString().trim();
+          String correctAnsRaw = row[5].toString().trim().toUpperCase(); 
+          String explanation = row.length > 6 ? row[6].toString().trim() : "";
+
+          if (question.isEmpty || optA.isEmpty) {
+            skippedCount++;
+            continue;
+          }
+
+          int correctIndex = 0;
+          if (correctAnsRaw.contains('B') || correctAnsRaw == '2') correctIndex = 1;
+          else if (correctAnsRaw.contains('C') || correctAnsRaw == '3') correctIndex = 2;
+          else if (correctAnsRaw.contains('D') || correctAnsRaw == '4') correctIndex = 3;
+
+          if (!_questions.any((q) => q['question'] == question)) {
+            _questions.add({
+              'id': DateTime.now().millisecondsSinceEpoch.toString() + i.toString(),
+              'question': question,
+              'options': [optA, optB, optC, optD],
+              'correctIndex': correctIndex,
+              'explanation': explanation
+            });
+            addedCount++;
+          } else {
+            skippedCount++;
+          }
+        }
+
+        setState(() => _isGenerating = false);
+
+        if (addedCount == 0) {
+          _showErrorDialog("Failed to import.\n\nCode found ${fields.length} rows.\n\nDebug Info:\n$debugLog\n\nTip: Make sure you saved as 'CSV (Comma delimited)'.");
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Colors.green, content: Text("Success! Imported $addedCount questions. (Skipped: $skippedCount)")));
+        }
+      }
+    } catch (e) {
+      setState(() => _isGenerating = false);
+      _showErrorDialog("Error reading CSV: $e");
+    }
   }
 
-  // 🔥 UPDATED: AUTO GENERATOR SHEET (With Source & Difficulty)
+  void _showErrorDialog(String msg) {
+    showDialog(context: context, builder: (c) => AlertDialog(title: const Text("⚠️ Import Info"), content: SingleChildScrollView(child: Text(msg)), actions: [TextButton(onPressed: ()=>Navigator.pop(c), child: const Text("OK"))]));
+  }
+
+  // 🔥 REGEX CLEANER
+  String _cleanText(String text) {
+    return text.replaceAll(RegExp(r'\s*\(\s*(Exam|Year|SSC|RPSC|UPSC|Govt|RAS|IAS|Bank|Railway|Police).*?\)', caseSensitive: false), '').trim();
+  }
+
+  // ✏️ MANUAL ADD / EDIT DIALOG
+  void _showManualQuestionDialog({Map<String, dynamic>? existingQ, int? index}) {
+    final qController = TextEditingController(text: existingQ?['question'] ?? '');
+    final optA = TextEditingController(text: existingQ != null && existingQ['options'].length > 0 ? existingQ['options'][0] : '');
+    final optB = TextEditingController(text: existingQ != null && existingQ['options'].length > 1 ? existingQ['options'][1] : '');
+    final optC = TextEditingController(text: existingQ != null && existingQ['options'].length > 2 ? existingQ['options'][2] : '');
+    final optD = TextEditingController(text: existingQ != null && existingQ['options'].length > 3 ? existingQ['options'][3] : '');
+    final explController = TextEditingController(text: existingQ?['explanation'] ?? '');
+    
+    int correctIndex = existingQ?['correctIndex'] ?? 0;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(existingQ == null ? "Add Question" : "Edit Question"),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: qController, decoration: const InputDecoration(labelText: "Question Text", border: OutlineInputBorder()), maxLines: 3),
+                  const SizedBox(height: 10),
+                  TextField(controller: optA, decoration: const InputDecoration(labelText: "Option A", prefixIcon: Icon(Icons.looks_one))),
+                  TextField(controller: optB, decoration: const InputDecoration(labelText: "Option B", prefixIcon: Icon(Icons.looks_two))),
+                  TextField(controller: optC, decoration: const InputDecoration(labelText: "Option C", prefixIcon: Icon(Icons.looks_3))),
+                  TextField(controller: optD, decoration: const InputDecoration(labelText: "Option D", prefixIcon: Icon(Icons.looks_4))),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    value: correctIndex,
+                    decoration: const InputDecoration(labelText: "Correct Answer", border: OutlineInputBorder()),
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text("Option A")),
+                      DropdownMenuItem(value: 1, child: Text("Option B")),
+                      DropdownMenuItem(value: 2, child: Text("Option C")),
+                      DropdownMenuItem(value: 3, child: Text("Option D")),
+                    ],
+                    onChanged: (v) => setDialogState(() => correctIndex = v!),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(controller: explController, decoration: const InputDecoration(labelText: "Explanation (Solution)", border: OutlineInputBorder()), maxLines: 2),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+              ElevatedButton(
+                onPressed: () {
+                  if (qController.text.isNotEmpty && optA.text.isNotEmpty && optB.text.isNotEmpty) {
+                    Map<String, dynamic> newQ = {
+                      'question': qController.text,
+                      'options': [optA.text, optB.text, optC.text, optD.text],
+                      'correctIndex': correctIndex,
+                      'explanation': explController.text,
+                      'id': existingQ?['id'] ?? DateTime.now().millisecondsSinceEpoch.toString()
+                    };
+
+                    setState(() {
+                      if (index != null) _questions[index] = newQ;
+                      else _questions.add(newQ);
+                    });
+                    Navigator.pop(ctx);
+                  } else {
+                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Question and Options A, B required")));
+                  }
+                },
+                child: const Text("Save"),
+              )
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSettingsCard() {
+    return Card(
+      elevation: 2, color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            const Text("⚙️ Settings", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+            const SizedBox(height: 10),
+            Row(children: [
+                Expanded(child: TextFormField(initialValue: _durationMinutes.toString(), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Time (Mins)", filled: true, fillColor: Colors.white), onChanged: (v) => setState(() => _durationMinutes = int.tryParse(v) ?? 60))),
+                const SizedBox(width: 15),
+                Expanded(child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.grey)), child: Column(children: [const Text("Total Marks", style: TextStyle(fontSize: 10)), Text("${_totalMaxMarks.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green))])))
+            ]),
+            const SizedBox(height: 10),
+            Row(children: [
+                Expanded(child: TextFormField(initialValue: _positiveMark.toString(), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Right (+)", filled: true, fillColor: Colors.white), onChanged: (v) => setState(() => _positiveMark = double.tryParse(v) ?? 4.0))),
+                const SizedBox(width: 10),
+                Expanded(child: TextFormField(initialValue: _negativeMark.toString(), keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Wrong (-)", filled: true, fillColor: Colors.white), onChanged: (v) => setState(() => _negativeMark = double.tryParse(v) ?? 1.0))),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🔥🔥 UPDATED: AUTO GENERATOR (With Source & Difficulty) 🔥🔥
   void _openAutoGeneratorSheet() {
-    _topicCounts.clear();
-    _topicDifficulty.clear();
+    _topicCounts.clear(); 
+    _topicDifficulty.clear(); // Clear difficulty
     
     showModalBottomSheet(
       context: context, isScrollControlled: true, backgroundColor: Colors.white,
@@ -106,7 +306,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       builder: (context) {
         return StatefulBuilder(builder: (context, setSheetState) {
             
-            // Determine Collection Names based on Source
+            // Toggle Logic
             String subjectCol = _useQuestionBank ? 'bank_subjects' : 'subjects';
             String topicCol = _useQuestionBank ? 'bank_topics' : 'topics';
 
@@ -121,7 +321,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                       children: [
                         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                           const Text("🤖 Auto Generator", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), 
-                          Text("Selected: $_totalSelectedQuestions Qs", style: TextStyle(fontWeight: FontWeight.bold, color: _useQuestionBank ? Colors.teal : Colors.deepPurple))
+                          Text("Selected: $_totalSelectedQuestions Qs", style: const TextStyle(fontWeight: FontWeight.bold))
                         ]),
                         const SizedBox(height: 10),
                         // 🔥 SOURCE SWITCH
@@ -189,7 +389,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
           children: topics.map((topicDoc) {
             var tData = topicDoc.data() as Map<String, dynamic>;
             int count = _topicCounts[topicDoc.id] ?? 0;
-            String diff = _topicDifficulty[topicDoc.id] ?? 'Any'; // Default Any
+            String diff = _topicDifficulty[topicDoc.id] ?? 'Any'; // Default 'Any'
 
             return Container(
               color: count > 0 ? (_useQuestionBank ? Colors.teal.shade50 : Colors.deepPurple.shade50) : Colors.transparent, 
@@ -207,18 +407,21 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                       ]
                     )
                   ),
-                  // 🔥 Difficulty Selector (Visible only if count > 0)
+                  // 🔥🔥 DIFFICULTY SELECTOR (Visible only if count > 0)
                   if (count > 0)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      child: Row(children: [
-                        const Text("Difficulty: ", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        const SizedBox(width: 10),
-                        _buildDiffChip("Any", diff, topicDoc.id, setSheetState),
-                        _buildDiffChip("Easy", diff, topicDoc.id, setSheetState),
-                        _buildDiffChip("Medium", diff, topicDoc.id, setSheetState),
-                        _buildDiffChip("Hard", diff, topicDoc.id, setSheetState),
-                      ]),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(children: [
+                          const Text("Difficulty: ", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          const SizedBox(width: 5),
+                          _buildDiffChip("Any", diff, topicDoc.id, setSheetState),
+                          _buildDiffChip("Easy", diff, topicDoc.id, setSheetState),
+                          _buildDiffChip("Medium", diff, topicDoc.id, setSheetState),
+                          _buildDiffChip("Hard", diff, topicDoc.id, setSheetState),
+                        ]),
+                      ),
                     ),
                   const Divider(height: 1),
                 ],
@@ -236,21 +439,22 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       onTap: () => setSheetState(() => _topicDifficulty[topicId] = label),
       child: Container(
         margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected ? Colors.orange : Colors.grey.shade200,
           borderRadius: BorderRadius.circular(10),
+          border: isSelected ? Border.all(color: Colors.deepOrange) : null,
         ),
-        child: Text(label, style: TextStyle(fontSize: 10, color: isSelected ? Colors.white : Colors.black)),
+        child: Text(label, style: TextStyle(fontSize: 10, color: isSelected ? Colors.white : Colors.black, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
       ),
     );
   }
 
-  // 🔥 3. FETCH LOGIC (HANDLES BOTH SOURCES & DIFFICULTY)
+  // 🔥🔥 UPDATED: FETCH LOGIC (Supports Bank & Difficulty) 🔥🔥
   Future<void> _fetchQuestionsFromSelection() async {
     setState(() => _isGenerating = true);
     List<Map<String, dynamic>> fetchedQuestions = [];
-    String qCollection = _useQuestionBank ? 'bank_questions' : 'questions'; // 🔥 Dynamic Collection
+    String qCollection = _useQuestionBank ? 'bank_questions' : 'questions'; // Dynamic Collection
     
     try {
       List<Future<void>> tasks = [];
@@ -263,12 +467,12 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         tasks.add(Future(() async {
           Query query = FirebaseFirestore.instance.collection(qCollection).where('topicId', isEqualTo: topicId);
           
-          // 🔥 Apply Difficulty Filter
+          // 🔥 Apply Difficulty Filter if not 'Any'
           if (difficulty != 'Any') {
             query = query.where('difficulty', isEqualTo: difficulty);
           }
 
-          // Random Start Logic
+          // Random Start Logic (Batch Fetch)
           String randomId = FirebaseFirestore.instance.collection(qCollection).doc().id;
           
           // Try fetching with random start
@@ -294,33 +498,67 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       
     } catch (e) {
       setState(() => _isGenerating = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error (Check Indexes): $e")));
     }
   }
 
   void _processFetchedDoc(QueryDocumentSnapshot doc, List<Map<String, dynamic>> list) {
     var data = doc.data() as Map<String, dynamic>;
-    // ... (Same Processing Logic as before) ...
+    
     String rawQ = data['questionText'] ?? data['question'] ?? 'No Question';
-    String explanation = data['explanation'] ?? '';
-    List<String> options = [];
-    if(data['options'] != null) options = List<String>.from(data['options']);
+    String cleanedQ = _cleanText(rawQ); 
+    String explanation = data['explanation'] ?? data['solution'] ?? '';
 
-    if (!_questions.any((q) => q['question'] == rawQ) && !list.any((q) => q['question'] == rawQ)) {
+    List<String> options = [];
+    // Flexible option parsing
+    if(data['option0'] != null) options.add(data['option0'].toString());
+    if(data['option1'] != null) options.add(data['option1'].toString());
+    if(data['option2'] != null) options.add(data['option2'].toString());
+    if(data['option3'] != null) options.add(data['option3'].toString());
+    if(data['option4'] != null) options.add(data['option4'].toString());
+    if(options.isEmpty && data['options'] != null) options = List<String>.from(data['options']);
+
+    if (!_questions.any((q) => q['question'] == cleanedQ) && !list.any((q) => q['question'] == cleanedQ)) {
       list.add({ 
-        'question': rawQ,
+        'question': cleanedQ,
         'options': options, 
-        'correctIndex': data['correctAnswerIndex'] ?? 0, 
+        'correctIndex': data['correctAnswerIndex'] ?? data['correctIndex'] ?? 0, 
         'explanation': explanation, 
         'id': doc.id 
       });
     }
   }
 
-  // --- Save Logic (Same) ---
   void _saveTest() async {
-    // ... (Same Save Logic) ...
-    // Just ensure you add this block back
+    FocusScope.of(context).unfocus();
+
+    if (_testTitleController.text.isEmpty || _unlockTime == null || _questions.isEmpty || _contactController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Title, Time, Contact No. & Questions required!"))); return;
+    }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('study_schedules').doc(widget.examId).collection('weeks').doc(widget.weekId).collection('tests').add({
+        'testTitle': _testTitleController.text.trim(),
+        'scheduledAt': Timestamp.fromDate(_unlockTime!), 
+        'questions': _questions,
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': user.uid, 
+        'contactNumber': _contactController.text.trim(),
+        'attemptedUsers': [],
+        'settings': { 'positive': _positiveMark, 'negative': _negativeMark, 'skip': _skipMark, 'duration': _durationMinutes, 'totalMaxMarks': _totalMaxMarks }
+      });
+      if(mounted) Navigator.pop(context);
+    } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"))); }
+  }
+
+  void _pickDate() async {
+    DateTime? picked = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime(2030));
+    if (picked != null) {
+      TimeOfDay? time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+      if (time != null) setState(() => _unlockTime = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute));
+    }
   }
 
   @override
@@ -332,48 +570,57 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ... (Basic Fields) ...
             TextField(controller: _testTitleController, decoration: const InputDecoration(labelText: "Test Title", border: OutlineInputBorder())),
             const SizedBox(height: 10),
-            TextField(controller: _contactController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "WhatsApp No.", hintText: "8005576670", prefixIcon: Icon(Icons.phone), border: OutlineInputBorder())),
-            // ...
+            TextField(controller: _contactController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "WhatsApp No.", hintText: "8005576670", prefixIcon: Icon(Icons.phone, color: Colors.green), border: OutlineInputBorder())),
+            const SizedBox(height: 10),
+            ListTile(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade300)), title: Text(_unlockTime == null ? "Select Start Date & Time" : "Starts: ${DateFormat('dd MMM - hh:mm a').format(_unlockTime!)}"), trailing: const Icon(Icons.calendar_today, color: Colors.deepPurple), onTap: _pickDate),
+            const SizedBox(height: 15),
+            _buildSettingsCard(),
             const SizedBox(height: 20),
             
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text("Questions (${_questions.length})", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 Row(children: [
-                    // 🔥 NEW: Auto Gen Button with Icon
-                    ElevatedButton.icon(
-                      onPressed: _isGenerating ? null : _openAutoGeneratorSheet, 
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo.shade50, foregroundColor: Colors.indigo), 
-                      icon: const Icon(Icons.smart_toy), 
-                      label: const Text("Auto Gen")
-                    ),
+                    IconButton(onPressed: () => _showManualQuestionDialog(), icon: const Icon(Icons.add_circle, color: Colors.green), tooltip: "Add Manual Question"),
+                    
+                    // 🔥 CSV BUTTON (Same Logic)
+                    IconButton(onPressed: _isGenerating ? null : _pickAndParseCSV, icon: const Icon(Icons.upload_file, color: Colors.orange), tooltip: "Upload CSV"),
+                    
+                    ElevatedButton.icon(onPressed: _isGenerating ? null : _openAutoGeneratorSheet, style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple.shade50, foregroundColor: Colors.deepPurple), icon: _isGenerating ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.auto_awesome), label: const Text("Auto Gen")),
                 ])
             ]),
             const Divider(),
             
-            // Question List
-            ListView.builder(
+            _questions.isEmpty 
+            ? const Padding(padding: EdgeInsets.all(20), child: Center(child: Text("No questions added. Upload CSV or Auto Gen.")))
+            : ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _questions.length,
               itemBuilder: (ctx, i) {
                  var q = _questions[i];
                  return Card(
+                   margin: const EdgeInsets.only(bottom: 8),
                    child: ListTile(
-                     title: Text("Q${i+1}: ${q['question']}"),
-                     subtitle: Text("Ans: ${q['options'].length > q['correctIndex'] ? q['options'][q['correctIndex']] : 'N/A'}"),
-                     trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => setState(() => _questions.removeAt(i))),
+                     title: Text("Q${i+1}: ${q['question']}", maxLines: 2, overflow: TextOverflow.ellipsis),
+                     subtitle: Text("Ans: ${q['options'][q['correctIndex']]}"),
+                     trailing: Row(
+                       mainAxisSize: MainAxisSize.min,
+                       children: [
+                         IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showManualQuestionDialog(existingQ: q, index: i)),
+                         IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => setState(() => _questions.removeAt(i))),
+                       ],
+                     ),
                    ),
                  );
               }
             ),
 
             const SizedBox(height: 30),
-            // Save Button
-            SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _questions.isNotEmpty ? () {} : null, child: const Text("SAVE"))) // Placeholder for save
+            SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _isGenerating ? null : _saveTest, style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, padding: const EdgeInsets.all(16)), child: const Text("SAVE FULL TEST", style: TextStyle(fontWeight: FontWeight.bold))))
           ],
         ),
       ),
