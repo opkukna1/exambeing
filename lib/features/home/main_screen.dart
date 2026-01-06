@@ -8,6 +8,8 @@ import 'package:exambeing/services/auth_service.dart';
 // ✅ IMPORT ADMIN & MODERATOR SCREENS
 import 'package:exambeing/features/admin/screens/manage_moderator_screens.dart';
 import 'package:exambeing/features/moderator/screens/moderator_dashboard_screen.dart';
+// ✅ IMPORT NEW QUESTION BANK SCREEN
+import 'package:exambeing/features/admin/screens/add_question_bank.dart'; 
 
 class MainScreen extends StatefulWidget {
   final Widget child;
@@ -228,7 +230,20 @@ class AppDrawer extends StatelessWidget {
                             const SizedBox(height: 15),
                             _buildSectionTitle("Management Panel 🛡️"),
 
-                            // 1️⃣ ADMIN ONLY: Manage Moderators
+                            // 1️⃣ ADMIN ONLY: Question Bank (NEW BUTTON) 🔥
+                            if (isAdmin)
+                              _buildDrawerItem(
+                                context, 
+                                Icons.account_balance, // Bank Icon
+                                "Question Bank", 
+                                () {
+                                  Navigator.push(context, MaterialPageRoute(builder: (c) => const AdminQuestionBankScreen()));
+                                },
+                                isSpecial: true,
+                                specialColor: Colors.orange // Distinct Color
+                              ),
+
+                            // 2️⃣ ADMIN ONLY: Manage Moderators
                             if (isAdmin)
                               _buildDrawerItem(
                                 context, 
@@ -242,7 +257,7 @@ class AppDrawer extends StatelessWidget {
                                 specialColor: Colors.redAccent
                               ),
 
-                            // 2️⃣ ADMIN & MODERATOR: Dashboard
+                            // 3️⃣ ADMIN & MODERATOR: Dashboard
                             if (isAdmin || isModerator)
                               _buildDrawerItem(
                                 context, 
