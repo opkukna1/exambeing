@@ -20,8 +20,15 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 2. AdMob SDK Initialize
-  await MobileAds.instance.initialize();
+  // 🔥🔥 2. AdMob Configuration (FAMILY POLICY FIX) 🔥🔥
+  RequestConfiguration configuration = RequestConfiguration(
+    maxAdContentRating: MaxAdContentRating.g, // Sirf 'General' Ads dikhao
+    tagForChildDirectedTreatment: TagForChildDirectedTreatment.no, // 13+ ke liye 'no'
+    tagForUnderAgeOfConsent: TagForUnderAgeOfConsent.no, // Consent age ke liye
+  );
+
+  await MobileAds.instance.updateRequestConfiguration(configuration);
+  await MobileAds.instance.initialize(); // Initialize AdMob
 
   // ✅ 3. Ad Pre-load (App start hote hi)
   AdManager.loadInterstitialAd();
