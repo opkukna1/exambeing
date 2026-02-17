@@ -3,127 +3,315 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exambeing - Ace Your Exams</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <title>ExamBeing Portal | Practice Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f4f7fa; }
+        .glass-nav { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+        .sidebar-transition { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .score-card { background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); }
+        .btn-primary { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); }
+        .option-card { transition: all 0.2s ease; border: 2px solid #eef2f6; }
+        .option-card:hover { border-color: #3b82f6; background-color: #f0f7ff; }
+        .option-selected { border-color: #3b82f6 !important; background-color: #eff6ff !important; }
+    </style>
 </head>
-<body>
+<body class="overflow-x-hidden">
 
-    <nav class="navbar">
-        <div class="container">
-            <h1 class="logo">ExamBeing</h1>
-            <ul class="nav-links">
-                <li><a href="#home">Home</a></li>
-                <li><a href="#features">Features</a></li>
-                <li><a href="#about">Stats</a></li>
-                <li><a href="#download" class="btn-nav">Download App</a></li>
-            </ul>
-        </div>
-    </nav>
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
 
-    <section id="home" class="hero">
-        <div class="container hero-content">
-            <div class="hero-text">
-                <h1>Prepare Smarter, <br> <span class="highlight">Score Higher!</span></h1>
-                <p>The ultimate exam preparation app with Live Tests, AI Tutor, and Detailed Analytics. Join thousands of students achieving their dreams.</p>
-                
-                <div class="cta-buttons">
-                    <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" target="_blank" class="btn-google">
-                        <i class="fab fa-google-play"></i> Download App
-                    </a>
-
-                    <a href="https://t.me/Exambeingofficial" target="_blank" class="btn-telegram">
-                        <i class="fab fa-telegram"></i> Join Telegram
+    <aside id="sidebar" class="fixed top-0 left-0 h-full w-72 bg-slate-900 text-white z-50 transform -translate-x-full sidebar-transition">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-10">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-xl">E</div>
+                <span class="text-xl font-extrabold tracking-tight">ExamBeing</span>
+            </div>
+            <nav class="space-y-2">
+                <a href="#" onclick="goHome()" class="flex items-center gap-4 p-3 rounded-xl bg-blue-600 text-white font-bold">
+                    <i class="fas fa-home w-5"></i> Dashboard
+                </a>
+                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800 transition text-slate-400 hover:text-white">
+                    <i class="fas fa-book w-5"></i> My Courses
+                </a>
+                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800 transition text-slate-400 hover:text-white">
+                    <i class="fas fa-file-alt w-5"></i> PDF Notes
+                </a>
+                <div class="pt-10">
+                    <p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest px-3 mb-4">Support</p>
+                    <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800 transition text-slate-400">
+                        <i class="fas fa-headset w-5"></i> Contact Us
                     </a>
                 </div>
-
-            </div>
-            <div class="hero-img">
-                <img src="app_screen.png" alt="Exambeing App Interface">
-            </div>
+            </nav>
         </div>
-    </section>
+    </aside>
 
-    <section id="features" class="features">
-        <div class="container">
-            <h2 class="section-title">Awesome Features</h2>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <div class="icon-box"><i class="fas fa-robot"></i></div>
-                    <h3>AI Tutor Support</h3>
-                    <p>Stuck on a question? Ask our AI Tutor and get instant, detailed explanations in Hinglish.</p>
+    <div class="min-h-screen sidebar-transition" id="main-panel">
+        
+        <header class="sticky top-0 z-30 glass-nav border-b border-slate-200 px-4 py-3">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 transition">
+                        <i class="fas fa-bars text-slate-600"></i>
+                    </button>
+                    <span class="font-bold text-slate-800 hidden md:block">Portal Access</span>
                 </div>
-                <div class="feature-card">
-                    <div class="icon-box"><i class="fas fa-edit"></i></div>
-                    <h3>Custom Tests</h3>
-                    <p>Create your own tests by selecting subjects and topics. Practice exactly what you need.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="icon-box"><i class="fas fa-chart-line"></i></div>
-                    <h3>Detailed Analysis</h3>
-                    <p>Track your performance with deep analytics, accuracy reports, and time management stats.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="icon-box"><i class="fas fa-trophy"></i></div>
-                    <h3>Live Leaderboard</h3>
-                    <p>Compete with students across the state and see your All India Rank in real-time.</p>
+                <div class="flex items-center gap-3">
+                    <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="btn-primary text-white px-5 py-2 rounded-full text-xs font-bold shadow-lg shadow-blue-200">
+                        DOWNLOAD APP
+                    </a>
                 </div>
             </div>
-        </div>
-    </section>
+        </header>
 
-    <section id="about" class="stats">
-        <div class="container stats-grid">
-            <div class="stat-item">
-                <h3>10K+</h3>
-                <p>Downloads</p>
-            </div>
-            <div class="stat-item">
-                <h3>500+</h3>
-                <p>Test Series</p>
-            </div>
-            <div class="stat-item">
-                <h3>4.8/5</h3>
-                <p>User Rating</p>
-            </div>
-        </div>
-    </section>
+        <main class="max-w-6xl mx-auto p-4 md:p-8">
+            
+            <div id="homepage" class="block">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                    <div class="md:col-span-2 bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl">
+                        <h1 class="text-3xl md:text-4xl font-extrabold mb-4 leading-tight">Prepare for Rajasthan <br><span class="text-blue-500">Competitive Exams</span></h1>
+                        <p class="text-slate-400 mb-8 max-w-sm">Access 10,000+ Subject-wise questions with real-time analysis and negative marking.</p>
+                        <button onclick="scrollToContent()" class="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold hover:bg-blue-50 transition">Start Free Practice</button>
+                        <i class="fas fa-award absolute -right-4 -bottom-4 text-9xl text-white/5 -rotate-12"></i>
+                    </div>
+                    <div class="bg-blue-600 rounded-3xl p-8 text-white flex flex-col justify-between shadow-xl">
+                        <div>
+                            <p class="text-blue-100 text-xs font-bold uppercase tracking-widest mb-2">Daily Goal</p>
+                            <h2 class="text-2xl font-bold italic">"Consistency is Key"</h2>
+                        </div>
+                        <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-500 hover:bg-blue-400 p-4 rounded-2xl flex items-center justify-between group transition">
+                            <span class="font-bold">Get App</span>
+                            <i class="fas fa-arrow-right group-hover:translate-x-1 transition"></i>
+                        </a>
+                    </div>
+                </div>
 
-    <section id="download" class="download-section">
-        <div class="container">
-            <h2>Ready to Crack Your Exam?</h2>
-            <p>Download Exambeing now and start your journey towards success.</p>
-            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="btn-white">Download Now</a>
-        </div>
-    </section>
+                <div id="content-anchor">
+                    <h2 class="text-xl font-extrabold text-slate-800 mb-6">Select Subject</h2>
+                    <div id="subject-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        </div>
+                </div>
+            </div>
 
-    <footer>
-        <div class="container footer-content">
-            <div class="footer-left">
-                <h2>ExamBeing</h2>
-                <p>Empowering students with technology.</p>
-            </div>
-            <div class="footer-links">
-                <a href="#">Privacy Policy</a>
-                <a href="#">Terms & Conditions</a>
-                <a href="mailto:exambeingdev@gmail.com">Contact Us</a>
-            </div>
-        </div>
-        <div class="copyright">
-            <p>&copy; 2025 Exambeing. All Rights Reserved.</p>
-        </div>
-    </footer>
+            <nav id="breadcrumb" class="hidden mb-6 flex items-center gap-2 text-sm font-bold">
+                <span onclick="goHome()" class="text-blue-600 cursor-pointer">Home</span>
+                <i class="fas fa-chevron-right text-[10px] text-slate-300"></i>
+                <span id="crumb-text" class="text-slate-400"></span>
+            </nav>
+
+            <div id="render-view" class="hidden"></div>
+
+        </main>
+    </div>
+
+    <div id="quiz-portal" class="fixed inset-0 bg-white z-[100] hidden overflow-y-auto"></div>
 
     <script>
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                document.querySelector(this.getAttribute('href')).scrollIntoView({
-                    behavior: 'smooth'
-                });
+        let allData = [];
+        let currentState = { sub: "", top: "", set: [] };
+
+        // 1. Data Fetch
+        fetch('questions.json')
+            .then(res => res.json())
+            .then(data => {
+                allData = data;
+                renderSubjects();
             });
-        });
+
+        function toggleSidebar() {
+            const side = document.getElementById('sidebar');
+            const over = document.getElementById('sidebar-overlay');
+            const panel = document.getElementById('main-panel');
+            
+            if(side.classList.contains('-translate-x-full')) {
+                side.classList.remove('-translate-x-full');
+                over.classList.remove('hidden');
+                panel.classList.add('md:ml-72');
+            } else {
+                side.classList.add('-translate-x-full');
+                over.classList.add('hidden');
+                panel.classList.remove('md:ml-72');
+            }
+        }
+
+        function goHome() {
+            document.getElementById('homepage').classList.remove('hidden');
+            document.getElementById('render-view').classList.add('hidden');
+            document.getElementById('breadcrumb').classList.add('hidden');
+            renderSubjects();
+        }
+
+        function renderSubjects() {
+            const subjects = [...new Set(allData.map(i => i.subject || "Rajasthan GK"))];
+            const grid = document.getElementById('subject-grid');
+            grid.innerHTML = subjects.map(sub => `
+                <div onclick="showTopics('${sub}')" class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 card-hover cursor-pointer group">
+                    <div class="w-14 h-14 bg-slate-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
+                        <i class="fas fa-book-reader text-xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">${sub}</h3>
+                    <p class="text-xs text-slate-400 mt-1">Explore Topic-wise tests</p>
+                </div>
+            `).join('');
+        }
+
+        function showTopics(sub) {
+            document.getElementById('homepage').classList.add('hidden');
+            document.getElementById('render-view').classList.remove('hidden');
+            document.getElementById('breadcrumb').classList.remove('hidden');
+            document.getElementById('crumb-text').innerText = sub;
+
+            const topics = [...new Set(allData.filter(i => (i.subject || "Rajasthan GK") === sub).map(i => i.topic))];
+            const render = document.getElementById('render-view');
+            render.innerHTML = `
+                <h2 class="text-2xl font-black text-slate-800 mb-6">Select Topic</h2>
+                <div class="grid grid-cols-1 gap-3">
+                    ${topics.map(top => `
+                        <div onclick="showSets('${sub}', '${top}')" class="bg-white p-5 rounded-2xl border border-slate-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition shadow-sm">
+                            <span class="font-bold text-slate-700">${top}</span>
+                            <i class="fas fa-arrow-right text-slate-300"></i>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function showSets(sub, top) {
+            document.getElementById('crumb-text').innerText = `${sub} > ${top}`;
+            const filtered = allData.filter(i => i.topic === top);
+            const setTotal = Math.ceil(filtered.length / 20);
+
+            const render = document.getElementById('render-view');
+            render.innerHTML = `
+                <h2 class="text-2xl font-black text-slate-800 mb-6">Practice Sets</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    ${Array.from({length: setTotal}, (_, i) => `
+                        <div onclick="startQuiz('${top}', ${i+1})" class="bg-white p-8 rounded-[2rem] border-2 border-slate-100 text-center cursor-pointer hover:border-blue-600 transition group">
+                            <div class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Set</div>
+                            <div class="text-4xl font-black text-slate-800 group-hover:scale-110 transition-transform">${i+1}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function startQuiz(topic, setNum) {
+            const filtered = allData.filter(i => i.topic === topic);
+            const batch = filtered.slice((setNum-1)*20, setNum*20);
+            
+            const portal = document.getElementById('quiz-portal');
+            portal.classList.remove('hidden');
+            
+            let currentIdx = 0;
+            let userAnswers = [];
+
+            function renderQ() {
+                const q = batch[currentIdx];
+                portal.innerHTML = `
+                    <div class="max-w-4xl mx-auto p-6 md:p-12 min-h-screen flex flex-col">
+                        <div class="flex justify-between items-center mb-10">
+                            <div class="w-1/2">
+                                <div class="flex justify-between text-[10px] font-black uppercase text-slate-400 mb-2">
+                                    <span>Question ${currentIdx+1}/${batch.length}</span>
+                                    <span>${topic}</span>
+                                </div>
+                                <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                    <div class="h-full bg-blue-600 transition-all" style="width:${((currentIdx+1)/batch.length)*100}%"></div>
+                                </div>
+                            </div>
+                            <button onclick="document.getElementById('quiz-portal').classList.add('hidden')" class="text-slate-400">Exit</button>
+                        </div>
+                        <h2 class="text-2xl md:text-3xl font-extrabold text-slate-800 mb-10">${q.question}</h2>
+                        <div class="grid grid-cols-1 gap-4 flex-grow">
+                            ${q.options.map((opt, i) => `
+                                <button onclick="nextQ('${opt.replace(/'/g, "\\'")}')" class="option-card w-full text-left p-5 rounded-2xl bg-white font-bold text-slate-700 flex justify-between items-center group">
+                                    <span>${opt}</span>
+                                    <span class="text-slate-200 group-hover:text-blue-200">Option ${String.fromCharCode(65+i)}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                        <div class="mt-8 flex justify-between items-center bg-slate-900 p-6 rounded-3xl text-white">
+                            <p class="text-sm">Confused? Get explanation on Exambeing App</p>
+                            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-600 px-6 py-2 rounded-xl font-bold text-xs">DOWNLOAD</a>
+                        </div>
+                    </div>
+                `;
+            }
+
+            window.nextQ = (ans) => {
+                userAnswers.push({q: batch[currentIdx].question, selected: ans, correct: batch[currentIdx].answer});
+                currentIdx++;
+                if(currentIdx < batch.length) renderQ();
+                else showResultCard(userAnswers);
+            };
+
+            renderQ();
+        }
+
+        function showResultCard(results) {
+            let right = 0, wrong = 0, unattempted = 0;
+            results.forEach(r => {
+                if(r.selected === r.correct) right++;
+                else if(r.selected === "skip") unattempted++;
+                else wrong++;
+            });
+
+            const score = (right * 1) - (wrong * 0.33);
+            const percentage = ((score / results.length) * 100).toFixed(2);
+
+            document.getElementById('quiz-portal').innerHTML = `
+                <div class="max-w-4xl mx-auto p-6 md:p-12 text-center">
+                    <h2 class="text-3xl font-black text-slate-800 mb-2">Performance Report</h2>
+                    <p class="text-slate-400 mb-10">Based on standard RPSC Marking Pattern</p>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Score</div>
+                            <div class="text-3xl font-black text-blue-600">${score.toFixed(2)}</div>
+                        </div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                            <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Percentage</div>
+                            <div class="text-3xl font-black text-slate-800">${percentage}%</div>
+                        </div>
+                        <div class="bg-emerald-50 p-6 rounded-3xl border border-emerald-100">
+                            <div class="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">Correct</div>
+                            <div class="text-3xl font-black text-emerald-700">${right}</div>
+                        </div>
+                        <div class="bg-rose-50 p-6 rounded-3xl border border-rose-100">
+                            <div class="text-xs font-bold text-rose-600 uppercase tracking-widest mb-1">Incorrect</div>
+                            <div class="text-3xl font-black text-rose-700">${wrong}</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 rounded-[2.5rem] p-8 text-white text-center mb-10 relative overflow-hidden">
+                        <h3 class="text-xl font-bold mb-4 relative z-10">Unlock 10,000+ Questions on App</h3>
+                        <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="inline-block bg-blue-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl relative z-10">DOWNLOAD EXAMBEING</a>
+                        <i class="fas fa-rocket absolute -right-6 -bottom-6 text-9xl text-white/5"></i>
+                    </div>
+
+                    <div class="text-left space-y-4">
+                        <h3 class="text-xl font-black text-slate-800">Answer Key</h3>
+                        ${results.map(r => `
+                            <div class="p-5 rounded-2xl border ${r.selected === r.correct ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}">
+                                <p class="font-bold text-slate-800 mb-2">${r.q}</p>
+                                <div class="flex justify-between text-xs">
+                                    <span class="${r.selected === r.correct ? 'text-emerald-700' : 'text-rose-700'} font-bold">Your: ${r.selected}</span>
+                                    ${r.selected !== r.correct ? `<span class="text-emerald-700 font-black">Correct: ${r.correct}</span>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <button onclick="location.reload()" class="mt-10 w-full p-5 bg-slate-100 rounded-2xl font-black text-slate-600">BACK TO HOME</button>
+                </div>
+            `;
+        }
+
+        function scrollToContent() {
+            document.getElementById('content-anchor').scrollIntoView({ behavior: 'smooth' });
+        }
     </script>
 </body>
 </html>
