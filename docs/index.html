@@ -3,268 +3,326 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ExamBeing | Premium Practice Portal</title>
+    <title>ExamBeing | Next-Gen Learning Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
-        .primary-gradient { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); }
-        .accent-gradient { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-        .card-hover { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
-        .option-btn { transition: all 0.2s ease; border: 2px solid #f1f5f9; }
-        .option-btn:hover:not([disabled]) { border-color: #3b82f6; background-color: #eff6ff; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f0f2f5; }
+        .sidebar { transition: all 0.3s ease; width: 280px; background: #0f172a; }
+        .main-content { transition: all 0.3s ease; margin-left: 280px; }
+        @media (max-width: 1024px) { .sidebar { transform: translateX(-100%); position: fixed; z-index: 50; } .main-content { margin-left: 0; } }
+        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid #e2e8f0; }
+        .neon-border { border: 2px solid transparent; transition: 0.3s; }
+        .neon-border:hover { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
+        .quiz-option { border: 2px solid #f1f5f9; transition: 0.2s; }
+        .quiz-option:hover { border-color: #3b82f6; background: #eff6ff; }
     </style>
 </head>
-<body class="text-slate-900">
+<body class="text-slate-900 overflow-x-hidden">
 
-    <nav class="sticky top-0 z-50 glass-card shadow-sm border-b border-slate-200 px-4 py-3">
-        <div class="max-w-5xl mx-auto flex justify-between items-center">
-            <div class="flex items-center gap-3 cursor-pointer" onclick="goHome()">
-                <div class="w-10 h-10 primary-gradient rounded-xl flex items-center justify-center text-white shadow-blue-200 shadow-lg">
-                    <i class="fas fa-graduation-cap"></i>
+    <button onclick="toggleSidebar()" class="lg:hidden fixed bottom-6 right-6 z-[60] w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center text-xl">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <aside id="sidebar" class="sidebar fixed top-0 left-0 h-screen overflow-y-auto text-slate-300 shadow-2xl">
+        <div class="p-8">
+            <div class="flex items-center gap-3 mb-12">
+                <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+                    <i class="fas fa-rocket text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-extrabold tracking-tight leading-none">ExamBeing</h1>
-                    <span class="text-[10px] text-blue-600 font-bold uppercase tracking-widest">Beyond Excellence</span>
+                    <h1 class="text-xl font-extrabold text-white tracking-tight">ExamBeing</h1>
+                    <p class="text-[10px] text-blue-400 font-black uppercase tracking-widest">Pro Learning</p>
                 </div>
             </div>
-            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" target="_blank" class="accent-gradient text-white text-xs font-bold px-5 py-2.5 rounded-full shadow-md hover:opacity-90 transition">
-                <i class="fab fa-google-play mr-1"></i> DOWNLOAD APP
-            </a>
-        </div>
-    </nav>
 
-    <div class="max-w-4xl mx-auto px-4 py-8">
-        
-        <div id="hero-banner" class="mb-10 rounded-3xl p-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 shadow-2xl shadow-blue-200">
-            <div class="bg-slate-900 rounded-[22px] p-6 text-white flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
-                <div class="relative z-10 text-center md:text-left">
-                    <span class="bg-blue-500/20 text-blue-400 text-[10px] font-black px-3 py-1 rounded-full uppercase mb-4 inline-block border border-blue-500/30">Limited Free Access</span>
-                    <h2 class="text-2xl font-bold mb-2">Master Rajasthan GK</h2>
-                    <p class="text-slate-400 text-sm max-w-sm">Unlock 10,000+ Premium Questions, Detailed PDF Notes & Mock Tests on the App.</p>
-                </div>
-                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="relative z-10 whitespace-nowrap bg-white text-slate-900 px-8 py-4 rounded-2xl font-bold text-sm hover:bg-blue-50 transition shadow-xl">
-                    Get Full Version Free <i class="fas fa-arrow-right ml-2"></i>
+            <nav class="space-y-2">
+                <button onclick="goHome()" class="w-full flex items-center gap-4 p-4 rounded-xl bg-blue-600/10 text-blue-400 font-bold border border-blue-600/20">
+                    <i class="fas fa-th-large"></i> Dashboard
+                </button>
+                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-white/5 transition">
+                    <i class="fas fa-book-open"></i> Study Material
                 </a>
-                <i class="fas fa-rocket absolute -right-4 -bottom-4 text-9xl text-white/5 rotate-12"></i>
+                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-white/5 transition">
+                    <i class="fas fa-file-pdf"></i> PDF Notes
+                </a>
+            </nav>
+
+            <div class="mt-20 p-6 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl text-white shadow-xl">
+                <p class="text-xs font-bold opacity-80 mb-2 italic">Want more?</p>
+                <h4 class="font-bold mb-4">Unlock 10,000+ Premium Qs</h4>
+                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="block w-full text-center bg-white text-blue-700 py-3 rounded-xl font-bold text-sm shadow-md">Get App Now</a>
             </div>
         </div>
+    </aside>
 
-        <nav id="nav-info" class="mb-6 flex items-center gap-2 text-sm font-medium text-slate-400 hidden">
-            <span onclick="goHome()" class="hover:text-blue-600 cursor-pointer">Home</span>
-            <i class="fas fa-chevron-right text-[10px]"></i>
-            <span id="crumb-subject" class="hover:text-blue-600 cursor-pointer"></span>
-            <span id="crumb-topic-divider" class="hidden"><i class="fas fa-chevron-right text-[10px]"></i></span>
-            <span id="crumb-topic" class="text-slate-800"></span>
-        </nav>
-
-        <div id="render-engine" class="min-h-[400px]">
-            <div class="flex flex-col items-center justify-center py-20">
-                <div class="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
-                <p class="mt-4 font-bold text-slate-400 animate-pulse">Initializing Database...</p>
+    <div id="main-panel" class="main-content min-h-screen">
+        <header class="sticky top-0 z-40 glass px-6 py-4 flex justify-between items-center">
+            <div id="breadcrumb" class="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                System / <span class="text-blue-600">Overview</span>
             </div>
-        </div>
+            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="hidden md:flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-full text-xs font-black shadow-lg">
+                <i class="fab fa-google-play"></i> DOWNLOAD EXAMBEING
+            </a>
+        </header>
 
+        <div class="p-6 lg:p-10 max-w-6xl mx-auto">
+            <div id="homepage">
+                <div class="mb-10 flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div>
+                        <h2 class="text-3xl font-black text-slate-900 mb-2">Preparation Dashboard</h2>
+                        <p class="text-slate-500 font-medium">Select a subject to start your 50-Question challenge.</p>
+                    </div>
+                </div>
+
+                <div id="subject-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="col-span-full text-center py-20">
+                        <div class="animate-spin text-blue-600 text-4xl mb-4"><i class="fas fa-circle-notch"></i></div>
+                        <p class="font-bold text-slate-400 italic">Compiling Multiple Databases...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="dynamic-render" class="hidden"></div>
+        </div>
     </div>
 
-    <div id="quiz-portal" class="fixed inset-0 bg-slate-50 z-[100] hidden overflow-y-auto">
-        </div>
+    <div id="quiz-portal" class="fixed inset-0 bg-slate-50 z-[100] hidden overflow-y-auto"></div>
 
     <script>
-        let rawData = [];
-        let state = { subject: "", topic: "", set: 0 };
+        let masterDB = [];
+        const jsonFiles = ['questions.json', 'questions1.json', 'questions2.json']; // Add your files here
 
-        // Initial Data Fetch
-        fetch('questions.json')
-            .then(res => res.json())
-            .then(data => {
-                rawData = data;
+        // 1. Data Aggregator
+        async function initApp() {
+            try {
+                const fetchPromises = jsonFiles.map(file => fetch(file).then(r => r.json()).catch(e => []));
+                const results = await Promise.all(fetchPromises);
+                masterDB = results.flat();
                 renderSubjects();
-            });
+            } catch (err) {
+                console.error("DB Load Error", err);
+            }
+        }
+
+        function toggleSidebar() {
+            const side = document.getElementById('sidebar');
+            side.style.transform = side.style.transform === 'translateX(0%)' ? 'translateX(-100%)' : 'translateX(0%)';
+        }
 
         function goHome() {
-            document.getElementById('nav-info').classList.add('hidden');
-            renderSubjects();
+            document.getElementById('homepage').classList.remove('hidden');
+            document.getElementById('dynamic-render').classList.add('hidden');
+            document.getElementById('breadcrumb').innerHTML = 'System / <span class="text-blue-600">Overview</span>';
         }
 
         function renderSubjects() {
-            const subjects = [...new Set(rawData.map(i => i.subject || "General Rajasthan GK"))];
-            let html = `
-                <div class="flex justify-between items-end mb-6">
-                    <h3 class="text-2xl font-black text-slate-800">Explore Subjects</h3>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            `;
-            subjects.forEach(sub => {
-                html += `
-                    <div onclick="renderTopics('${sub}')" class="glass-card p-6 rounded-2xl card-hover cursor-pointer flex justify-between items-center group">
-                        <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
-                                <i class="fas fa-folder-open"></i>
-                            </div>
-                            <span class="font-bold text-slate-700">${sub}</span>
-                        </div>
-                        <i class="fas fa-arrow-right text-slate-300 group-hover:text-blue-600 translate-x-0 group-hover:translate-x-2 transition-all"></i>
+            const subjects = [...new Set(masterDB.map(i => i.subject || "Rajasthan Special"))];
+            const grid = document.getElementById('subject-grid');
+            
+            grid.innerHTML = subjects.map(sub => `
+                <div onclick="renderTopics('${sub}')" class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 neon-border cursor-pointer group">
+                    <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                        <i class="fas fa-university text-2xl"></i>
                     </div>
-                `;
-            });
-            html += `</div>`;
-            document.getElementById('render-engine').innerHTML = html;
+                    <h3 class="text-xl font-extrabold text-slate-800">${sub}</h3>
+                    <p class="text-slate-400 text-sm mt-2 font-medium italic">Click to view topics &rarr;</p>
+                </div>
+            `).join('');
         }
 
         function renderTopics(sub) {
-            state.subject = sub;
-            document.getElementById('nav-info').classList.remove('hidden');
-            document.getElementById('crumb-subject').innerText = sub;
-            document.getElementById('crumb-subject').onclick = () => renderTopics(sub);
-            document.getElementById('crumb-topic').innerText = "";
-            document.getElementById('crumb-topic-divider').classList.add('hidden');
+            document.getElementById('homepage').classList.add('hidden');
+            const render = document.getElementById('dynamic-render');
+            render.classList.remove('hidden');
+            document.getElementById('breadcrumb').innerText = `Subjects / ${sub}`;
 
-            const topics = [...new Set(rawData.filter(i => (i.subject || "General Rajasthan GK") === sub).map(i => i.topic))];
-            
-            let html = `<h3 class="text-xl font-bold text-slate-800 mb-6">Select a Topic</h3><div class="grid grid-cols-1 gap-3">`;
-            topics.forEach(top => {
-                html += `
-                    <div onclick="renderSets('${top}')" class="bg-white p-5 rounded-2xl border border-slate-200 flex items-center justify-between cursor-pointer hover:border-blue-500 hover:shadow-lg hover:shadow-blue-100 transition shadow-sm group">
-                        <div class="flex items-center gap-4">
-                            <span class="w-2 h-2 rounded-full bg-blue-400 group-hover:scale-150 transition-transform"></span>
-                            <span class="font-semibold text-slate-700">${top}</span>
-                        </div>
-                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">View Sets</span>
-                    </div>
-                `;
+            // Filtering topics with >= 20 questions
+            const topicCounts = {};
+            masterDB.filter(i => (i.subject || "Rajasthan Special") === sub).forEach(i => {
+                topicCounts[i.topic] = (topicCounts[i.topic] || 0) + 1;
             });
-            html += `</div>`;
-            document.getElementById('render-engine').innerHTML = html;
+
+            const validTopics = Object.keys(topicCounts).filter(top => topicCounts[top] >= 20);
+
+            render.innerHTML = `
+                <div class="flex items-center gap-4 mb-8">
+                    <button onclick="goHome()" class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600"><i class="fas fa-arrow-left text-xs"></i></button>
+                    <h2 class="text-2xl font-black text-slate-900">Choose Topic</h2>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${validTopics.map(top => `
+                        <div onclick="renderSets('${top}')" class="bg-white p-6 rounded-3xl border border-slate-200 flex justify-between items-center cursor-pointer hover:shadow-lg transition">
+                            <div class="flex items-center gap-4">
+                                <div class="w-2 h-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500"></div>
+                                <span class="font-bold text-slate-700">${top}</span>
+                            </div>
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${topicCounts[top]} Qs</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         }
 
         function renderSets(topic) {
-            state.topic = topic;
-            document.getElementById('crumb-topic-divider').classList.remove('hidden');
-            document.getElementById('crumb-topic').innerText = topic;
+            const totalQs = masterDB.filter(i => i.topic === topic).length;
+            const setSize = 50;
+            const sets = Math.ceil(totalQs / setSize);
 
-            const total = rawData.filter(i => i.topic === topic).length;
-            const sets = Math.ceil(total / 20);
-
-            let html = `<h3 class="text-xl font-bold text-slate-800 mb-6">Practice Sets for ${topic}</h3><div class="grid grid-cols-2 sm:grid-cols-3 gap-4">`;
-            for (let i = 1; i <= sets; i++) {
-                html += `
-                    <div onclick="initiateQuiz('${topic}', ${i})" class="bg-white p-6 rounded-3xl border-2 border-slate-100 text-center cursor-pointer hover:border-blue-600 transition shadow-sm group">
-                        <div class="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Set</div>
-                        <div class="text-4xl font-black text-slate-800 group-hover:scale-110 transition-transform">${i}</div>
-                        <div class="mt-3 text-[10px] text-slate-400 font-bold uppercase italic">20 Questions</div>
-                    </div>
-                `;
-            }
-            html += `</div>`;
-            document.getElementById('render-engine').innerHTML = html;
+            const render = document.getElementById('dynamic-render');
+            render.innerHTML = `
+                <div class="flex items-center gap-4 mb-8">
+                    <button onclick="goHome()" class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600"><i class="fas fa-arrow-left text-xs"></i></button>
+                    <h2 class="text-2xl font-black text-slate-900">${topic} Sets</h2>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                    ${Array.from({length: sets}, (_, i) => `
+                        <div onclick="startPractice('${topic}', ${i+1})" class="bg-white p-10 rounded-[3rem] border-2 border-slate-100 text-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition group">
+                            <span class="text-[10px] font-black text-blue-600 uppercase mb-2 block tracking-tighter">Ultimate Set</span>
+                            <span class="text-5xl font-black text-slate-800 group-hover:scale-110 transition-transform block">${i+1}</span>
+                            <span class="text-[10px] text-slate-400 font-bold uppercase mt-4 block tracking-widest">50 MCQs</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         }
 
-        function initiateQuiz(topic, setIdx) {
-            const filtered = rawData.filter(i => i.topic === topic);
-            const batch = filtered.slice((setIdx - 1) * 20, setIdx * 20);
+        function startPractice(topic, setNum) {
+            const filtered = masterDB.filter(i => i.topic === topic);
+            const batch = filtered.slice((setNum-1)*50, setNum*50);
             
             const portal = document.getElementById('quiz-portal');
             portal.classList.remove('hidden');
             
             let current = 0;
-            let score = 0;
-            let userTrace = [];
+            let results = [];
+            let startTime = new Date();
 
-            const updatePortal = () => {
+            const renderQ = () => {
                 const q = batch[current];
-                const progress = ((current + 1) / batch.length) * 100;
-                
+                const progress = ((current+1)/batch.length)*100;
                 portal.innerHTML = `
-                    <div class="max-w-3xl mx-auto min-h-screen flex flex-col">
-                        <div class="p-6 flex justify-between items-center bg-white border-b">
+                    <div class="max-w-4xl mx-auto p-6 md:p-12 min-h-screen flex flex-col">
+                        <div class="flex justify-between items-center mb-10">
                             <div class="w-2/3">
-                                <div class="flex justify-between text-[10px] font-black uppercase text-slate-400 mb-1">
-                                    <span>Question ${current + 1} of ${batch.length}</span>
-                                    <span>${Math.round(progress)}% Complete</span>
+                                <div class="flex justify-between text-[10px] font-black uppercase text-slate-400 mb-2">
+                                    <span>Q. ${current+1} of ${batch.length}</span>
+                                    <span>${Math.round(progress)}% Progress</span>
                                 </div>
-                                <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                                    <div class="bg-blue-600 h-full transition-all duration-500" style="width: ${progress}%"></div>
+                                <div class="h-2 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner">
+                                    <div class="h-full bg-blue-600 transition-all duration-500" style="width:${progress}%"></div>
                                 </div>
                             </div>
-                            <button onclick="closePortal()" class="w-10 h-10 rounded-full hover:bg-slate-100 transition flex items-center justify-center text-slate-400"><i class="fas fa-times"></i></button>
+                            <button onclick="location.reload()" class="text-slate-400 font-bold hover:text-red-500 transition">EXIT</button>
                         </div>
 
-                        <div class="p-6 md:p-12 flex-grow">
-                            <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-10 leading-tight">${q.question}</h2>
+                        <div class="flex-grow">
+                            <h2 class="text-2xl md:text-4xl font-black text-slate-800 mb-12 leading-tight">${q.question}</h2>
                             <div class="grid grid-cols-1 gap-4">
-                                ${q.options.map(opt => `
-                                    <button onclick="processAnswer('${opt.replace(/'/g, "\\'")}')" class="option-btn w-full text-left p-5 rounded-2xl bg-white shadow-sm font-semibold text-slate-700 flex justify-between items-center group">
+                                ${q.options.map((opt, i) => `
+                                    <button onclick="submitQ('${opt.replace(/'/g, "\\'")}')" class="quiz-option w-full text-left p-6 rounded-3xl bg-white shadow-sm font-bold text-slate-700 flex justify-between items-center group">
                                         <span>${opt}</span>
-                                        <i class="fas fa-circle-check text-slate-100 group-hover:text-blue-200 transition"></i>
+                                        <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-xs text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">${String.fromCharCode(65+i)}</div>
                                     </button>
                                 `).join('')}
                             </div>
                         </div>
 
-                        <div class="p-6 bg-blue-50 border-t flex flex-col md:flex-row items-center justify-between gap-4">
-                            <p class="text-blue-800 text-sm font-medium"><i class="fas fa-info-circle mr-2"></i> Want explanation for this question?</p>
-                            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="primary-gradient text-white px-6 py-3 rounded-xl font-bold text-xs shadow-lg shadow-blue-200">View Detailed Solutions on App</a>
-                        </div>
-                    </div>
-                `;
-            };
-
-            window.processAnswer = (choice) => {
-                const correct = batch[current].answer;
-                userTrace.push({ q: batch[current].question, choice, correct });
-                if(choice === correct) score++;
-                
-                current++;
-                if(current < batch.length) updatePortal();
-                else finalize(score, userTrace);
-            };
-
-            const finalize = (finalScore, trace) => {
-                portal.innerHTML = `
-                    <div class="max-w-3xl mx-auto p-6 md:p-12 text-center">
-                        <div class="mb-10 pt-10">
-                            <div class="w-32 h-32 primary-gradient rounded-full flex items-center justify-center text-white text-4xl font-black mx-auto mb-6 shadow-2xl shadow-blue-300">${finalScore}</div>
-                            <h2 class="text-4xl font-black text-slate-800 mb-2">Quiz Finished!</h2>
-                            <p class="text-slate-500 font-medium">You scored ${finalScore} out of ${batch.length} questions.</p>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-                            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="accent-gradient p-5 rounded-3xl text-white shadow-xl shadow-emerald-100 flex flex-col items-center">
-                                <i class="fas fa-file-pdf text-2xl mb-2 text-emerald-200"></i>
-                                <span class="font-bold">Download PDF Notes</span>
-                            </a>
-                            <div onclick="closePortal()" class="bg-slate-900 p-5 rounded-3xl text-white shadow-xl shadow-slate-200 flex flex-col items-center cursor-pointer">
-                                <i class="fas fa-redo text-2xl mb-2 text-slate-400"></i>
-                                <span class="font-bold">Try Another Set</span>
+                        <div class="mt-12 p-8 bg-slate-900 rounded-[2.5rem] text-white flex justify-between items-center shadow-2xl">
+                            <div>
+                                <p class="text-xs font-bold text-blue-400 uppercase mb-1 tracking-widest">Expert Tip</p>
+                                <p class="text-sm font-medium opacity-80">Read every option carefully. Use ExamBeing for notes.</p>
                             </div>
-                        </div>
-
-                        <div class="text-left space-y-6 mb-20">
-                            <h3 class="text-xl font-black text-slate-800 border-b pb-4">Detailed Review</h3>
-                            ${trace.map((t, idx) => `
-                                <div class="p-6 rounded-3xl ${t.choice === t.correct ? 'bg-emerald-50 border border-emerald-100' : 'bg-rose-50 border border-rose-100'}">
-                                    <p class="font-bold text-slate-800 mb-3">${idx+1}. ${t.q}</p>
-                                    <div class="flex flex-col gap-2">
-                                        <div class="text-xs font-bold uppercase tracking-widest ${t.choice === t.correct ? 'text-emerald-600' : 'text-rose-600'}">
-                                            Your Answer: ${t.choice}
-                                        </div>
-                                        ${t.choice !== t.correct ? `<div class="text-xs font-bold uppercase tracking-widest text-emerald-600">Correct Answer: ${t.correct}</div>` : ''}
-                                    </div>
-                                </div>
-                            `).join('')}
+                            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-600 px-6 py-3 rounded-2xl font-black text-xs">DOWNLOAD APP</a>
                         </div>
                     </div>
                 `;
             };
 
-            updatePortal();
+            window.submitQ = (ans) => {
+                const correctAns = batch[current].answer || batch[current].correct;
+                results.push({ q: batch[current].question, picked: ans, correct: correctAns });
+                current++;
+                if(current < batch.length) renderQ();
+                else showFinalDashboard(results, startTime);
+            };
+            renderQ();
         }
 
-        function closePortal() { document.getElementById('quiz-portal').classList.add('hidden'); }
+        function showFinalDashboard(res, start) {
+            let right = 0, wrong = 0;
+            res.forEach(item => {
+                if(item.picked === item.correct) right++;
+                else wrong++;
+            });
+
+            const timeTaken = Math.round((new Date() - start) / 1000 / 60);
+            const rawScore = (right * 1) - (wrong * 0.33);
+            const accuracy = Math.round((right / res.length) * 100);
+
+            const portal = document.getElementById('quiz-portal');
+            portal.innerHTML = `
+                <div class="max-w-4xl mx-auto p-6 md:p-16">
+                    <div class="text-center mb-16">
+                        <div class="w-32 h-32 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black mx-auto mb-6 shadow-2xl shadow-blue-300 rotate-12">${rawScore.toFixed(2)}</div>
+                        <h2 class="text-4xl font-black text-slate-900 mb-2">Analysis Dashboard</h2>
+                        <p class="text-slate-500 font-bold uppercase tracking-tighter">Your Performance Breakdown</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                            <span class="text-xs font-bold text-slate-400 uppercase block mb-1">Correct</span>
+                            <span class="text-2xl font-black text-emerald-600">${right}</span>
+                        </div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                            <span class="text-xs font-bold text-slate-400 uppercase block mb-1">Wrong</span>
+                            <span class="text-2xl font-black text-rose-600">${wrong}</span>
+                        </div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                            <span class="text-xs font-bold text-slate-400 uppercase block mb-1">Accuracy</span>
+                            <span class="text-2xl font-black text-slate-800">${accuracy}%</span>
+                        </div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                            <span class="text-xs font-bold text-slate-400 uppercase block mb-1">Time</span>
+                            <span class="text-2xl font-black text-slate-800">${timeTaken}m</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-16">
+                        <button onclick="shareResult(${rawScore}, ${accuracy})" class="bg-emerald-500 text-white p-6 rounded-3xl font-black shadow-lg shadow-emerald-200 flex items-center justify-center gap-4">
+                            <i class="fab fa-whatsapp text-2xl"></i> SHARE WITH FRIENDS
+                        </button>
+                        <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-slate-900 text-white p-6 rounded-3xl font-black shadow-lg flex items-center justify-center gap-4">
+                            <i class="fas fa-file-download text-2xl"></i> GET 10K+ PDF NOW
+                        </a>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h3 class="text-xl font-black mb-6 flex items-center gap-3"><i class="fas fa-list-check text-blue-600"></i> Detailed Review</h3>
+                        ${res.map((r, i) => `
+                            <div class="p-6 rounded-[2rem] border ${r.picked === r.correct ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}">
+                                <p class="font-bold text-slate-800 mb-3">${i+1}. ${r.q}</p>
+                                <div class="flex flex-col gap-1 text-[11px] font-black uppercase tracking-widest">
+                                    <span class="${r.picked === r.correct ? 'text-emerald-600' : 'text-rose-600'}">You Picked: ${r.picked}</span>
+                                    ${r.picked !== r.correct ? `<span class="text-emerald-600">Correct: ${r.correct}</span>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <button onclick="location.reload()" class="w-full mt-12 py-5 bg-slate-200 text-slate-600 rounded-3xl font-black uppercase tracking-widest shadow-inner">Return to Dashboard</button>
+                </div>
+            `;
+        }
+
+        window.shareResult = (score, acc) => {
+            const text = `Hey! I just scored ${score.toFixed(2)} with ${acc}% accuracy on ExamBeing Rajasthan GK Test. Can you beat my score? Check it out: ${window.location.href}`;
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`);
+        }
+
+        // Initialize App
+        initApp();
     </script>
 </body>
 </html>
