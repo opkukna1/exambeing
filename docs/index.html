@@ -6,9 +6,6 @@
     <title>ExamBeing | Rajasthan's #1 Learning Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; scroll-behavior: smooth; }
@@ -17,6 +14,7 @@
         .feature-card:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border-color: #3b82f6; }
         .btn-modern { background: linear-gradient(90deg, #2563eb, #1d4ed8); transition: 0.3s; }
         .btn-modern:hover { opacity: 0.9; transform: scale(1.02); }
+        .quiz-overlay { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.98); }
     </style>
 </head>
 <body class="text-slate-900">
@@ -30,7 +28,7 @@
                 <span class="text-2xl font-extrabold tracking-tighter text-slate-800">ExamBeing</span>
             </div>
             <div class="flex items-center gap-4">
-                <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="hidden md:flex items-center gap-2 text-blue-600 font-bold text-sm bg-blue-50 px-4 py-2 rounded-full border border-blue-100">
+                <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="hidden md:flex items-center gap-2 text-blue-600 font-bold text-sm bg-blue-50 px-4 py-2 rounded-full border border-blue-100 italic">
                     <i class="fab fa-telegram"></i> JOIN TELEGRAM
                 </a>
                 <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-slate-900 text-white px-6 py-2 rounded-full text-sm font-bold shadow-xl">
@@ -44,7 +42,7 @@
         <div class="max-w-7xl mx-auto flex flex-col items-center text-center relative z-10">
             <span class="bg-blue-400/20 text-blue-200 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest mb-6 border border-blue-400/30">Official Practice Portal</span>
             <h1 class="text-4xl md:text-6xl font-black mb-6 leading-tight">Master Every Exam with <br><span class="text-blue-300">Precision.</span></h1>
-            <p class="text-blue-100 max-w-2xl text-lg mb-10 font-medium text-center">Access 10,000+ Subject-wise MCQs, PDF Notes, and Current Affairs specifically designed for Rajasthan Government Exams.</p>
+            <p class="text-blue-100 max-w-2xl text-lg mb-10 font-medium">Access 10,000+ Subject-wise MCQs, PDF Notes, and Current Affairs specifically designed for Rajasthan Government Exams.</p>
             <div class="flex flex-wrap justify-center gap-4">
                 <a href="#test-series" class="bg-white text-blue-700 px-8 py-4 rounded-2xl font-extrabold shadow-2xl shadow-blue-900/40 transition hover:bg-blue-50">START PRACTICE</a>
                 <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="bg-sky-500 text-white px-8 py-4 rounded-2xl font-extrabold shadow-lg transition hover:bg-sky-400 flex items-center gap-2">
@@ -67,10 +65,9 @@
                 </div>
             </div>
 
-            <div id="subject-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <div class="col-span-full text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
-                    <div class="animate-spin text-blue-600 text-3xl mb-4"><i class="fas fa-spinner"></i></div>
-                    <p class="font-bold text-slate-400">Fetching Database...</p>
+            <div id="subject-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-center">
+                <div class="col-span-full py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
+                    <p class="animate-pulse font-bold text-slate-400 uppercase tracking-widest">Loading Database...</p>
                 </div>
             </div>
 
@@ -80,51 +77,48 @@
         <section id="notes" class="mb-24">
             <div class="flex items-center gap-4 mb-10">
                 <div class="w-2 h-10 bg-emerald-500 rounded-full"></div>
-                <div>
-                    <h2 class="text-3xl font-black text-slate-900">PDF Notes & Study Material</h2>
-                    <p class="text-slate-500 font-medium">Comprehensive material for deep understanding.</p>
-                </div>
+                <h2 class="text-3xl font-black text-slate-900">PDF Notes & Study Material</h2>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="feature-card p-8 rounded-[2rem] flex items-center justify-between">
+                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="feature-card p-8 rounded-[2rem] flex items-center justify-between group">
                     <div class="flex items-center gap-6">
                         <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl"><i class="fas fa-file-pdf"></i></div>
                         <div>
-                            <h4 class="font-bold text-lg">Rajasthan History Notes</h4>
-                            <p class="text-xs text-slate-400 italic">Premium Handwritten Content</p>
+                            <h4 class="font-bold text-lg">Download Exam Notes</h4>
+                            <p class="text-xs text-slate-400 italic font-bold uppercase tracking-widest">Premium Content</p>
                         </div>
                     </div>
-                    <span class="text-blue-600 font-bold text-xs">GET APP &rarr;</span>
+                    <span class="text-blue-600 font-bold text-sm">GET APP &rarr;</span>
                 </a>
-                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="feature-card p-8 rounded-[2rem] flex items-center justify-between">
+                <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="feature-card p-8 rounded-[2rem] flex items-center justify-between group">
                     <div class="flex items-center gap-6">
-                        <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center text-2xl"><i class="fas fa-atlas"></i></div>
+                        <div class="w-16 h-16 bg-sky-100 text-sky-600 rounded-2xl flex items-center justify-center text-2xl"><i class="fab fa-telegram"></i></div>
                         <div>
-                            <h4 class="font-bold text-lg">Geography & Maps</h4>
-                            <p class="text-xs text-slate-400 italic">Updated New Districts 2026</p>
+                            <h4 class="font-bold text-lg">Daily PDF Updates</h4>
+                            <p class="text-xs text-slate-400 italic font-bold uppercase tracking-widest">Free Telegram Group</p>
                         </div>
                     </div>
-                    <span class="text-blue-600 font-bold text-xs">GET APP &rarr;</span>
+                    <span class="text-sky-600 font-bold text-sm">JOIN NOW &rarr;</span>
                 </a>
             </div>
         </section>
 
         <section id="current-affairs">
-            <div class="bg-slate-900 rounded-[3rem] p-10 md:p-16 text-white flex flex-col md:flex-row items-center justify-between gap-10 overflow-hidden relative">
+            <div class="bg-slate-900 rounded-[3rem] p-10 md:p-16 text-white flex flex-col md:flex-row items-center justify-between gap-10 overflow-hidden relative shadow-2xl">
                 <div class="relative z-10">
                     <h2 class="text-3xl font-black mb-4 leading-tight">Monthly Current Affairs <br><span class="text-blue-400">Magazine 2026</span></h2>
-                    <p class="text-slate-400 max-w-md mb-8 italic">Stay updated with daily Rajasthan & National current affairs. Join our Telegram for daily PDF updates.</p>
+                    <p class="text-slate-400 max-w-md mb-8 italic">Download the App to get daily updates & Weekly PDFs for Rajasthan Exams.</p>
                     <div class="flex gap-4">
-                        <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-600 px-8 py-3 rounded-xl font-black text-sm hover:bg-blue-500 transition shadow-xl inline-block">FREE DOWNLOAD</a>
-                        <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="bg-white/10 px-8 py-3 rounded-xl font-black text-sm hover:bg-white/20 transition inline-block border border-white/10">TELEGRAM</a>
+                        <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-600 px-8 py-3 rounded-xl font-black text-sm hover:bg-blue-500 transition shadow-xl">FREE DOWNLOAD</a>
+                        <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="bg-white/10 px-8 py-3 rounded-xl font-black text-sm border border-white/10">TELEGRAM</a>
                     </div>
                 </div>
                 <div class="relative z-10 flex flex-col gap-4">
                     <div class="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-4">
-                        <i class="fas fa-calendar-check text-blue-400"></i> <span>Daily Quiz</span>
+                        <i class="fas fa-check-circle text-blue-400"></i> <span>Daily Current Quiz</span>
                     </div>
                     <div class="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-4">
-                        <i class="fas fa-newspaper text-blue-400"></i> <span>Weekly PDF</span>
+                        <i class="fas fa-check-circle text-blue-400"></i> <span>Exam-Centric PDF</span>
                     </div>
                 </div>
                 <i class="fas fa-bolt absolute -right-10 -bottom-10 text-[15rem] text-white/5 rotate-12"></i>
@@ -140,7 +134,7 @@
             <a href="#"><i class="fab fa-youtube text-2xl hover:text-red-600"></i></a>
             <a href="#"><i class="fab fa-instagram text-2xl hover:text-pink-600"></i></a>
         </div>
-        <p class="text-slate-400 text-sm italic">© 2026 ExamBeing. All Rights Reserved.</p>
+        <p class="text-slate-400 text-sm">© 2026 ExamBeing. All Rights Reserved.</p>
     </footer>
 
     <div id="quiz-overlay" class="fixed inset-0 bg-white z-[100] hidden overflow-y-auto"></div>
@@ -154,7 +148,7 @@
                 const results = await Promise.all(jsonFiles.map(f => fetch(f).then(r => r.json()).catch(() => [])));
                 masterDB = results.flat();
                 renderSubjectCards();
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error("Database error", e); }
         }
 
         function renderSubjectCards() {
@@ -166,7 +160,7 @@
                         <i class="fas fa-book-reader"></i>
                     </div>
                     <h3 class="text-xl font-extrabold text-slate-800">${sub}</h3>
-                    <p class="text-slate-400 text-sm mt-2 italic italic">50 MCQ Sets Available</p>
+                    <p class="text-slate-400 text-sm mt-2 italic">Click to view topics</p>
                 </div>
             `).join('');
         }
@@ -182,13 +176,13 @@
             div.innerHTML = `
                 <div class="flex justify-between items-center mb-8">
                     <h3 class="text-2xl font-black text-slate-800">${sub} Topics</h3>
-                    <button onclick="document.getElementById('dynamic-content').classList.add('hidden')" class="text-slate-400 underline font-bold">Close</button>
+                    <button onclick="document.getElementById('dynamic-content').classList.add('hidden')" class="text-slate-400 font-bold underline">Close</button>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     ${validTopics.map(top => `
                         <div onclick="showSets('${top}')" class="bg-white p-5 rounded-2xl border border-blue-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition shadow-sm">
                             <span class="font-bold text-slate-700">${top}</span>
-                            <span class="text-[10px] font-black bg-blue-100 text-blue-600 px-3 py-1 rounded-full uppercase italic">Start Practice</span>
+                            <span class="text-[10px] font-black bg-blue-600 text-white px-3 py-1 rounded-full uppercase italic">Open Sets</span>
                         </div>
                     `).join('')}
                 </div>
@@ -202,15 +196,15 @@
 
             div.innerHTML = `
                 <div class="flex items-center gap-4 mb-8">
-                    <button onclick="goHome()" class="text-blue-600"><i class="fas fa-arrow-left"></i></button>
-                    <h3 class="text-2xl font-black text-slate-800">${top} Practice Sets</h3>
+                    <button onclick="renderSubjectCards()" class="text-blue-600"><i class="fas fa-arrow-left"></i></button>
+                    <h3 class="text-2xl font-black text-slate-800">${top} - Sets</h3>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-6">
                     ${Array.from({length: sets}, (_, i) => `
                         <div onclick="startQuiz('${top}', ${i+1})" class="bg-white p-8 rounded-[2rem] border-2 border-slate-100 text-center cursor-pointer hover:border-blue-600 transition shadow-sm group">
-                            <span class="text-[10px] font-black text-blue-600 block mb-2 tracking-widest">SET</span>
+                            <span class="text-[10px] font-black text-blue-600 block mb-2 tracking-widest uppercase">Set</span>
                             <span class="text-4xl font-black text-slate-800 block group-hover:scale-110 transition-transform">${i+1}</span>
-                            <span class="text-[10px] text-slate-400 font-bold block mt-3">50 MCQs</span>
+                            <span class="text-[10px] text-slate-400 font-bold block mt-3">50 Qs</span>
                         </div>
                     `).join('')}
                 </div>
@@ -232,10 +226,10 @@
                     <div class="max-w-4xl mx-auto p-6 md:p-12 min-h-screen flex flex-col">
                         <div class="flex justify-between items-center mb-10 border-b pb-6">
                             <div>
-                                <h4 class="font-black text-blue-600 tracking-tighter text-xl underline">ExamBeing Portal</h4>
+                                <h4 class="font-black text-blue-600 tracking-tighter text-xl italic underline">ExamBeing Portal</h4>
                                 <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">${topic} | Set ${setNum}</p>
                             </div>
-                            <button onclick="finishQuiz(true)" class="bg-red-50 text-red-600 px-6 py-2 rounded-xl font-bold text-xs border border-red-100">SUBMIT TEST</button>
+                            <button onclick="window.confirmSubmitQuiz('${topic}')" class="bg-red-50 text-red-600 px-6 py-2 rounded-xl font-bold text-xs border border-red-100 uppercase tracking-widest">Submit Test</button>
                         </div>
 
                         <div class="flex-grow">
@@ -248,15 +242,15 @@
                                 ${q.options.map(opt => `
                                     <button onclick="handleAns('${opt.replace(/'/g, "\\'")}')" class="w-full text-left p-6 rounded-3xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 transition font-bold text-slate-700 flex justify-between items-center group">
                                         <span>${opt}</span>
-                                        <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-[10px] text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-all underline italic">PICK</div>
+                                        <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-[10px] text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-all underline font-bold italic">PICK</div>
                                     </button>
                                 `).join('')}
                             </div>
                         </div>
 
                         <div class="mt-12 p-8 bg-slate-900 rounded-[2.5rem] text-white flex flex-col md:flex-row gap-4 justify-between items-center shadow-2xl">
-                            <p class="text-sm font-medium italic italic opacity-70">Focus on accuracy, speed will follow.</p>
-                            <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="text-sky-400 font-bold text-xs uppercase tracking-widest">Join Telegram for Daily PDFs</a>
+                            <p class="text-sm font-medium italic opacity-70 italic font-bold tracking-tight uppercase">Exambeing: Focus on Selection</p>
+                            <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="text-sky-400 font-bold text-xs uppercase tracking-widest italic">Join Telegram for Help</a>
                         </div>
                     </div>
                 `;
@@ -266,12 +260,11 @@
                 results.push({q: data[current].question, picked: selected, correct: data[current].answer || data[current].correct});
                 current++;
                 if(current < data.length) renderQuestion();
-                else finishQuiz(false, topic);
+                else showResultDashboard(results, topic);
             };
 
-            window.finishQuiz = (early, topicName) => {
-                if(early && !confirm("Submit your Test now?")) return;
-                showResultDashboard(results, topicName);
+            window.confirmSubmitQuiz = (tName) => {
+                if(confirm("Are you sure you want to submit?")) showResultDashboard(results, tName);
             };
 
             renderQuestion();
@@ -284,35 +277,35 @@
             const overlay = document.getElementById('quiz-overlay');
 
             overlay.innerHTML = `
-                <div class="max-w-4xl mx-auto p-6 md:p-16 text-center animate-fade-in">
+                <div class="max-w-4xl mx-auto p-6 md:p-16 text-center">
                     <div class="w-32 h-32 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black mx-auto mb-8 shadow-2xl shadow-blue-300 border-4 border-white">${score.toFixed(2)}</div>
-                    <h2 class="text-4xl font-black text-slate-900 mb-2 italic">Performance Analytics</h2>
-                    <p class="text-slate-400 font-bold uppercase tracking-widest text-xs mb-12">ExamBeing Standard Marking</p>
+                    <h2 class="text-4xl font-black text-slate-900 mb-2 italic">Test Analysis</h2>
+                    <p class="text-slate-400 font-bold uppercase tracking-widest text-xs mb-12">Standard Marking System</p>
 
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase">Right</span><span class="text-2xl font-black text-emerald-600">${right}</span></div>
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase">Wrong</span><span class="text-2xl font-black text-rose-600">${wrong}</span></div>
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase">Accuracy</span><span class="text-2xl font-black text-slate-800">${Math.round((right/res.length)*100) || 0}%</span></div>
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase">Total Qs</span><span class="text-2xl font-black text-slate-800">${res.length}</span></div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">Right</span><span class="text-2xl font-black text-emerald-600">${right}</span></div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">Wrong</span><span class="text-2xl font-black text-rose-600">${wrong}</span></div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">Accuracy</span><span class="text-2xl font-black text-slate-800">${Math.round((right/(res.length || 1))*100)}%</span></div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">Total Qs</span><span class="text-2xl font-black text-slate-800">${res.length}</span></div>
                     </div>
 
                     <div class="flex flex-col md:flex-row gap-4 mb-8">
-                        <button onclick="downloadSolutionPDF('${topicName.replace(/'/g, "\\'")}', ${score.toFixed(2)}, ${right}, ${wrong})" class="flex-1 bg-emerald-600 text-white p-6 rounded-3xl font-black shadow-xl shadow-emerald-100 flex items-center justify-center gap-2">
-                            <i class="fas fa-file-download"></i> DOWNLOAD SOLUTION PDF
+                        <button onclick="printHTMLPDF('${topicName.replace(/'/g, "\\'")}', ${score.toFixed(2)})" class="flex-1 bg-emerald-600 text-white p-6 rounded-3xl font-black shadow-xl shadow-emerald-100 flex items-center justify-center gap-2">
+                            <i class="fas fa-file-pdf"></i> DOWNLOAD SOLUTION PDF
                         </button>
                         <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="flex-1 bg-sky-500 text-white p-6 rounded-3xl font-black shadow-xl flex items-center justify-center gap-2">
-                            <i class="fab fa-telegram"></i> JOIN TELEGRAM CHANNEL
+                            <i class="fab fa-telegram"></i> JOIN TELEGRAM
                         </a>
                     </div>
                     
-                    <button onclick="location.reload()" class="w-full bg-slate-900 text-white p-5 rounded-3xl font-black mb-12 italic">BACK TO DASHBOARD</button>
+                    <button onclick="location.reload()" class="w-full bg-slate-900 text-white p-5 rounded-3xl font-black mb-12 italic uppercase tracking-widest">Back to Dashboard</button>
 
                     <div class="text-left space-y-4">
                         <h3 class="text-xl font-black mb-6 border-b pb-4">Detailed Review</h3>
                         ${res.map((r, i) => `
                             <div class="p-6 rounded-3xl border ${r.picked === r.correct ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}">
                                 <p class="font-bold text-slate-800 mb-2">${i+1}. ${r.q}</p>
-                                <div class="text-xs font-bold uppercase flex flex-col gap-1">
+                                <div class="text-xs font-bold uppercase flex flex-col gap-1 italic">
                                     <span class="${r.picked === r.correct ? 'text-emerald-700' : 'text-rose-700'}">Your Answer: ${r.picked}</span>
                                     <span class="text-emerald-700">Correct Answer: ${r.correct}</span>
                                 </div>
@@ -322,44 +315,33 @@
                 </div>
             `;
 
-            // Result Result PDF Logic
-            window.downloadSolutionPDF = (name, s, rCount, wCount) => {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                doc.setFontSize(22);
-                doc.setTextColor(37, 99, 235);
-                doc.text("ExamBeing Practice Portal", 20, 20);
-                
-                doc.setFontSize(10);
-                doc.setTextColor(100);
-                doc.text(`Topic: ${name} | Score: ${s} | Correct: ${rCount} | Wrong: ${wCount}`, 20, 28);
-                doc.text(`Download App: https://play.google.com/store/apps/details?id=com.opkukna.exambeing`, 20, 34);
-                doc.text(`Join Telegram: https://t.me/+MjkC2APKPGQwZDZl`, 20, 40);
+            window.printHTMLPDF = (name, sVal) => {
+                const w = window.open('', '_blank');
+                let body = res.map((r, i) => `
+                    <div style="padding:15px; border-bottom:1px solid #ddd; page-break-inside:avoid;">
+                        <p style="font-weight:bold; font-size:14px; margin-bottom:5px;">${i+1}. ${r.q}</p>
+                        <p style="color:#e11d48; margin:0; font-size:12px;">Your Answer: ${r.picked}</p>
+                        <p style="color:#059669; margin:0; font-size:12px; font-weight:bold;">Correct Answer: ${r.correct}</p>
+                    </div>
+                `).join('');
 
-                const tableData = res.map((item, idx) => [
-                    idx + 1,
-                    item.q,
-                    item.picked,
-                    item.correct
-                ]);
-
-                doc.autoTable({
-                    startY: 48,
-                    head: [['#', 'Question', 'Your Answer', 'Correct Answer']],
-                    body: tableData,
-                    theme: 'grid',
-                    headStyles: { fillColor: [37, 99, 235] },
-                    styles: { fontSize: 8 }
-                });
-
-                doc.save(`ExamBeing_Solution_${name}.pdf`);
+                w.document.write(`
+                    <html>
+                        <head><title>ExamBeing_Solution_${name}</title></head>
+                        <body style="font-family:sans-serif; padding:20px;">
+                            <div style="text-align:center; border-bottom:3px solid #2563eb; padding-bottom:10px; margin-bottom:20px;">
+                                <h1 style="color:#2563eb; margin:0;">ExamBeing Practice Solution</h1>
+                                <p style="font-weight:bold; color:#666;">Topic: ${name} | Final Score: ${sVal}</p>
+                                <p style="font-size:12px;">Download App: exambeing.com | Join Telegram: https://t.me/+MjkC2APKPGQwZDZl</p>
+                            </div>
+                            ${body}
+                        </body>
+                    </html>
+                `);
+                w.document.close();
+                w.focus();
+                setTimeout(() => { w.print(); w.close(); }, 500);
             };
-        }
-
-        function goHome() {
-            document.getElementById('dynamic-content').classList.add('hidden');
-            renderSubjectCards();
         }
 
         init();
