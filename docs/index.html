@@ -15,6 +15,8 @@
         .btn-modern { background: linear-gradient(90deg, #2563eb, #1d4ed8); transition: 0.3s; }
         .btn-modern:hover { opacity: 0.9; transform: scale(1.02); }
         .quiz-overlay { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.98); }
+        /* Selection Styles */
+        .option-selected { border-color: #2563eb !important; background-color: #eff6ff !important; color: #1e40af !important; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
     </style>
 </head>
 <body class="text-slate-900">
@@ -218,12 +220,14 @@
             document.body.style.overflow = 'hidden';
 
             let current = 0;
-            let results = [];
+            let userChoices = new Array(data.length).fill(null); 
 
             const renderQuestion = () => {
                 const q = data[current];
+                const selected = userChoices[current];
+
                 overlay.innerHTML = `
-                    <div class="max-w-4xl mx-auto p-6 md:p-12 min-h-screen flex flex-col">
+                    <div class="max-w-4xl mx-auto p-6 md:p-12 min-h-screen flex flex-col no-print">
                         <div class="flex justify-between items-center mb-10 border-b pb-6">
                             <div>
                                 <h4 class="font-black text-blue-600 tracking-tighter text-xl italic underline">ExamBeing Portal</h4>
@@ -239,45 +243,71 @@
                             </div>
                             <h2 class="text-2xl md:text-3xl font-black text-slate-800 mb-10 leading-relaxed">${q.question}</h2>
                             <div class="grid grid-cols-1 gap-4">
-                                ${q.options.map(opt => `
-                                    <button onclick="handleAns('${opt.replace(/'/g, "\\'")}')" class="w-full text-left p-6 rounded-3xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 transition font-bold text-slate-700 flex justify-between items-center group">
-                                        <span>${opt}</span>
-                                        <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-[10px] text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-all underline font-bold italic">PICK</div>
-                                    </button>
-                                `).join('')}
+                                ${q.options.map((opt, idx) => {
+                                    const isSelected = selected === opt;
+                                    return `
+                                        <button onclick="selectOption('${opt.replace(/'/g, "\\'")}')" 
+                                            class="w-full text-left p-6 rounded-3xl border-2 transition-all font-bold flex justify-between items-center group
+                                            ${isSelected ? 'option-selected' : 'border-slate-100 hover:border-blue-200 text-slate-700'}">
+                                            <span>${opt}</span>
+                                            ${isSelected ? '<i class="fas fa-check-circle text-blue-600"></i>' : ''}
+                                        </button>
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
 
-                        <div class="mt-12 p-8 bg-slate-900 rounded-[2.5rem] text-white flex flex-col md:flex-row gap-4 justify-between items-center shadow-2xl">
-                            <p class="text-sm font-medium italic opacity-70 italic font-bold tracking-tight uppercase">Exambeing: Focus on Selection</p>
-                            <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="text-sky-400 font-bold text-xs uppercase tracking-widest italic">Join Telegram for Help</a>
+                        <div class="flex gap-4 mt-8 no-print">
+                            <button onclick="prevQ()" class="flex-1 p-4 bg-slate-100 rounded-2xl font-bold text-slate-600 disabled:opacity-30" ${current === 0 ? 'disabled' : ''}>
+                                <i class="fas fa-arrow-left mr-2"></i> PREVIOUS
+                            </button>
+                            <button onclick="nextQ()" class="flex-1 p-4 bg-blue-600 rounded-2xl font-bold text-white shadow-xl shadow-blue-200 disabled:opacity-30" ${current === data.length - 1 ? 'disabled' : ''}>
+                                NEXT QUESTION <i class="fas fa-arrow-right ml-2"></i>
+                            </button>
+                        </div>
+
+                        <div class="mt-8 p-6 bg-slate-900 rounded-[2rem] text-white flex flex-col md:flex-row gap-4 justify-between items-center shadow-2xl no-print">
+                            <p class="text-xs font-bold italic opacity-70 uppercase tracking-widest">Exambeing: Focus on Selection</p>
+                            <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="text-sky-400 font-bold text-[10px] uppercase tracking-widest italic">Join Telegram for Help</a>
                         </div>
                     </div>
                 `;
             };
 
-            window.handleAns = (selected) => {
-                results.push({q: data[current].question, picked: selected, correct: data[current].answer || data[current].correct});
-                current++;
-                if(current < data.length) renderQuestion();
-                else showResultDashboard(results, topic);
+            window.selectOption = (opt) => {
+                userChoices[current] = opt;
+                renderQuestion();
             };
 
+            window.nextQ = () => { if(current < data.length - 1) { current++; renderQuestion(); } };
+            window.prevQ = () => { if(current > 0) { current--; renderQuestion(); } };
+
             window.confirmSubmitQuiz = (tName) => {
-                if(confirm("Are you sure you want to submit?")) showResultDashboard(results, tName);
+                if(confirm("Are you sure you want to submit?")) {
+                    const finalResults = data.map((q, idx) => ({
+                        q: q.question,
+                        picked: userChoices[idx] || "Not Answered",
+                        correct: q.answer || q.correct
+                    }));
+                    showResultDashboard(finalResults, tName);
+                }
             };
 
             renderQuestion();
         }
 
         function showResultDashboard(res, topicName) {
-            let right = 0, wrong = 0;
-            res.forEach(r => { if(r.picked === r.correct) right++; else wrong++; });
+            let right = 0, wrong = 0, skipped = 0;
+            res.forEach(r => { 
+                if(r.picked === "Not Answered") skipped++;
+                else if(r.picked === r.correct) right++; 
+                else wrong++; 
+            });
             const score = (right * 1) - (wrong * 0.33);
             const overlay = document.getElementById('quiz-overlay');
 
             overlay.innerHTML = `
-                <div class="max-w-4xl mx-auto p-6 md:p-16 text-center">
+                <div class="max-w-4xl mx-auto p-6 md:p-16 text-center no-print">
                     <div class="w-32 h-32 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black mx-auto mb-8 shadow-2xl shadow-blue-300 border-4 border-white">${score.toFixed(2)}</div>
                     <h2 class="text-4xl font-black text-slate-900 mb-2 italic">Test Analysis</h2>
                     <p class="text-slate-400 font-bold uppercase tracking-widest text-xs mb-12">Standard Marking System</p>
@@ -286,7 +316,7 @@
                         <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">Right</span><span class="text-2xl font-black text-emerald-600">${right}</span></div>
                         <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">Wrong</span><span class="text-2xl font-black text-rose-600">${wrong}</span></div>
                         <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">Accuracy</span><span class="text-2xl font-black text-slate-800">${Math.round((right/(res.length || 1))*100)}%</span></div>
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">Total Qs</span><span class="text-2xl font-black text-slate-800">${res.length}</span></div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1 uppercase tracking-widest">Skipped</span><span class="text-2xl font-black text-slate-500">${skipped}</span></div>
                     </div>
 
                     <div class="flex flex-col md:flex-row gap-4 mb-8">
@@ -303,7 +333,7 @@
                     <div class="text-left space-y-4">
                         <h3 class="text-xl font-black mb-6 border-b pb-4">Detailed Review</h3>
                         ${res.map((r, i) => `
-                            <div class="p-6 rounded-3xl border ${r.picked === r.correct ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}">
+                            <div class="p-6 rounded-3xl border ${r.picked === r.correct ? 'bg-emerald-50 border-emerald-100' : (r.picked === 'Not Answered' ? 'bg-slate-50 border-slate-100' : 'bg-rose-50 border-rose-100')}">
                                 <p class="font-bold text-slate-800 mb-2">${i+1}. ${r.q}</p>
                                 <div class="text-xs font-bold uppercase flex flex-col gap-1 italic">
                                     <span class="${r.picked === r.correct ? 'text-emerald-700' : 'text-rose-700'}">Your Answer: ${r.picked}</span>
