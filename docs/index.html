@@ -12,7 +12,7 @@
         .hero-gradient { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); }
         .feature-card { transition: all 0.3s ease; border: 1px solid #e2e8f0; background: white; }
         .feature-card:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border-color: #3b82f6; }
-        .option-selected { border-color: #2563eb !important; background-color: #eff6ff !important; color: #1e40af !important; }
+        .option-selected { border-color: #2563eb !important; background-color: #eff6ff !important; color: #1e40af !important; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         
         /* PRINT LOGIC - HIDDEN AREA FIX */
         @media print {
@@ -31,9 +31,7 @@
         <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4">
             <div class="max-w-7xl mx-auto flex justify-between items-center">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-                        <i class="fas fa-graduation-cap"></i>
-                    </div>
+                    <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg font-bold">E</div>
                     <span class="text-2xl font-extrabold tracking-tighter text-slate-800">ExamBeing</span>
                 </div>
                 <div class="flex items-center gap-4">
@@ -47,20 +45,18 @@
             </div>
         </header>
 
-        <section class="hero-gradient text-white py-16 px-6 overflow-hidden relative">
-            <div class="max-w-7xl mx-auto flex flex-col items-center text-center relative z-10">
+        <section class="hero-gradient text-white py-16 px-6 overflow-hidden relative text-center">
+            <div class="max-w-7xl mx-auto relative z-10">
                 <span class="bg-blue-400/20 text-blue-200 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest mb-6 border border-blue-400/30">Official Practice Portal</span>
                 <h1 class="text-4xl md:text-6xl font-black mb-6 leading-tight">Master Every Exam with <br><span class="text-blue-300">Precision.</span></h1>
-                <p class="text-blue-100 max-w-2xl text-lg mb-10 font-medium">Access 10,000+ Subject-wise MCQs, PDF Notes, and Current Affairs specifically designed for Rajasthan Government Exams.</p>
+                <p class="text-blue-100 max-w-2xl mx-auto text-lg mb-10 font-medium">Access 10,000+ Subject-wise MCQs, PDF Notes, and Current Affairs specifically designed for Rajasthan Government Exams.</p>
                 <div class="flex flex-wrap justify-center gap-4">
-                    <a href="#test-series" class="bg-white text-blue-700 px-8 py-4 rounded-2xl font-extrabold shadow-2xl shadow-blue-900/40 transition hover:bg-blue-50">START PRACTICE</a>
-                    <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="bg-sky-500 text-white px-8 py-4 rounded-2xl font-extrabold shadow-lg transition hover:bg-sky-400 flex items-center gap-2">
-                        <i class="fab fa-telegram text-xl"></i> JOIN TELEGRAM
+                    <a href="#test-series" class="bg-white text-blue-700 px-8 py-4 rounded-2xl font-extrabold shadow-2xl transition hover:bg-blue-50">START PRACTICE</a>
+                    <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="bg-sky-500 text-white px-8 py-4 rounded-2xl font-extrabold shadow-lg transition hover:bg-sky-400 flex items-center gap-2 uppercase italic text-sm">
+                        <i class="fab fa-telegram text-xl"></i> Join Telegram
                     </a>
                 </div>
             </div>
-            <div class="absolute -bottom-20 -left-20 w-80 h-80 bg-blue-400/10 rounded-full blur-3xl"></div>
-            <div class="absolute -top-20 -right-20 w-80 h-80 bg-indigo-400/10 rounded-full blur-3xl"></div>
         </section>
 
         <main class="max-w-7xl mx-auto px-6 py-16">
@@ -70,16 +66,12 @@
                     <div class="w-2 h-10 bg-blue-600 rounded-full"></div>
                     <div>
                         <h2 class="text-3xl font-black text-slate-900">Subject-wise Test Series</h2>
-                        <p class="text-slate-500 font-medium">Real-time simulation with -0.33 negative marking.</p>
+                        <p class="text-slate-500 font-medium italic">Real-time simulation with -0.33 marking.</p>
                     </div>
                 </div>
-
                 <div id="subject-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-center">
-                    <div class="col-span-full py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
-                        <p class="animate-pulse font-bold text-slate-400 uppercase tracking-widest">Loading Database...</p>
-                    </div>
+                    <p class="col-span-full py-10 font-bold text-slate-400">Syncing Questions Database...</p>
                 </div>
-
                 <div id="dynamic-content" class="hidden mt-10 p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100 shadow-inner"></div>
             </section>
 
@@ -93,41 +85,37 @@
                         <div class="flex items-center gap-6">
                             <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl"><i class="fas fa-file-pdf"></i></div>
                             <div>
-                                <h4 class="font-bold text-lg text-left">Download Exam Notes</h4>
-                                <p class="text-xs text-slate-400 italic font-bold uppercase tracking-widest text-left">Premium Content</p>
+                                <h4 class="font-bold text-lg">Exam Special Notes</h4>
+                                <p class="text-xs text-slate-400 font-bold uppercase">Click to Download App</p>
                             </div>
                         </div>
-                        <span class="text-blue-600 font-bold text-sm">GET APP &rarr;</span>
+                        <span class="text-blue-600 font-bold">GET NOW &rarr;</span>
                     </a>
                     <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="feature-card p-8 rounded-[2rem] flex items-center justify-between group">
                         <div class="flex items-center gap-6">
                             <div class="w-16 h-16 bg-sky-100 text-sky-600 rounded-2xl flex items-center justify-center text-2xl"><i class="fab fa-telegram"></i></div>
                             <div>
-                                <h4 class="font-bold text-lg text-left">Daily PDF Updates</h4>
-                                <p class="text-xs text-slate-400 italic font-bold uppercase tracking-widest text-left">Free Telegram Group</p>
+                                <h4 class="font-bold text-lg">Daily PDF Updates</h4>
+                                <p class="text-xs text-slate-400 font-bold uppercase italic">Join Telegram Channel</p>
                             </div>
                         </div>
-                        <span class="text-sky-600 font-bold text-sm">JOIN NOW &rarr;</span>
+                        <span class="text-sky-600 font-bold">JOIN &rarr;</span>
                     </a>
                 </div>
             </section>
 
-            <section id="current-affairs">
+            <section id="current-affairs" class="mb-24">
                 <div class="bg-slate-900 rounded-[3rem] p-10 md:p-16 text-white flex flex-col md:flex-row items-center justify-between gap-10 overflow-hidden relative shadow-2xl">
                     <div class="relative z-10 text-center md:text-left">
-                        <h2 class="text-3xl font-black mb-4 leading-tight">Monthly Current Affairs <br><span class="text-blue-400">Magazine 2026</span></h2>
-                        <p class="text-slate-400 max-w-md mb-8 italic">Download the App to get daily updates & Weekly PDFs for Rajasthan Exams.</p>
+                        <h2 class="text-3xl font-black mb-4 leading-tight">Current Affairs <br><span class="text-blue-400">Magazine 2026</span></h2>
+                        <p class="text-slate-400 max-w-md mb-8 italic">Stay updated with Rajasthan & National News. Available on ExamBeing App.</p>
                         <div class="flex justify-center md:justify-start gap-4">
-                            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-600 px-8 py-3 rounded-xl font-black text-sm hover:bg-blue-500 transition shadow-xl">FREE DOWNLOAD</a>
-                            <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="bg-white/10 px-8 py-3 rounded-xl font-black text-sm border border-white/10">TELEGRAM</a>
+                            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-600 px-8 py-3 rounded-xl font-black text-sm shadow-xl">DOWNLOAD PDF</a>
                         </div>
                     </div>
                     <div class="relative z-10 flex flex-col gap-4">
                         <div class="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-4">
-                            <i class="fas fa-check-circle text-blue-400"></i> <span>Daily Current Quiz</span>
-                        </div>
-                        <div class="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-4">
-                            <i class="fas fa-check-circle text-blue-400"></i> <span>Exam-Centric PDF</span>
+                            <i class="fas fa-check-circle text-blue-400"></i> <span>Daily Rajasthan Quiz</span>
                         </div>
                     </div>
                     <i class="fas fa-bolt absolute -right-10 -bottom-10 text-[15rem] text-white/5 rotate-12"></i>
@@ -136,13 +124,11 @@
         </main>
 
         <footer class="bg-white border-t border-slate-200 py-12 px-6 text-center">
-            <p class="font-bold text-slate-400 mb-4 tracking-widest uppercase text-xs italic">A Product of ExamBeing</p>
+            <p class="font-bold text-slate-400 mb-4 tracking-widest uppercase text-xs">A Product of ExamBeing</p>
             <div class="flex justify-center gap-6 mb-8 text-slate-400">
-                <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank"><i class="fab fa-telegram text-2xl hover:text-blue-500"></i></a>
-                <a href="#"><i class="fab fa-youtube text-2xl hover:text-red-600"></i></a>
-                <a href="#"><i class="fab fa-instagram text-2xl hover:text-pink-600"></i></a>
+                <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank"><i class="fab fa-telegram text-2xl hover:text-blue-500 transition"></i></a>
             </div>
-            <p class="text-slate-400 text-sm">© 2026 ExamBeing. All Rights Reserved.</p>
+            <p class="text-slate-400 text-sm italic">© 2026 ExamBeing. All Rights Reserved.</p>
         </footer>
     </div>
 
@@ -158,21 +144,17 @@
             try {
                 const results = await Promise.all(jsonFiles.map(f => fetch(f).then(r => r.json()).catch(() => [])));
                 masterDB = results.flat();
-                renderSubjectCards();
+                renderSubjects();
             } catch(e) { console.error("Database error", e); }
         }
 
-        function renderSubjectCards() {
-            const subjects = [...new Set(masterDB.map(i => i.subject || "Rajasthan GK"))];
-            const grid = document.getElementById('subject-grid');
-            grid.innerHTML = subjects.map(sub => `
+        function renderSubjects() {
+            const subs = [...new Set(masterDB.map(i => i.subject || "Rajasthan GK"))];
+            document.getElementById('subject-grid').innerHTML = subs.map(sub => `
                 <div onclick="showTopics('${sub}')" class="feature-card p-10 rounded-[2.5rem] cursor-pointer text-center group">
-                    <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-[1.5rem] flex items-center justify-center text-2xl mx-auto mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
-                        <i class="fas fa-book-reader"></i>
-                    </div>
+                    <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-[1.5rem] flex items-center justify-center text-2xl mx-auto mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner"><i class="fas fa-book-reader"></i></div>
                     <h3 class="text-xl font-extrabold text-slate-800">${sub}</h3>
-                </div>
-            `).join('');
+                </div>`).join('');
         }
 
         function showTopics(sub) {
@@ -185,7 +167,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     ${validTopics.map(top => `
                         <div onclick="showSets('${top}')" class="bg-white p-5 rounded-2xl border border-blue-200 flex justify-between items-center cursor-pointer hover:border-blue-500 shadow-sm font-bold">
-                            <span>${top}</span><span class="text-[10px] bg-blue-600 text-white px-3 py-1 rounded-full uppercase italic">Sets</span>
+                            <span>${top}</span><span class="text-[10px] bg-blue-600 text-white px-3 py-1 rounded-full uppercase italic">Open Sets</span>
                         </div>`).join('')}
                 </div>`;
         }
@@ -195,9 +177,13 @@
             const sets = Math.ceil(count / 50);
             const div = document.getElementById('dynamic-content');
             div.innerHTML = `
-                <div class="flex items-center gap-4 mb-8"><button onclick="renderSubjectCards()" class="text-blue-600"><i class="fas fa-arrow-left"></i></button><h3 class="text-2xl font-black">${top} Sets</h3></div>
+                <div class="flex items-center gap-4 mb-8"><button onclick="renderSubjects()" class="text-blue-600"><i class="fas fa-arrow-left"></i></button><h3 class="text-2xl font-black">${top} - Sets</h3></div>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-6">
-                    ${Array.from({length: sets}, (_, i) => `<div onclick="startQuiz('${top}', ${i+1})" class="bg-white p-8 rounded-[2rem] border-2 border-slate-100 text-center cursor-pointer hover:border-blue-600 transition font-bold"><span class="block text-xs text-blue-600 mb-2 uppercase tracking-widest">Set</span><span class="text-4xl text-slate-800">${i+1}</span></div>`).join('')}
+                    ${Array.from({length: sets}, (_, i) => `
+                        <div onclick="startQuiz('${top}', ${i+1})" class="bg-white p-8 rounded-[2rem] border-2 border-slate-100 text-center cursor-pointer hover:border-blue-600 transition shadow-sm font-bold group">
+                            <span class="text-4xl text-slate-800 block group-hover:scale-110 transition-transform">${i+1}</span>
+                            <span class="text-[10px] text-slate-400 block mt-2 uppercase tracking-widest">50 Qs</span>
+                        </div>`).join('')}
                 </div>`;
         }
 
@@ -215,63 +201,60 @@
                 const selected = userChoices[current];
 
                 overlay.innerHTML = `
-                    <div class="max-w-4xl mx-auto p-6 md:p-12 min-h-screen flex flex-col">
+                    <div class="max-w-4xl mx-auto p-6 md:p-12 min-h-screen flex flex-col no-print">
                         <div class="flex justify-between items-center mb-10 border-b pb-6">
-                            <div><h4 class="font-black text-blue-600 text-xl italic underline">ExamBeing Portal</h4><p class="text-xs text-slate-400 font-bold">${topic} | Set ${setNum}</p></div>
-                            <button onclick="confirmSubmit('${topic}')" class="bg-red-600 text-white px-6 py-2 rounded-xl font-bold uppercase text-xs">Submit Test</button>
+                            <div><h4 class="font-black text-blue-600 text-xl italic underline">ExamBeing Portal</h4><p class="text-xs text-slate-400 font-bold uppercase">${topic} | Set ${setNum}</p></div>
+                            <button onclick="confirmSubmitQuiz('${topic}')" class="bg-red-600 text-white px-6 py-2 rounded-xl font-bold uppercase text-xs">Submit Test</button>
                         </div>
                         <div class="flex-grow">
-                            <div class="mb-4 flex justify-between items-center"><span class="text-xs font-black text-slate-400">QUESTION ${current+1} / ${data.length}</span></div>
+                            <div class="mb-4 flex justify-between items-center"><span class="text-xs font-black text-slate-400">QUESTION ${current+1} / ${data.length}</span><a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="text-xs font-bold text-sky-500 italic"><i class="fab fa-telegram"></i> JOIN TELEGRAM</a></div>
                             <h2 class="text-2xl md:text-3xl font-black text-slate-800 mb-10 leading-relaxed">${q.question}</h2>
                             <div class="grid grid-cols-1 gap-4">
                                 ${q.options.map(opt => `
-                                    <button onclick="selectAns('${opt.replace(/'/g, "\\'")}')" 
+                                    <button onclick="handleOptionSelect('${opt.replace(/'/g, "\\'")}')" 
                                         class="w-full text-left p-6 rounded-3xl border-2 transition-all font-bold flex justify-between items-center
-                                        ${selected === opt ? 'option-selected shadow-md' : 'border-slate-100 hover:border-blue-200 text-slate-700 bg-white'}">
+                                        ${selected === opt ? 'option-selected' : 'border-slate-100 hover:border-blue-200 text-slate-700 bg-white'}">
                                         <span>${opt}</span>
                                         ${selected === opt ? '<i class="fas fa-check-circle text-blue-600 scale-125"></i>' : ''}
                                     </button>`).join('')}
                             </div>
                         </div>
-                        <div class="flex gap-4 mt-8 pb-4">
-                            <button onclick="prevQ()" class="flex-1 p-4 bg-slate-100 rounded-2xl font-bold text-slate-600 italic disabled:opacity-30" ${current === 0 ? 'disabled' : ''}>PREVIOUS</button>
-                            <button onclick="nextQ()" class="flex-1 p-4 bg-blue-600 rounded-2xl font-bold text-white italic shadow-xl shadow-blue-200 disabled:opacity-30" ${current === data.length - 1 ? 'disabled' : ''}>NEXT QUESTION</button>
+                        <div class="flex gap-4 mt-8 no-print">
+                            <button onclick="current--; renderQuestion()" class="flex-1 p-4 bg-slate-100 rounded-2xl font-bold text-slate-600 italic disabled:opacity-30" ${current === 0 ? 'disabled' : ''}>PREVIOUS</button>
+                            <button onclick="current++; renderQuestion()" class="flex-1 p-4 bg-blue-600 rounded-2xl font-bold text-white italic shadow-xl shadow-blue-200 disabled:opacity-30" ${current === data.length - 1 ? 'disabled' : ''}>NEXT QUESTION</button>
                         </div>
                     </div>`;
             };
 
-            window.selectAns = (opt) => { userChoices[current] = opt; renderQuestion(); };
-            window.nextQ = () => { if(current < data.length-1) { current++; renderQuestion(); } };
-            window.prevQ = () => { if(current > 0) { current--; renderQuestion(); } };
-            window.confirmSubmit = (tName) => { if(confirm("Are you sure you want to submit?")) { finalizeQuiz(data, userChoices, tName); } };
-
+            window.handleOptionSelect = (opt) => { userChoices[current] = opt; renderQuestion(); };
+            window.confirmSubmitQuiz = (tName) => { if(confirm("Are you sure you want to submit?")) finalize(data, userChoices, tName); };
             renderQuestion();
         }
 
-        function finalizeQuiz(questions, choices, tName) {
-            let res = questions.map((q, idx) => ({ q: q.question, picked: choices[idx] || "Not Answered", correct: q.answer || q.correct }));
+        function finalize(questions, choices, tName) {
+            let resData = questions.map((q, idx) => ({ q: q.question, picked: choices[idx] || "Not Answered", correct: q.answer || q.correct }));
             let right = 0, wrong = 0;
-            res.forEach(r => { if(r.picked === r.correct) right++; else if(r.picked !== "Not Answered") wrong++; });
+            resData.forEach(r => { if(r.picked === r.correct) right++; else if(r.picked !== "Not Answered") wrong++; });
             const score = (right * 1) - (wrong * 0.33);
 
             const overlay = document.getElementById('quiz-overlay');
             overlay.innerHTML = `
                 <div class="max-w-4xl mx-auto p-6 md:p-16 text-center animate-fade-in no-print">
-                    <div class="w-32 h-32 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black mx-auto mb-8 shadow-2xl shadow-blue-300 border-4 border-white">${score.toFixed(2)}</div>
+                    <div class="w-32 h-32 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black mx-auto mb-8 shadow-2xl border-4 border-white">${score.toFixed(2)}</div>
                     <h2 class="text-4xl font-black text-slate-900 mb-2 italic">Performance Analytics</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 text-center uppercase tracking-widest font-black text-xs">
-                        <div class="bg-emerald-50 p-6 rounded-3xl border border-emerald-100 text-emerald-700">Right: ${right}</div>
-                        <div class="bg-rose-50 p-6 rounded-3xl border border-rose-100 text-rose-700">Wrong: ${wrong}</div>
-                        <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100 font-bold">Accuracy: ${Math.round((right/(res.length||1))*100)}%</div>
-                        <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100 font-bold text-slate-600">Total: ${res.length}</div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 text-center font-black text-xs uppercase tracking-widest">
+                        <div class="bg-emerald-50 p-6 rounded-3xl border border-emerald-100 text-emerald-700 font-bold">Right: ${right}</div>
+                        <div class="bg-rose-50 p-6 rounded-3xl border border-rose-100 text-rose-700 font-bold">Wrong: ${wrong}</div>
+                        <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100">Acc: ${Math.round((right/(resData.length||1))*100)}%</div>
+                        <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100">Total: ${resData.length}</div>
                     </div>
                     <div class="flex flex-col md:flex-row gap-4 mb-8">
-                        <button onclick="window.print()" class="flex-1 bg-emerald-600 text-white p-6 rounded-3xl font-black shadow-xl shadow-emerald-100 flex items-center justify-center gap-2 italic uppercase"><i class="fas fa-file-pdf"></i> Download Solution PDF</button>
+                        <button onclick="window.print()" class="flex-1 bg-emerald-600 text-white p-6 rounded-3xl font-black shadow-xl italic flex items-center justify-center gap-2"><i class="fas fa-file-pdf"></i> DOWNLOAD SOLUTION PDF</button>
                     </div>
-                    <button onclick="location.reload()" class="w-full bg-slate-900 text-white p-5 rounded-3xl font-black mb-12 italic uppercase tracking-widest shadow-xl">Back to Dashboard</button>
+                    <button onclick="location.reload()" class="w-full bg-slate-900 text-white p-5 rounded-3xl font-black mb-12 italic uppercase tracking-widest">Back to Dashboard</button>
                     <div class="text-left space-y-4">
                         <h3 class="text-xl font-black mb-6 border-b pb-4">Detailed Review</h3>
-                        ${res.map((r, i) => `
+                        ${resData.map((r, i) => `
                             <div class="p-6 rounded-3xl border ${r.picked === r.correct ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}">
                                 <p class="font-bold text-slate-800 mb-2">${i+1}. ${r.q}</p>
                                 <div class="text-xs font-bold uppercase flex flex-col gap-1 italic">
@@ -282,15 +265,15 @@
                     </div>
                 </div>`;
 
-            // Prep hidden printable area
+            // Prepare Print View
             const printArea = document.getElementById('printable-solution');
             printArea.innerHTML = `
                 <div style="text-align:center; border-bottom:4px solid #2563eb; padding-bottom:20px; margin-bottom:30px;">
                     <h1 style="color:#2563eb; font-size:28px; margin:0;">ExamBeing Solution Report</h1>
-                    <p style="font-weight:bold; font-size:16px;">Topic: ${tName} | Final Score: ${score.toFixed(2)}</p>
-                    <p style="font-size:12px;">Download App: exambeing.com | Telegram: https://t.me/+MjkC2APKPGQwZDZl</p>
+                    <p style="font-weight:bold; font-size:16px;">Topic: ${tName} | Score: ${score.toFixed(2)}</p>
+                    <p style="font-size:12px;">App: exambeing.com | Telegram: https://t.me/+MjkC2APKPGQwZDZl</p>
                 </div>
-                ${res.map((r, i) => `
+                ${resData.map((r, i) => `
                     <div style="margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:10px; page-break-inside:avoid;">
                         <p style="font-weight:bold; font-size:14px; margin:0 0 5px 0;">${i+1}. ${r.q}</p>
                         <p style="color:#e11d48; margin:0; font-size:12px; font-weight:bold;">Your Answer: ${r.picked}</p>
