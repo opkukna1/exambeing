@@ -3,326 +3,306 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ExamBeing | Next-Gen Learning Portal</title>
+    <title>ExamBeing | Rajasthan's #1 Learning Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f0f2f5; }
-        .sidebar { transition: all 0.3s ease; width: 280px; background: #0f172a; }
-        .main-content { transition: all 0.3s ease; margin-left: 280px; }
-        @media (max-width: 1024px) { .sidebar { transform: translateX(-100%); position: fixed; z-index: 50; } .main-content { margin-left: 0; } }
-        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid #e2e8f0; }
-        .neon-border { border: 2px solid transparent; transition: 0.3s; }
-        .neon-border:hover { border-color: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
-        .quiz-option { border: 2px solid #f1f5f9; transition: 0.2s; }
-        .quiz-option:hover { border-color: #3b82f6; background: #eff6ff; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; scroll-behavior: smooth; }
+        .hero-gradient { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); }
+        .feature-card { transition: all 0.3s ease; border: 1px solid #e2e8f0; }
+        .feature-card:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border-color: #3b82f6; }
+        .quiz-portal { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.98); }
+        .btn-modern { background: linear-gradient(90deg, #2563eb, #1d4ed8); transition: 0.3s; }
+        .btn-modern:hover { opacity: 0.9; transform: scale(1.02); }
     </style>
 </head>
-<body class="text-slate-900 overflow-x-hidden">
+<body class="text-slate-900">
 
-    <button onclick="toggleSidebar()" class="lg:hidden fixed bottom-6 right-6 z-[60] w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center text-xl">
-        <i class="fas fa-bars"></i>
-    </button>
-
-    <aside id="sidebar" class="sidebar fixed top-0 left-0 h-screen overflow-y-auto text-slate-300 shadow-2xl">
-        <div class="p-8">
-            <div class="flex items-center gap-3 mb-12">
-                <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
-                    <i class="fas fa-rocket text-xl"></i>
+    <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                    <i class="fas fa-graduation-cap"></i>
                 </div>
-                <div>
-                    <h1 class="text-xl font-extrabold text-white tracking-tight">ExamBeing</h1>
-                    <p class="text-[10px] text-blue-400 font-black uppercase tracking-widest">Pro Learning</p>
-                </div>
+                <span class="text-2xl font-extrabold tracking-tighter text-slate-800">ExamBeing</span>
             </div>
-
-            <nav class="space-y-2">
-                <button onclick="goHome()" class="w-full flex items-center gap-4 p-4 rounded-xl bg-blue-600/10 text-blue-400 font-bold border border-blue-600/20">
-                    <i class="fas fa-th-large"></i> Dashboard
-                </button>
-                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-white/5 transition">
-                    <i class="fas fa-book-open"></i> Study Material
-                </a>
-                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="w-full flex items-center gap-4 p-4 rounded-xl hover:bg-white/5 transition">
-                    <i class="fas fa-file-pdf"></i> PDF Notes
-                </a>
-            </nav>
-
-            <div class="mt-20 p-6 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl text-white shadow-xl">
-                <p class="text-xs font-bold opacity-80 mb-2 italic">Want more?</p>
-                <h4 class="font-bold mb-4">Unlock 10,000+ Premium Qs</h4>
-                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="block w-full text-center bg-white text-blue-700 py-3 rounded-xl font-bold text-sm shadow-md">Get App Now</a>
-            </div>
-        </div>
-    </aside>
-
-    <div id="main-panel" class="main-content min-h-screen">
-        <header class="sticky top-0 z-40 glass px-6 py-4 flex justify-between items-center">
-            <div id="breadcrumb" class="text-sm font-bold text-slate-400 uppercase tracking-widest">
-                System / <span class="text-blue-600">Overview</span>
-            </div>
-            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="hidden md:flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-full text-xs font-black shadow-lg">
-                <i class="fab fa-google-play"></i> DOWNLOAD EXAMBEING
+            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="hidden md:block bg-slate-900 text-white px-6 py-2 rounded-full text-sm font-bold shadow-xl">
+                INSTALL APP
             </a>
-        </header>
+        </div>
+    </header>
 
-        <div class="p-6 lg:p-10 max-w-6xl mx-auto">
-            <div id="homepage">
-                <div class="mb-10 flex flex-col md:flex-row justify-between items-center gap-6">
-                    <div>
-                        <h2 class="text-3xl font-black text-slate-900 mb-2">Preparation Dashboard</h2>
-                        <p class="text-slate-500 font-medium">Select a subject to start your 50-Question challenge.</p>
-                    </div>
-                </div>
+    <section class="hero-gradient text-white py-16 px-6 overflow-hidden relative">
+        <div class="max-w-7xl mx-auto flex flex-col items-center text-center relative z-10">
+            <span class="bg-blue-400/20 text-blue-200 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest mb-6 border border-blue-400/30">Official Practice Portal</span>
+            <h1 class="text-4xl md:text-6xl font-black mb-6 leading-tight">Master Every Exam with <br><span class="text-blue-300">Precision.</span></h1>
+            <p class="text-blue-100 max-w-2xl text-lg mb-10 font-medium">Access 10,000+ Subject-wise MCQs, PDF Notes, and Current Affairs specifically designed for Rajasthan Government Exams.</p>
+            <div class="flex flex-wrap justify-center gap-4">
+                <a href="#test-series" class="bg-white text-blue-700 px-8 py-4 rounded-2xl font-extrabold shadow-2xl shadow-blue-900/40 transition hover:bg-blue-50">START PRACTICE</a>
+                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-500 text-white px-8 py-4 rounded-2xl font-extrabold shadow-lg transition hover:bg-blue-400">DOWNLOAD APP</a>
+            </div>
+        </div>
+        <div class="absolute -bottom-20 -left-20 w-80 h-80 bg-blue-400/10 rounded-full blur-3xl"></div>
+        <div class="absolute -top-20 -right-20 w-80 h-80 bg-indigo-400/10 rounded-full blur-3xl"></div>
+    </section>
 
-                <div id="subject-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    <div class="col-span-full text-center py-20">
-                        <div class="animate-spin text-blue-600 text-4xl mb-4"><i class="fas fa-circle-notch"></i></div>
-                        <p class="font-bold text-slate-400 italic">Compiling Multiple Databases...</p>
-                    </div>
+    <main class="max-w-7xl mx-auto px-6 py-16">
+        
+        <section id="test-series" class="mb-24">
+            <div class="flex items-center gap-4 mb-10">
+                <div class="w-2 h-10 bg-blue-600 rounded-full"></div>
+                <div>
+                    <h2 class="text-3xl font-black text-slate-900">Subject-wise Test Series</h2>
+                    <p class="text-slate-500 font-medium">Real-time simulation with -0.33 negative marking.</p>
                 </div>
             </div>
 
-            <div id="dynamic-render" class="hidden"></div>
-        </div>
-    </div>
+            <div id="subject-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="col-span-full text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
+                    <div class="animate-spin text-blue-600 text-3xl mb-4"><i class="fas fa-spinner"></i></div>
+                    <p class="font-bold text-slate-400">Fetching 10K Questions Database...</p>
+                </div>
+            </div>
 
-    <div id="quiz-portal" class="fixed inset-0 bg-slate-50 z-[100] hidden overflow-y-auto"></div>
+            <div id="dynamic-content" class="hidden mt-10 p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100"></div>
+        </section>
+
+        <section id="notes" class="mb-24">
+            <div class="flex items-center gap-4 mb-10">
+                <div class="w-2 h-10 bg-emerald-500 rounded-full"></div>
+                <div>
+                    <h2 class="text-3xl font-black text-slate-900">PDF Notes & Books</h2>
+                    <p class="text-slate-500 font-medium">Comprehensive material for deep understanding.</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="feature-card bg-white p-8 rounded-[2rem] flex items-center justify-between">
+                    <div class="flex items-center gap-6">
+                        <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl"><i class="fas fa-file-pdf"></i></div>
+                        <div>
+                            <h4 class="font-bold text-lg">Rajasthan History Notes</h4>
+                            <p class="text-xs text-slate-400">Class 6-12 Summary + Premium Content</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-download text-slate-300"></i>
+                </a>
+                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="feature-card bg-white p-8 rounded-[2rem] flex items-center justify-between">
+                    <div class="flex items-center gap-6">
+                        <div class="w-16 h-16 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center text-2xl"><i class="fas fa-atlas"></i></div>
+                        <div>
+                            <h4 class="font-bold text-lg">Geography & Map Work</h4>
+                            <p class="text-xs text-slate-400">Updated New Districts 2024-25</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-download text-slate-300"></i>
+                </a>
+            </div>
+        </section>
+
+        <section id="current-affairs">
+            <div class="bg-slate-900 rounded-[3rem] p-10 md:p-16 text-white flex flex-col md:flex-row items-center justify-between gap-10 overflow-hidden relative">
+                <div class="relative z-10">
+                    <h2 class="text-3xl font-black mb-4 leading-tight">Monthly Current Affairs <br><span class="text-blue-400">Magazine 2026</span></h2>
+                    <p class="text-slate-400 max-w-md mb-8">Stay updated with daily Rajasthan & National current affairs. Download the App to get daily updates.</p>
+                    <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-600 px-10 py-4 rounded-2xl font-black text-sm hover:bg-blue-500 transition shadow-xl inline-block">FREE DOWNLOAD</a>
+                </div>
+                <div class="relative z-10 flex flex-col gap-4">
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-4">
+                        <i class="fas fa-calendar-check text-blue-400"></i> <span>Daily Quiz</span>
+                    </div>
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-4">
+                        <i class="fas fa-newspaper text-blue-400"></i> <span>Weekly Analysis</span>
+                    </div>
+                </div>
+                <i class="fas fa-bolt absolute -right-10 -bottom-10 text-[15rem] text-white/5 rotate-12"></i>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-white border-t border-slate-200 py-12 px-6 text-center">
+        <p class="font-bold text-slate-400 mb-4 tracking-widest uppercase text-xs">A Product of ExamBeing</p>
+        <div class="flex justify-center gap-6 mb-8 text-slate-400">
+            <a href="#"><i class="fab fa-youtube text-2xl hover:text-red-600 transition"></i></a>
+            <a href="#"><i class="fab fa-telegram text-2xl hover:text-blue-500 transition"></i></a>
+            <a href="#"><i class="fab fa-instagram text-2xl hover:text-pink-600 transition"></i></a>
+        </div>
+        <p class="text-slate-400 text-sm italic">© 2026 ExamBeing. All Rights Reserved.</p>
+    </footer>
+
+    <div id="quiz-overlay" class="fixed inset-0 bg-white z-[100] hidden overflow-y-auto"></div>
 
     <script>
         let masterDB = [];
-        const jsonFiles = ['questions.json', 'questions1.json', 'questions2.json']; // Add your files here
+        const jsonFiles = ['questions.json', 'questions1.json']; // Combine your files here
 
-        // 1. Data Aggregator
-        async function initApp() {
+        // App Initialization
+        async function init() {
             try {
-                const fetchPromises = jsonFiles.map(file => fetch(file).then(r => r.json()).catch(e => []));
-                const results = await Promise.all(fetchPromises);
+                const results = await Promise.all(jsonFiles.map(f => fetch(f).then(r => r.json()).catch(() => [])));
                 masterDB = results.flat();
-                renderSubjects();
-            } catch (err) {
-                console.error("DB Load Error", err);
-            }
+                renderSubjectCards();
+            } catch(e) { console.error(e); }
         }
 
-        function toggleSidebar() {
-            const side = document.getElementById('sidebar');
-            side.style.transform = side.style.transform === 'translateX(0%)' ? 'translateX(-100%)' : 'translateX(0%)';
-        }
-
-        function goHome() {
-            document.getElementById('homepage').classList.remove('hidden');
-            document.getElementById('dynamic-render').classList.add('hidden');
-            document.getElementById('breadcrumb').innerHTML = 'System / <span class="text-blue-600">Overview</span>';
-        }
-
-        function renderSubjects() {
-            const subjects = [...new Set(masterDB.map(i => i.subject || "Rajasthan Special"))];
+        function renderSubjectCards() {
+            const subjects = [...new Set(masterDB.map(i => i.subject || "Rajasthan GK"))];
             const grid = document.getElementById('subject-grid');
-            
             grid.innerHTML = subjects.map(sub => `
-                <div onclick="renderTopics('${sub}')" class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 neon-border cursor-pointer group">
-                    <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                        <i class="fas fa-university text-2xl"></i>
+                <div onclick="showTopics('${sub}')" class="feature-card bg-white p-10 rounded-[2.5rem] cursor-pointer text-center group">
+                    <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-[1.5rem] flex items-center justify-center text-2xl mx-auto mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
+                        <i class="fas fa-book-reader"></i>
                     </div>
                     <h3 class="text-xl font-extrabold text-slate-800">${sub}</h3>
-                    <p class="text-slate-400 text-sm mt-2 font-medium italic">Click to view topics &rarr;</p>
+                    <p class="text-slate-400 text-sm mt-2">Topic-wise Sets Available</p>
                 </div>
             `).join('');
         }
 
-        function renderTopics(sub) {
-            document.getElementById('homepage').classList.add('hidden');
-            const render = document.getElementById('dynamic-render');
-            render.classList.remove('hidden');
-            document.getElementById('breadcrumb').innerText = `Subjects / ${sub}`;
+        function showTopics(sub) {
+            const div = document.getElementById('dynamic-content');
+            div.classList.remove('hidden');
+            div.scrollIntoView({ behavior: 'smooth' });
 
-            // Filtering topics with >= 20 questions
-            const topicCounts = {};
-            masterDB.filter(i => (i.subject || "Rajasthan Special") === sub).forEach(i => {
-                topicCounts[i.topic] = (topicCounts[i.topic] || 0) + 1;
-            });
+            const topics = [...new Set(masterDB.filter(i => (i.subject || "Rajasthan GK") === sub).map(i => i.topic))];
+            const validTopics = topics.filter(t => masterDB.filter(i => i.topic === t).length >= 20);
 
-            const validTopics = Object.keys(topicCounts).filter(top => topicCounts[top] >= 20);
-
-            render.innerHTML = `
-                <div class="flex items-center gap-4 mb-8">
-                    <button onclick="goHome()" class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600"><i class="fas fa-arrow-left text-xs"></i></button>
-                    <h2 class="text-2xl font-black text-slate-900">Choose Topic</h2>
+            div.innerHTML = `
+                <div class="flex justify-between items-center mb-8">
+                    <h3 class="text-2xl font-black text-slate-800">${sub} Topics</h3>
+                    <button onclick="document.getElementById('dynamic-content').classList.add('hidden')" class="text-slate-400">Close</button>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     ${validTopics.map(top => `
-                        <div onclick="renderSets('${top}')" class="bg-white p-6 rounded-3xl border border-slate-200 flex justify-between items-center cursor-pointer hover:shadow-lg transition">
-                            <div class="flex items-center gap-4">
-                                <div class="w-2 h-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500"></div>
-                                <span class="font-bold text-slate-700">${top}</span>
-                            </div>
-                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${topicCounts[top]} Qs</span>
+                        <div onclick="showSets('${top}')" class="bg-white p-5 rounded-2xl border border-blue-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition">
+                            <span class="font-bold text-slate-700">${top}</span>
+                            <span class="text-[10px] font-black bg-blue-100 text-blue-600 px-3 py-1 rounded-full uppercase">Practice</span>
                         </div>
                     `).join('')}
                 </div>
             `;
         }
 
-        function renderSets(topic) {
-            const totalQs = masterDB.filter(i => i.topic === topic).length;
-            const setSize = 50;
-            const sets = Math.ceil(totalQs / setSize);
+        function showSets(top) {
+            const count = masterDB.filter(i => i.topic === top).length;
+            const sets = Math.ceil(count / 50);
+            const div = document.getElementById('dynamic-content');
 
-            const render = document.getElementById('dynamic-render');
-            render.innerHTML = `
+            div.innerHTML = `
                 <div class="flex items-center gap-4 mb-8">
-                    <button onclick="goHome()" class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600"><i class="fas fa-arrow-left text-xs"></i></button>
-                    <h2 class="text-2xl font-black text-slate-900">${topic} Sets</h2>
+                    <button onclick="showTopics()" class="text-blue-600"><i class="fas fa-arrow-left"></i></button>
+                    <h3 class="text-2xl font-black text-slate-800">${top} Sets</h3>
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-6">
                     ${Array.from({length: sets}, (_, i) => `
-                        <div onclick="startPractice('${topic}', ${i+1})" class="bg-white p-10 rounded-[3rem] border-2 border-slate-100 text-center cursor-pointer hover:border-blue-600 hover:bg-blue-50 transition group">
-                            <span class="text-[10px] font-black text-blue-600 uppercase mb-2 block tracking-tighter">Ultimate Set</span>
-                            <span class="text-5xl font-black text-slate-800 group-hover:scale-110 transition-transform block">${i+1}</span>
-                            <span class="text-[10px] text-slate-400 font-bold uppercase mt-4 block tracking-widest">50 MCQs</span>
+                        <div onclick="startQuiz('${top}', ${i+1})" class="bg-white p-8 rounded-[2rem] border-2 border-slate-100 text-center cursor-pointer hover:border-blue-600 transition shadow-sm">
+                            <span class="text-[10px] font-black text-blue-600 block mb-2">ULTIMATE</span>
+                            <span class="text-4xl font-black text-slate-800 block">${i+1}</span>
+                            <span class="text-[10px] text-slate-400 font-bold block mt-3">50 Qs</span>
                         </div>
                     `).join('')}
                 </div>
             `;
         }
 
-        function startPractice(topic, setNum) {
-            const filtered = masterDB.filter(i => i.topic === topic);
-            const batch = filtered.slice((setNum-1)*50, setNum*50);
-            
-            const portal = document.getElementById('quiz-portal');
-            portal.classList.remove('hidden');
-            
+        function startQuiz(topic, setNum) {
+            const data = masterDB.filter(i => i.topic === topic).slice((setNum-1)*50, setNum*50);
+            const overlay = document.getElementById('quiz-overlay');
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+
             let current = 0;
             let results = [];
-            let startTime = new Date();
 
-            const renderQ = () => {
-                const q = batch[current];
-                const progress = ((current+1)/batch.length)*100;
-                portal.innerHTML = `
+            const renderQuestion = () => {
+                const q = data[current];
+                overlay.innerHTML = `
                     <div class="max-w-4xl mx-auto p-6 md:p-12 min-h-screen flex flex-col">
-                        <div class="flex justify-between items-center mb-10">
-                            <div class="w-2/3">
-                                <div class="flex justify-between text-[10px] font-black uppercase text-slate-400 mb-2">
-                                    <span>Q. ${current+1} of ${batch.length}</span>
-                                    <span>${Math.round(progress)}% Progress</span>
-                                </div>
-                                <div class="h-2 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner">
-                                    <div class="h-full bg-blue-600 transition-all duration-500" style="width:${progress}%"></div>
-                                </div>
+                        <div class="flex justify-between items-center mb-10 border-b pb-6">
+                            <div>
+                                <h4 class="font-black text-blue-600 tracking-tighter text-xl">ExamBeing Test</h4>
+                                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">${topic} | Set ${setNum}</p>
                             </div>
-                            <button onclick="location.reload()" class="text-slate-400 font-bold hover:text-red-500 transition">EXIT</button>
+                            <button onclick="finishQuiz(true)" class="bg-red-50 text-red-600 px-6 py-2 rounded-xl font-bold text-xs border border-red-100">SUBMIT TEST</button>
                         </div>
 
                         <div class="flex-grow">
-                            <h2 class="text-2xl md:text-4xl font-black text-slate-800 mb-12 leading-tight">${q.question}</h2>
+                            <div class="mb-8 flex justify-between items-end">
+                                <span class="text-xs font-black text-slate-400 uppercase">Question ${current+1} / ${data.length}</span>
+                            </div>
+                            <h2 class="text-2xl md:text-3xl font-black text-slate-800 mb-10 leading-relaxed">${q.question}</h2>
                             <div class="grid grid-cols-1 gap-4">
-                                ${q.options.map((opt, i) => `
-                                    <button onclick="submitQ('${opt.replace(/'/g, "\\'")}')" class="quiz-option w-full text-left p-6 rounded-3xl bg-white shadow-sm font-bold text-slate-700 flex justify-between items-center group">
+                                ${q.options.map(opt => `
+                                    <button onclick="handleAns('${opt.replace(/'/g, "\\'")}')" class="w-full text-left p-6 rounded-3xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 transition font-bold text-slate-700 flex justify-between items-center group">
                                         <span>${opt}</span>
-                                        <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-xs text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">${String.fromCharCode(65+i)}</div>
+                                        <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-[10px] text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-all underline">PICK</div>
                                     </button>
                                 `).join('')}
                             </div>
                         </div>
 
-                        <div class="mt-12 p-8 bg-slate-900 rounded-[2.5rem] text-white flex justify-between items-center shadow-2xl">
-                            <div>
-                                <p class="text-xs font-bold text-blue-400 uppercase mb-1 tracking-widest">Expert Tip</p>
-                                <p class="text-sm font-medium opacity-80">Read every option carefully. Use ExamBeing for notes.</p>
-                            </div>
-                            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-600 px-6 py-3 rounded-2xl font-black text-xs">DOWNLOAD APP</a>
+                        <div class="mt-12 p-8 bg-slate-900 rounded-[2.5rem] text-white flex justify-between items-center">
+                            <p class="text-sm font-medium italic opacity-70 italic">Success is a journey, not a destination.</p>
+                            <span class="text-xs font-black text-blue-400 uppercase">ExamBeing Pro</span>
                         </div>
                     </div>
                 `;
             };
 
-            window.submitQ = (ans) => {
-                const correctAns = batch[current].answer || batch[current].correct;
-                results.push({ q: batch[current].question, picked: ans, correct: correctAns });
+            window.handleAns = (selected) => {
+                results.push({q: data[current].question, picked: selected, correct: data[current].answer || data[current].correct});
                 current++;
-                if(current < batch.length) renderQ();
-                else showFinalDashboard(results, startTime);
+                if(current < data.length) renderQuestion();
+                else finishQuiz(false);
             };
-            renderQ();
+
+            window.finishQuiz = (early) => {
+                if(early && !confirm("Are you sure you want to submit before finishing?")) return;
+                showResultDashboard(results, data.length);
+            };
+
+            renderQuestion();
         }
 
-        function showFinalDashboard(res, start) {
+        function showResultDashboard(res, total) {
             let right = 0, wrong = 0;
-            res.forEach(item => {
-                if(item.picked === item.correct) right++;
-                else wrong++;
-            });
+            res.forEach(r => { if(r.picked === r.correct) right++; else wrong++; });
+            const score = (right * 1) - (wrong * 0.33);
+            const overlay = document.getElementById('quiz-overlay');
 
-            const timeTaken = Math.round((new Date() - start) / 1000 / 60);
-            const rawScore = (right * 1) - (wrong * 0.33);
-            const accuracy = Math.round((right / res.length) * 100);
-
-            const portal = document.getElementById('quiz-portal');
-            portal.innerHTML = `
-                <div class="max-w-4xl mx-auto p-6 md:p-16">
-                    <div class="text-center mb-16">
-                        <div class="w-32 h-32 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black mx-auto mb-6 shadow-2xl shadow-blue-300 rotate-12">${rawScore.toFixed(2)}</div>
-                        <h2 class="text-4xl font-black text-slate-900 mb-2">Analysis Dashboard</h2>
-                        <p class="text-slate-500 font-bold uppercase tracking-tighter">Your Performance Breakdown</p>
-                    </div>
+            overlay.innerHTML = `
+                <div class="max-w-4xl mx-auto p-6 md:p-16 text-center">
+                    <div class="w-32 h-32 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black mx-auto mb-8 shadow-2xl shadow-blue-200">${score.toFixed(2)}</div>
+                    <h2 class="text-4xl font-black text-slate-900 mb-2">Test Analysis</h2>
+                    <p class="text-slate-400 font-bold uppercase tracking-widest text-xs mb-12">Performance Summary</p>
 
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
-                            <span class="text-xs font-bold text-slate-400 uppercase block mb-1">Correct</span>
-                            <span class="text-2xl font-black text-emerald-600">${right}</span>
-                        </div>
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
-                            <span class="text-xs font-bold text-slate-400 uppercase block mb-1">Wrong</span>
-                            <span class="text-2xl font-black text-rose-600">${wrong}</span>
-                        </div>
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
-                            <span class="text-xs font-bold text-slate-400 uppercase block mb-1">Accuracy</span>
-                            <span class="text-2xl font-black text-slate-800">${accuracy}%</span>
-                        </div>
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
-                            <span class="text-xs font-bold text-slate-400 uppercase block mb-1">Time</span>
-                            <span class="text-2xl font-black text-slate-800">${timeTaken}m</span>
-                        </div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1">RIGHT</span><span class="text-2xl font-black text-emerald-600">${right}</span></div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1">WRONG</span><span class="text-2xl font-black text-rose-600">${wrong}</span></div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1">ACCURACY</span><span class="text-2xl font-black text-slate-800">${Math.round((right/res.length)*100) || 0}%</span></div>
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><span class="text-[10px] font-black text-slate-400 block mb-1">TOTAL</span><span class="text-2xl font-black text-slate-800">${res.length}</span></div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-16">
-                        <button onclick="shareResult(${rawScore}, ${accuracy})" class="bg-emerald-500 text-white p-6 rounded-3xl font-black shadow-lg shadow-emerald-200 flex items-center justify-center gap-4">
-                            <i class="fab fa-whatsapp text-2xl"></i> SHARE WITH FRIENDS
-                        </button>
-                        <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-slate-900 text-white p-6 rounded-3xl font-black shadow-lg flex items-center justify-center gap-4">
-                            <i class="fas fa-file-download text-2xl"></i> GET 10K+ PDF NOW
-                        </a>
+                    <div class="flex flex-col md:flex-row gap-4 mb-12">
+                        <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="flex-1 bg-blue-600 text-white p-6 rounded-3xl font-black shadow-xl shadow-blue-200">DOWNLOAD DETAILED PDF</a>
+                        <button onclick="location.reload()" class="flex-1 bg-slate-900 text-white p-6 rounded-3xl font-black">BACK TO HOME</button>
                     </div>
 
-                    <div class="space-y-4">
-                        <h3 class="text-xl font-black mb-6 flex items-center gap-3"><i class="fas fa-list-check text-blue-600"></i> Detailed Review</h3>
+                    <div class="text-left space-y-4">
+                        <h3 class="text-xl font-black mb-6">Answer Key Review</h3>
                         ${res.map((r, i) => `
-                            <div class="p-6 rounded-[2rem] border ${r.picked === r.correct ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}">
-                                <p class="font-bold text-slate-800 mb-3">${i+1}. ${r.q}</p>
-                                <div class="flex flex-col gap-1 text-[11px] font-black uppercase tracking-widest">
-                                    <span class="${r.picked === r.correct ? 'text-emerald-600' : 'text-rose-600'}">You Picked: ${r.picked}</span>
-                                    ${r.picked !== r.correct ? `<span class="text-emerald-600">Correct: ${r.correct}</span>` : ''}
-                                </div>
+                            <div class="p-6 rounded-3xl border ${r.picked === r.correct ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}">
+                                <p class="font-bold text-slate-800 mb-2">${i+1}. ${r.q}</p>
+                                <p class="text-xs font-black uppercase tracking-widest ${r.picked === r.correct ? 'text-emerald-700' : 'text-rose-700'}">Aapka: ${r.picked} | Sahi: ${r.correct}</p>
                             </div>
                         `).join('')}
                     </div>
-
-                    <button onclick="location.reload()" class="w-full mt-12 py-5 bg-slate-200 text-slate-600 rounded-3xl font-black uppercase tracking-widest shadow-inner">Return to Dashboard</button>
                 </div>
             `;
         }
 
-        window.shareResult = (score, acc) => {
-            const text = `Hey! I just scored ${score.toFixed(2)} with ${acc}% accuracy on ExamBeing Rajasthan GK Test. Can you beat my score? Check it out: ${window.location.href}`;
-            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`);
-        }
-
-        // Initialize App
-        initApp();
+        init();
     </script>
 </body>
 </html>
