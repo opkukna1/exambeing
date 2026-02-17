@@ -3,315 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ExamBeing Portal | Practice Hub</title>
+    <title>ExamBeing | Premium Practice Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f4f7fa; }
-        .glass-nav { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
-        .sidebar-transition { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .score-card { background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); }
-        .btn-primary { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); }
-        .option-card { transition: all 0.2s ease; border: 2px solid #eef2f6; }
-        .option-card:hover { border-color: #3b82f6; background-color: #f0f7ff; }
-        .option-selected { border-color: #3b82f6 !important; background-color: #eff6ff !important; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .primary-gradient { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); }
+        .accent-gradient { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .card-hover { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+        .option-btn { transition: all 0.2s ease; border: 2px solid #f1f5f9; }
+        .option-btn:hover:not([disabled]) { border-color: #3b82f6; background-color: #eff6ff; }
     </style>
 </head>
-<body class="overflow-x-hidden">
+<body class="text-slate-900">
 
-    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden"></div>
-
-    <aside id="sidebar" class="fixed top-0 left-0 h-full w-72 bg-slate-900 text-white z-50 transform -translate-x-full sidebar-transition">
-        <div class="p-6">
-            <div class="flex items-center gap-3 mb-10">
-                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-xl">E</div>
-                <span class="text-xl font-extrabold tracking-tight">ExamBeing</span>
-            </div>
-            <nav class="space-y-2">
-                <a href="#" onclick="goHome()" class="flex items-center gap-4 p-3 rounded-xl bg-blue-600 text-white font-bold">
-                    <i class="fas fa-home w-5"></i> Dashboard
-                </a>
-                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800 transition text-slate-400 hover:text-white">
-                    <i class="fas fa-book w-5"></i> My Courses
-                </a>
-                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800 transition text-slate-400 hover:text-white">
-                    <i class="fas fa-file-alt w-5"></i> PDF Notes
-                </a>
-                <div class="pt-10">
-                    <p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest px-3 mb-4">Support</p>
-                    <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800 transition text-slate-400">
-                        <i class="fas fa-headset w-5"></i> Contact Us
-                    </a>
+    <nav class="sticky top-0 z-50 glass-card shadow-sm border-b border-slate-200 px-4 py-3">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="goHome()">
+                <div class="w-10 h-10 primary-gradient rounded-xl flex items-center justify-center text-white shadow-blue-200 shadow-lg">
+                    <i class="fas fa-graduation-cap"></i>
                 </div>
-            </nav>
+                <div>
+                    <h1 class="text-lg font-extrabold tracking-tight leading-none">ExamBeing</h1>
+                    <span class="text-[10px] text-blue-600 font-bold uppercase tracking-widest">Beyond Excellence</span>
+                </div>
+            </div>
+            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" target="_blank" class="accent-gradient text-white text-xs font-bold px-5 py-2.5 rounded-full shadow-md hover:opacity-90 transition">
+                <i class="fab fa-google-play mr-1"></i> DOWNLOAD APP
+            </a>
         </div>
-    </aside>
+    </nav>
 
-    <div class="min-h-screen sidebar-transition" id="main-panel">
+    <div class="max-w-4xl mx-auto px-4 py-8">
         
-        <header class="sticky top-0 z-30 glass-nav border-b border-slate-200 px-4 py-3">
-            <div class="max-w-7xl mx-auto flex justify-between items-center">
-                <div class="flex items-center gap-4">
-                    <button onclick="toggleSidebar()" class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 transition">
-                        <i class="fas fa-bars text-slate-600"></i>
-                    </button>
-                    <span class="font-bold text-slate-800 hidden md:block">Portal Access</span>
+        <div id="hero-banner" class="mb-10 rounded-3xl p-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 shadow-2xl shadow-blue-200">
+            <div class="bg-slate-900 rounded-[22px] p-6 text-white flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
+                <div class="relative z-10 text-center md:text-left">
+                    <span class="bg-blue-500/20 text-blue-400 text-[10px] font-black px-3 py-1 rounded-full uppercase mb-4 inline-block border border-blue-500/30">Limited Free Access</span>
+                    <h2 class="text-2xl font-bold mb-2">Master Rajasthan GK</h2>
+                    <p class="text-slate-400 text-sm max-w-sm">Unlock 10,000+ Premium Questions, Detailed PDF Notes & Mock Tests on the App.</p>
                 </div>
-                <div class="flex items-center gap-3">
-                    <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="btn-primary text-white px-5 py-2 rounded-full text-xs font-bold shadow-lg shadow-blue-200">
-                        DOWNLOAD APP
-                    </a>
-                </div>
+                <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="relative z-10 whitespace-nowrap bg-white text-slate-900 px-8 py-4 rounded-2xl font-bold text-sm hover:bg-blue-50 transition shadow-xl">
+                    Get Full Version Free <i class="fas fa-arrow-right ml-2"></i>
+                </a>
+                <i class="fas fa-rocket absolute -right-4 -bottom-4 text-9xl text-white/5 rotate-12"></i>
             </div>
-        </header>
+        </div>
 
-        <main class="max-w-6xl mx-auto p-4 md:p-8">
-            
-            <div id="homepage" class="block">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                    <div class="md:col-span-2 bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl">
-                        <h1 class="text-3xl md:text-4xl font-extrabold mb-4 leading-tight">Prepare for Rajasthan <br><span class="text-blue-500">Competitive Exams</span></h1>
-                        <p class="text-slate-400 mb-8 max-w-sm">Access 10,000+ Subject-wise questions with real-time analysis and negative marking.</p>
-                        <button onclick="scrollToContent()" class="bg-white text-slate-900 px-8 py-3 rounded-xl font-bold hover:bg-blue-50 transition">Start Free Practice</button>
-                        <i class="fas fa-award absolute -right-4 -bottom-4 text-9xl text-white/5 -rotate-12"></i>
-                    </div>
-                    <div class="bg-blue-600 rounded-3xl p-8 text-white flex flex-col justify-between shadow-xl">
-                        <div>
-                            <p class="text-blue-100 text-xs font-bold uppercase tracking-widest mb-2">Daily Goal</p>
-                            <h2 class="text-2xl font-bold italic">"Consistency is Key"</h2>
-                        </div>
-                        <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-500 hover:bg-blue-400 p-4 rounded-2xl flex items-center justify-between group transition">
-                            <span class="font-bold">Get App</span>
-                            <i class="fas fa-arrow-right group-hover:translate-x-1 transition"></i>
-                        </a>
-                    </div>
-                </div>
+        <nav id="nav-info" class="mb-6 flex items-center gap-2 text-sm font-medium text-slate-400 hidden">
+            <span onclick="goHome()" class="hover:text-blue-600 cursor-pointer">Home</span>
+            <i class="fas fa-chevron-right text-[10px]"></i>
+            <span id="crumb-subject" class="hover:text-blue-600 cursor-pointer"></span>
+            <span id="crumb-topic-divider" class="hidden"><i class="fas fa-chevron-right text-[10px]"></i></span>
+            <span id="crumb-topic" class="text-slate-800"></span>
+        </nav>
 
-                <div id="content-anchor">
-                    <h2 class="text-xl font-extrabold text-slate-800 mb-6">Select Subject</h2>
-                    <div id="subject-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        </div>
-                </div>
+        <div id="render-engine" class="min-h-[400px]">
+            <div class="flex flex-col items-center justify-center py-20">
+                <div class="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
+                <p class="mt-4 font-bold text-slate-400 animate-pulse">Initializing Database...</p>
             </div>
+        </div>
 
-            <nav id="breadcrumb" class="hidden mb-6 flex items-center gap-2 text-sm font-bold">
-                <span onclick="goHome()" class="text-blue-600 cursor-pointer">Home</span>
-                <i class="fas fa-chevron-right text-[10px] text-slate-300"></i>
-                <span id="crumb-text" class="text-slate-400"></span>
-            </nav>
-
-            <div id="render-view" class="hidden"></div>
-
-        </main>
     </div>
 
-    <div id="quiz-portal" class="fixed inset-0 bg-white z-[100] hidden overflow-y-auto"></div>
+    <div id="quiz-portal" class="fixed inset-0 bg-slate-50 z-[100] hidden overflow-y-auto">
+        </div>
 
     <script>
-        let allData = [];
-        let currentState = { sub: "", top: "", set: [] };
+        let rawData = [];
+        let state = { subject: "", topic: "", set: 0 };
 
-        // 1. Data Fetch
+        // Initial Data Fetch
         fetch('questions.json')
             .then(res => res.json())
             .then(data => {
-                allData = data;
+                rawData = data;
                 renderSubjects();
             });
 
-        function toggleSidebar() {
-            const side = document.getElementById('sidebar');
-            const over = document.getElementById('sidebar-overlay');
-            const panel = document.getElementById('main-panel');
-            
-            if(side.classList.contains('-translate-x-full')) {
-                side.classList.remove('-translate-x-full');
-                over.classList.remove('hidden');
-                panel.classList.add('md:ml-72');
-            } else {
-                side.classList.add('-translate-x-full');
-                over.classList.add('hidden');
-                panel.classList.remove('md:ml-72');
-            }
-        }
-
         function goHome() {
-            document.getElementById('homepage').classList.remove('hidden');
-            document.getElementById('render-view').classList.add('hidden');
-            document.getElementById('breadcrumb').classList.add('hidden');
+            document.getElementById('nav-info').classList.add('hidden');
             renderSubjects();
         }
 
         function renderSubjects() {
-            const subjects = [...new Set(allData.map(i => i.subject || "Rajasthan GK"))];
-            const grid = document.getElementById('subject-grid');
-            grid.innerHTML = subjects.map(sub => `
-                <div onclick="showTopics('${sub}')" class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 card-hover cursor-pointer group">
-                    <div class="w-14 h-14 bg-slate-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
-                        <i class="fas fa-book-reader text-xl"></i>
+            const subjects = [...new Set(rawData.map(i => i.subject || "General Rajasthan GK"))];
+            let html = `
+                <div class="flex justify-between items-end mb-6">
+                    <h3 class="text-2xl font-black text-slate-800">Explore Subjects</h3>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            `;
+            subjects.forEach(sub => {
+                html += `
+                    <div onclick="renderTopics('${sub}')" class="glass-card p-6 rounded-2xl card-hover cursor-pointer flex justify-between items-center group">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm">
+                                <i class="fas fa-folder-open"></i>
+                            </div>
+                            <span class="font-bold text-slate-700">${sub}</span>
+                        </div>
+                        <i class="fas fa-arrow-right text-slate-300 group-hover:text-blue-600 translate-x-0 group-hover:translate-x-2 transition-all"></i>
                     </div>
-                    <h3 class="font-bold text-slate-800 text-lg">${sub}</h3>
-                    <p class="text-xs text-slate-400 mt-1">Explore Topic-wise tests</p>
-                </div>
-            `).join('');
+                `;
+            });
+            html += `</div>`;
+            document.getElementById('render-engine').innerHTML = html;
         }
 
-        function showTopics(sub) {
-            document.getElementById('homepage').classList.add('hidden');
-            document.getElementById('render-view').classList.remove('hidden');
-            document.getElementById('breadcrumb').classList.remove('hidden');
-            document.getElementById('crumb-text').innerText = sub;
+        function renderTopics(sub) {
+            state.subject = sub;
+            document.getElementById('nav-info').classList.remove('hidden');
+            document.getElementById('crumb-subject').innerText = sub;
+            document.getElementById('crumb-subject').onclick = () => renderTopics(sub);
+            document.getElementById('crumb-topic').innerText = "";
+            document.getElementById('crumb-topic-divider').classList.add('hidden');
 
-            const topics = [...new Set(allData.filter(i => (i.subject || "Rajasthan GK") === sub).map(i => i.topic))];
-            const render = document.getElementById('render-view');
-            render.innerHTML = `
-                <h2 class="text-2xl font-black text-slate-800 mb-6">Select Topic</h2>
-                <div class="grid grid-cols-1 gap-3">
-                    ${topics.map(top => `
-                        <div onclick="showSets('${sub}', '${top}')" class="bg-white p-5 rounded-2xl border border-slate-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition shadow-sm">
-                            <span class="font-bold text-slate-700">${top}</span>
-                            <i class="fas fa-arrow-right text-slate-300"></i>
+            const topics = [...new Set(rawData.filter(i => (i.subject || "General Rajasthan GK") === sub).map(i => i.topic))];
+            
+            let html = `<h3 class="text-xl font-bold text-slate-800 mb-6">Select a Topic</h3><div class="grid grid-cols-1 gap-3">`;
+            topics.forEach(top => {
+                html += `
+                    <div onclick="renderSets('${top}')" class="bg-white p-5 rounded-2xl border border-slate-200 flex items-center justify-between cursor-pointer hover:border-blue-500 hover:shadow-lg hover:shadow-blue-100 transition shadow-sm group">
+                        <div class="flex items-center gap-4">
+                            <span class="w-2 h-2 rounded-full bg-blue-400 group-hover:scale-150 transition-transform"></span>
+                            <span class="font-semibold text-slate-700">${top}</span>
                         </div>
-                    `).join('')}
-                </div>
-            `;
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">View Sets</span>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            document.getElementById('render-engine').innerHTML = html;
         }
 
-        function showSets(sub, top) {
-            document.getElementById('crumb-text').innerText = `${sub} > ${top}`;
-            const filtered = allData.filter(i => i.topic === top);
-            const setTotal = Math.ceil(filtered.length / 20);
+        function renderSets(topic) {
+            state.topic = topic;
+            document.getElementById('crumb-topic-divider').classList.remove('hidden');
+            document.getElementById('crumb-topic').innerText = topic;
 
-            const render = document.getElementById('render-view');
-            render.innerHTML = `
-                <h2 class="text-2xl font-black text-slate-800 mb-6">Practice Sets</h2>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    ${Array.from({length: setTotal}, (_, i) => `
-                        <div onclick="startQuiz('${top}', ${i+1})" class="bg-white p-8 rounded-[2rem] border-2 border-slate-100 text-center cursor-pointer hover:border-blue-600 transition group">
-                            <div class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Set</div>
-                            <div class="text-4xl font-black text-slate-800 group-hover:scale-110 transition-transform">${i+1}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+            const total = rawData.filter(i => i.topic === topic).length;
+            const sets = Math.ceil(total / 20);
+
+            let html = `<h3 class="text-xl font-bold text-slate-800 mb-6">Practice Sets for ${topic}</h3><div class="grid grid-cols-2 sm:grid-cols-3 gap-4">`;
+            for (let i = 1; i <= sets; i++) {
+                html += `
+                    <div onclick="initiateQuiz('${topic}', ${i})" class="bg-white p-6 rounded-3xl border-2 border-slate-100 text-center cursor-pointer hover:border-blue-600 transition shadow-sm group">
+                        <div class="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Set</div>
+                        <div class="text-4xl font-black text-slate-800 group-hover:scale-110 transition-transform">${i}</div>
+                        <div class="mt-3 text-[10px] text-slate-400 font-bold uppercase italic">20 Questions</div>
+                    </div>
+                `;
+            }
+            html += `</div>`;
+            document.getElementById('render-engine').innerHTML = html;
         }
 
-        function startQuiz(topic, setNum) {
-            const filtered = allData.filter(i => i.topic === topic);
-            const batch = filtered.slice((setNum-1)*20, setNum*20);
+        function initiateQuiz(topic, setIdx) {
+            const filtered = rawData.filter(i => i.topic === topic);
+            const batch = filtered.slice((setIdx - 1) * 20, setIdx * 20);
             
             const portal = document.getElementById('quiz-portal');
             portal.classList.remove('hidden');
             
-            let currentIdx = 0;
-            let userAnswers = [];
+            let current = 0;
+            let score = 0;
+            let userTrace = [];
 
-            function renderQ() {
-                const q = batch[currentIdx];
+            const updatePortal = () => {
+                const q = batch[current];
+                const progress = ((current + 1) / batch.length) * 100;
+                
                 portal.innerHTML = `
-                    <div class="max-w-4xl mx-auto p-6 md:p-12 min-h-screen flex flex-col">
-                        <div class="flex justify-between items-center mb-10">
-                            <div class="w-1/2">
-                                <div class="flex justify-between text-[10px] font-black uppercase text-slate-400 mb-2">
-                                    <span>Question ${currentIdx+1}/${batch.length}</span>
-                                    <span>${topic}</span>
+                    <div class="max-w-3xl mx-auto min-h-screen flex flex-col">
+                        <div class="p-6 flex justify-between items-center bg-white border-b">
+                            <div class="w-2/3">
+                                <div class="flex justify-between text-[10px] font-black uppercase text-slate-400 mb-1">
+                                    <span>Question ${current + 1} of ${batch.length}</span>
+                                    <span>${Math.round(progress)}% Complete</span>
                                 </div>
-                                <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                    <div class="h-full bg-blue-600 transition-all" style="width:${((currentIdx+1)/batch.length)*100}%"></div>
+                                <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                    <div class="bg-blue-600 h-full transition-all duration-500" style="width: ${progress}%"></div>
                                 </div>
                             </div>
-                            <button onclick="document.getElementById('quiz-portal').classList.add('hidden')" class="text-slate-400">Exit</button>
+                            <button onclick="closePortal()" class="w-10 h-10 rounded-full hover:bg-slate-100 transition flex items-center justify-center text-slate-400"><i class="fas fa-times"></i></button>
                         </div>
-                        <h2 class="text-2xl md:text-3xl font-extrabold text-slate-800 mb-10">${q.question}</h2>
-                        <div class="grid grid-cols-1 gap-4 flex-grow">
-                            ${q.options.map((opt, i) => `
-                                <button onclick="nextQ('${opt.replace(/'/g, "\\'")}')" class="option-card w-full text-left p-5 rounded-2xl bg-white font-bold text-slate-700 flex justify-between items-center group">
-                                    <span>${opt}</span>
-                                    <span class="text-slate-200 group-hover:text-blue-200">Option ${String.fromCharCode(65+i)}</span>
-                                </button>
-                            `).join('')}
+
+                        <div class="p-6 md:p-12 flex-grow">
+                            <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-10 leading-tight">${q.question}</h2>
+                            <div class="grid grid-cols-1 gap-4">
+                                ${q.options.map(opt => `
+                                    <button onclick="processAnswer('${opt.replace(/'/g, "\\'")}')" class="option-btn w-full text-left p-5 rounded-2xl bg-white shadow-sm font-semibold text-slate-700 flex justify-between items-center group">
+                                        <span>${opt}</span>
+                                        <i class="fas fa-circle-check text-slate-100 group-hover:text-blue-200 transition"></i>
+                                    </button>
+                                `).join('')}
+                            </div>
                         </div>
-                        <div class="mt-8 flex justify-between items-center bg-slate-900 p-6 rounded-3xl text-white">
-                            <p class="text-sm">Confused? Get explanation on Exambeing App</p>
-                            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-600 px-6 py-2 rounded-xl font-bold text-xs">DOWNLOAD</a>
+
+                        <div class="p-6 bg-blue-50 border-t flex flex-col md:flex-row items-center justify-between gap-4">
+                            <p class="text-blue-800 text-sm font-medium"><i class="fas fa-info-circle mr-2"></i> Want explanation for this question?</p>
+                            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="primary-gradient text-white px-6 py-3 rounded-xl font-bold text-xs shadow-lg shadow-blue-200">View Detailed Solutions on App</a>
                         </div>
                     </div>
                 `;
-            }
-
-            window.nextQ = (ans) => {
-                userAnswers.push({q: batch[currentIdx].question, selected: ans, correct: batch[currentIdx].answer});
-                currentIdx++;
-                if(currentIdx < batch.length) renderQ();
-                else showResultCard(userAnswers);
             };
 
-            renderQ();
-        }
+            window.processAnswer = (choice) => {
+                const correct = batch[current].answer;
+                userTrace.push({ q: batch[current].question, choice, correct });
+                if(choice === correct) score++;
+                
+                current++;
+                if(current < batch.length) updatePortal();
+                else finalize(score, userTrace);
+            };
 
-        function showResultCard(results) {
-            let right = 0, wrong = 0, unattempted = 0;
-            results.forEach(r => {
-                if(r.selected === r.correct) right++;
-                else if(r.selected === "skip") unattempted++;
-                else wrong++;
-            });
-
-            const score = (right * 1) - (wrong * 0.33);
-            const percentage = ((score / results.length) * 100).toFixed(2);
-
-            document.getElementById('quiz-portal').innerHTML = `
-                <div class="max-w-4xl mx-auto p-6 md:p-12 text-center">
-                    <h2 class="text-3xl font-black text-slate-800 mb-2">Performance Report</h2>
-                    <p class="text-slate-400 mb-10">Based on standard RPSC Marking Pattern</p>
-                    
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                            <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Score</div>
-                            <div class="text-3xl font-black text-blue-600">${score.toFixed(2)}</div>
+            const finalize = (finalScore, trace) => {
+                portal.innerHTML = `
+                    <div class="max-w-3xl mx-auto p-6 md:p-12 text-center">
+                        <div class="mb-10 pt-10">
+                            <div class="w-32 h-32 primary-gradient rounded-full flex items-center justify-center text-white text-4xl font-black mx-auto mb-6 shadow-2xl shadow-blue-300">${finalScore}</div>
+                            <h2 class="text-4xl font-black text-slate-800 mb-2">Quiz Finished!</h2>
+                            <p class="text-slate-500 font-medium">You scored ${finalScore} out of ${batch.length} questions.</p>
                         </div>
-                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                            <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Percentage</div>
-                            <div class="text-3xl font-black text-slate-800">${percentage}%</div>
-                        </div>
-                        <div class="bg-emerald-50 p-6 rounded-3xl border border-emerald-100">
-                            <div class="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">Correct</div>
-                            <div class="text-3xl font-black text-emerald-700">${right}</div>
-                        </div>
-                        <div class="bg-rose-50 p-6 rounded-3xl border border-rose-100">
-                            <div class="text-xs font-bold text-rose-600 uppercase tracking-widest mb-1">Incorrect</div>
-                            <div class="text-3xl font-black text-rose-700">${wrong}</div>
-                        </div>
-                    </div>
 
-                    <div class="bg-slate-900 rounded-[2.5rem] p-8 text-white text-center mb-10 relative overflow-hidden">
-                        <h3 class="text-xl font-bold mb-4 relative z-10">Unlock 10,000+ Questions on App</h3>
-                        <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="inline-block bg-blue-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl relative z-10">DOWNLOAD EXAMBEING</a>
-                        <i class="fas fa-rocket absolute -right-6 -bottom-6 text-9xl text-white/5"></i>
-                    </div>
-
-                    <div class="text-left space-y-4">
-                        <h3 class="text-xl font-black text-slate-800">Answer Key</h3>
-                        ${results.map(r => `
-                            <div class="p-5 rounded-2xl border ${r.selected === r.correct ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}">
-                                <p class="font-bold text-slate-800 mb-2">${r.q}</p>
-                                <div class="flex justify-between text-xs">
-                                    <span class="${r.selected === r.correct ? 'text-emerald-700' : 'text-rose-700'} font-bold">Your: ${r.selected}</span>
-                                    ${r.selected !== r.correct ? `<span class="text-emerald-700 font-black">Correct: ${r.correct}</span>` : ''}
-                                </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+                            <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="accent-gradient p-5 rounded-3xl text-white shadow-xl shadow-emerald-100 flex flex-col items-center">
+                                <i class="fas fa-file-pdf text-2xl mb-2 text-emerald-200"></i>
+                                <span class="font-bold">Download PDF Notes</span>
+                            </a>
+                            <div onclick="closePortal()" class="bg-slate-900 p-5 rounded-3xl text-white shadow-xl shadow-slate-200 flex flex-col items-center cursor-pointer">
+                                <i class="fas fa-redo text-2xl mb-2 text-slate-400"></i>
+                                <span class="font-bold">Try Another Set</span>
                             </div>
-                        `).join('')}
+                        </div>
+
+                        <div class="text-left space-y-6 mb-20">
+                            <h3 class="text-xl font-black text-slate-800 border-b pb-4">Detailed Review</h3>
+                            ${trace.map((t, idx) => `
+                                <div class="p-6 rounded-3xl ${t.choice === t.correct ? 'bg-emerald-50 border border-emerald-100' : 'bg-rose-50 border border-rose-100'}">
+                                    <p class="font-bold text-slate-800 mb-3">${idx+1}. ${t.q}</p>
+                                    <div class="flex flex-col gap-2">
+                                        <div class="text-xs font-bold uppercase tracking-widest ${t.choice === t.correct ? 'text-emerald-600' : 'text-rose-600'}">
+                                            Your Answer: ${t.choice}
+                                        </div>
+                                        ${t.choice !== t.correct ? `<div class="text-xs font-bold uppercase tracking-widest text-emerald-600">Correct Answer: ${t.correct}</div>` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
                     </div>
-                    
-                    <button onclick="location.reload()" class="mt-10 w-full p-5 bg-slate-100 rounded-2xl font-black text-slate-600">BACK TO HOME</button>
-                </div>
-            `;
+                `;
+            };
+
+            updatePortal();
         }
 
-        function scrollToContent() {
-            document.getElementById('content-anchor').scrollIntoView({ behavior: 'smooth' });
-        }
+        function closePortal() { document.getElementById('quiz-portal').classList.add('hidden'); }
     </script>
 </body>
 </html>
