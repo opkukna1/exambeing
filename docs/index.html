@@ -15,6 +15,8 @@
         .option-selected { border-color: #2563eb !important; background-color: #eff6ff !important; color: #1e40af !important; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* Smooth Transition for content */
+        #quiz-content-area { transition: opacity 0.2s ease-in-out; }
     </style>
 </head>
 <body class="text-slate-900">
@@ -55,7 +57,6 @@
     </section>
 
     <main class="max-w-7xl mx-auto px-6 py-16">
-        
         <section id="test-series" class="mb-24">
             <div class="flex items-center gap-4 mb-10">
                 <div class="w-2 h-10 bg-blue-600 rounded-full"></div>
@@ -64,13 +65,11 @@
                     <p class="text-slate-500 font-medium italic">Real-time simulation with -0.33 marking.</p>
                 </div>
             </div>
-
             <div id="subject-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-center">
                 <div class="col-span-full py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
                     <p class="animate-pulse font-bold text-slate-400 uppercase tracking-widest italic text-sm">Syncing Questions Database...</p>
                 </div>
             </div>
-
             <div id="dynamic-content" class="hidden mt-10 p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100 shadow-inner"></div>
         </section>
 
@@ -110,15 +109,6 @@
                     <p class="text-slate-400 max-w-md mb-8 italic">Stay updated with Rajasthan & National News. Available on ExamBeing App.</p>
                     <div class="flex justify-center md:justify-start gap-4">
                         <a href="https://play.google.com/store/apps/details?id=com.opkukna.exambeing" class="bg-blue-600 px-10 py-4 rounded-2xl font-black text-sm hover:bg-blue-500 transition shadow-xl inline-block uppercase italic">Download App</a>
-                        <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="bg-white/10 px-8 py-3 rounded-xl font-black text-sm border border-white/10 inline-block uppercase italic">Telegram</a>
-                    </div>
-                </div>
-                <div class="relative z-10 flex flex-col gap-4">
-                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-4">
-                        <i class="fas fa-check-circle text-blue-400"></i> <span>Daily Current Quiz</span>
-                    </div>
-                    <div class="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-4">
-                        <i class="fas fa-check-circle text-blue-400"></i> <span>Weekly PDF Notes</span>
                     </div>
                 </div>
                 <i class="fas fa-bolt absolute -right-10 -bottom-10 text-[15rem] text-white/5 rotate-12"></i>
@@ -131,10 +121,35 @@
         <div class="flex justify-center gap-6 mb-8 text-slate-400">
             <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank"><i class="fab fa-telegram text-2xl hover:text-blue-500 transition"></i></a>
         </div>
-        <p class="text-slate-400 text-sm italic italic italic">© 2026 ExamBeing. All Rights Reserved.</p>
+        <p class="text-slate-400 text-sm italic italic">© 2026 ExamBeing. All Rights Reserved.</p>
     </footer>
 
-    <div id="quiz-overlay" class="fixed inset-0 bg-white z-[100] hidden overflow-y-auto"></div>
+    <div id="quiz-overlay" class="fixed inset-0 bg-white z-[100] hidden overflow-y-auto">
+        <div class="max-w-4xl mx-auto p-6 md:p-12 min-h-screen flex flex-col">
+            <div class="flex justify-between items-center mb-10 border-b pb-6">
+                <div>
+                    <h4 class="font-black text-blue-600 text-xl italic underline tracking-tighter">ExamBeing Portal</h4>
+                    <p id="quiz-topic-header" class="text-xs text-slate-400 font-bold italic"></p>
+                </div>
+                <button onclick="confirmSubmit()" class="bg-red-600 text-white px-6 py-2 rounded-xl font-bold uppercase text-xs shadow-lg">Submit Test</button>
+            </div>
+
+            <div class="flex-grow" id="quiz-content-area">
+                <div class="mb-4 flex justify-between items-center">
+                    <span id="question-number" class="text-[10px] font-black text-slate-400 uppercase tracking-widest"></span>
+                    <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="text-xs font-bold text-sky-500 italic"><i class="fab fa-telegram"></i> Telegram</a>
+                </div>
+                <h2 id="question-text" class="text-2xl md:text-3xl font-black text-slate-800 mb-10 leading-relaxed italic"></h2>
+                <div id="options-list" class="grid grid-cols-1 gap-4">
+                    </div>
+            </div>
+
+            <div class="flex gap-4 mt-8 pb-10">
+                <button id="prev-btn" onclick="changeQ(-1)" class="flex-1 p-4 bg-slate-100 rounded-2xl font-bold text-slate-600 italic uppercase tracking-widest disabled:opacity-30">Previous</button>
+                <button id="next-btn" onclick="changeQ(1)" class="flex-1 p-4 bg-blue-600 rounded-2xl font-bold text-white italic uppercase tracking-widest shadow-xl shadow-blue-200 disabled:opacity-30">Next Question</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         let masterDB = [];
@@ -194,51 +209,49 @@
             const filteredData = masterDB.filter(i => i.topic === topic).slice((setNum-1)*50, setNum*50);
             quizState = { data: filteredData, current: 0, choices: new Array(filteredData.length).fill(null), topic: topic };
             
-            const overlay = document.getElementById('quiz-overlay');
-            overlay.classList.remove('hidden');
+            document.getElementById('quiz-topic-header').innerText = `${topic} | Set ${setNum}`;
+            document.getElementById('quiz-overlay').classList.remove('hidden');
             document.body.style.overflow = 'hidden';
-            renderQuestion();
+            updateQuestionUI();
         }
 
-        function renderQuestion() {
+        function updateQuestionUI() {
             const q = quizState.data[quizState.current];
-            const overlay = document.getElementById('quiz-overlay');
             const selected = quizState.choices[quizState.current];
 
-            overlay.innerHTML = `
-                <div class="max-w-4xl mx-auto p-6 md:p-12 min-h-screen flex flex-col animate-fade-in">
-                    <div class="flex justify-between items-center mb-10 border-b pb-6">
-                        <div><h4 class="font-black text-blue-600 text-xl italic underline tracking-tighter">ExamBeing Portal</h4><p class="text-xs text-slate-400 font-bold italic">${quizState.topic} | Set Active</p></div>
-                        <button onclick="confirmSubmit()" class="bg-red-600 text-white px-6 py-2 rounded-xl font-bold uppercase text-xs shadow-lg">Submit Test</button>
-                    </div>
+            // Update Text content (Zero Blink)
+            document.getElementById('question-number').innerText = `Question ${quizState.current + 1} / ${quizState.data.length}`;
+            document.getElementById('question-text').innerText = q.question;
+            
+            const optionsList = document.getElementById('options-list');
+            optionsList.innerHTML = ''; // Clear options
 
-                    <div class="flex-grow">
-                        <div class="mb-4 flex justify-between items-center">
-                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Question ${quizState.current + 1} / ${quizState.data.length}</span>
-                            <a href="https://t.me/+MjkC2APKPGQwZDZl" target="_blank" class="text-xs font-bold text-sky-500 italic"><i class="fab fa-telegram"></i> Telegram</a>
-                        </div>
-                        <h2 class="text-2xl md:text-3xl font-black text-slate-800 mb-10 leading-relaxed italic">${q.question}</h2>
-                        <div class="grid grid-cols-1 gap-4">
-                            ${q.options.map(opt => `
-                                <button onclick="handleSelection('${opt.replace(/'/g, "\\'")}')" 
-                                    class="w-full text-left p-6 rounded-3xl border-2 transition-all font-bold flex justify-between items-center group
-                                    ${selected === opt ? 'option-selected' : 'border-slate-100 hover:border-blue-200 text-slate-700 bg-white shadow-sm'}">
-                                    <span>${opt}</span>
-                                    ${selected === opt ? '<i class="fas fa-check-circle text-blue-600 scale-125"></i>' : ''}
-                                </button>`).join('')}
-                        </div>
-                    </div>
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left p-6 rounded-3xl border-2 transition-all font-bold flex justify-between items-center group ${selected === opt ? 'option-selected' : 'border-slate-100 hover:border-blue-200 text-slate-700 bg-white shadow-sm'}`;
+                btn.innerHTML = `<span>${opt}</span>${selected === opt ? '<i class="fas fa-check-circle text-blue-600 scale-125"></i>' : ''}`;
+                btn.onclick = () => handleSelection(opt);
+                optionsList.appendChild(btn);
+            });
 
-                    <div class="flex gap-4 mt-8 pb-10">
-                        <button onclick="changeQ(-1)" class="flex-1 p-4 bg-slate-100 rounded-2xl font-bold text-slate-600 italic uppercase tracking-widest disabled:opacity-30" ${quizState.current === 0 ? 'disabled' : ''}>Previous</button>
-                        <button onclick="changeQ(1)" class="flex-1 p-4 bg-blue-600 rounded-2xl font-bold text-white italic uppercase tracking-widest shadow-xl shadow-blue-200 disabled:opacity-30" ${quizState.current === quizState.data.length - 1 ? 'disabled' : ''}>Next Question</button>
-                    </div>
-                </div>`;
+            // Update Buttons
+            document.getElementById('prev-btn').disabled = quizState.current === 0;
+            document.getElementById('next-btn').disabled = quizState.current === quizState.data.length - 1;
         }
 
-        function handleSelection(opt) { quizState.choices[quizState.current] = opt; renderQuestion(); }
-        function changeQ(dir) { quizState.current += dir; renderQuestion(); }
-        function confirmSubmit() { if(confirm("Are you sure you want to submit?")) finalize(); }
+        function handleSelection(opt) {
+            quizState.choices[quizState.current] = opt;
+            updateQuestionUI();
+        }
+
+        function changeQ(dir) {
+            quizState.current += dir;
+            updateQuestionUI();
+        }
+
+        function confirmSubmit() {
+            if(confirm("Are you sure you want to submit?")) finalize();
+        }
 
         function finalize() {
             let right = 0, wrong = 0, skipped = 0;
