@@ -3,7 +3,8 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
-import 'dart:developer' as developer; // Premium logging ke liye
+import 'dart:convert'; // Naya import JSON parsing ke liye
+import 'dart:developer' as developer;
 
 class CurrentAffairsService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -17,15 +18,13 @@ class CurrentAffairsService {
     required String language,
   }) async {
     try {
-      // 📝 Step A: Unique ID format banana (e.g., "2026_03" aur "2026_03_01")
       String monthKey = DateFormat('yyyy_MM').format(date);
       String dayKey = DateFormat('yyyy_MM_dd').format(date);
       String exactDateText = DateFormat('dd MMMM yyyy').format(date);
       String category = "${region}_$language";
 
-      developer.log("🔍 Fetching Current Affairs for: $dayKey | Category: $category", name: "Exambeing_AI");
+      developer.log("🔍 Fetching News: $dayKey | $category", name: "Exambeing_AI");
 
-      // 📝 Step B: Firebase Database Check karna (SMART CACHING)
       DocumentReference docRef = _db
           .collection('current_affairs')
           .doc(monthKey)
@@ -34,22 +33,18 @@ class CurrentAffairsService {
 
       DocumentSnapshot doc = await docRef.get();
 
-      // Agar data pehle se hai, toh 1 second mein return kar do (API Bill Bachao!)
       if (doc.exists && doc.data() != null) {
-        developer.log("✅ Superfast Load: Data found in Firebase (Zero AI Cost!)", name: "Exambeing_AI");
+        developer.log("✅ Load from Firebase (Zero Cost)", name: "Exambeing_AI");
         return doc.get('content');
       }
 
-      // 📝 Step C: Data nahi mila toh Elite AI se Generate karwao
-      developer.log("🤖 Data not found. Waking up Gemini AI Mentor...", name: "Exambeing_AI");
+      developer.log("🤖 Generating with Gemini...", name: "Exambeing_AI");
       String aiContent = await _generateCurrentAffairsFromAI(
         dateText: exactDateText,
         region: region,
         language: language,
       );
 
-      // 📝 Step D: AI ne badhiya data diya toh use Firebase par Save (Cache) kar do
-      // Taaki din bhar aane wale baaki 1 lakh students ko direct Firebase se data mile
       if (!aiContent.startsWith("🚨") && !aiContent.startsWith("Error")) {
         await docRef.set({
           'content': aiContent,
@@ -58,20 +53,17 @@ class CurrentAffairsService {
           'region': region,
           'language': language,
         });
-        developer.log("💾 Success: AI Data strictly cached in Firebase!", name: "Exambeing_AI");
+        developer.log("💾 Saved to Firebase", name: "Exambeing_AI");
       }
 
       return aiContent;
-
     } catch (e) {
-      developer.log("❌ CRITICAL ERROR in getDailyCurrentAffairs: $e", name: "Exambeing_AI", error: e);
-      return "🚨 **Network Error!**\n\nCurrent affairs load karne mein samasya aayi. Kripya apna internet connection check karein.\n\n*Tech Details: $e*";
+      return "🚨 **Network Error!**\n\n$e";
     }
   }
 
-
   // =========================================================================
-  // 2. THE BRAIN: GEMINI AI GENERATION LOGIC
+  // 2. THE BRAIN: AI GENERATION (Updated for 10-20 points)
   // =========================================================================
   Future<String> _generateCurrentAffairsFromAI({
     required String dateText,
@@ -79,55 +71,110 @@ class CurrentAffairsService {
     required String language,
   }) async {
     try {
-      // 🔑 Secret Key load karna
       final apiKey = dotenv.env['GEMINI_API_KEY'];
-      if (apiKey == null || apiKey.isEmpty) {
-        return "🚨 **Configuration Error!**\nAI API Key is missing. Please contact Admin.";
-      }
-
-      // 🧠 Model Setup (Fastest Model for Reading APIs)
       final model = GenerativeModel(
-        model: 'gemini-3.1-flash-lite-preview', 
-        apiKey: apiKey,
+        model: 'gemini-1.5-flash', // Flash model is better for long points
+        apiKey: apiKey ?? "",
       );
 
-      // 🔥 ELITE PROMPT FOR UPSC/RPSC LEVEL CONTENT 🔥
       String prompt = """
       You are an elite Current Affairs Content Creator for a competitive exam app (UPSC/RPSC).
-      Your task is to provide the top 5 most important Current Affairs for $region on the date: $dateText.
+      Your task is to provide the top 10 to 20 most important Current Affairs for $region on the date: $dateText.
 
       Language Required: $language.
 
       CRITICAL INSTRUCTION - USE OFFICIAL SOURCES:
-      You must strictly curate the news based on the tone, facts, and updates provided by the following official sources:
-      1. Rajasthan Sujas (DIPR Orders) - https://dipr.rajasthan.gov.in/department-order/85/10/2583?lan=en
-      2. DIPR Rajasthan Press Releases - https://dipr.rajasthan.gov.in/press-release-list/85
-      3. PIB India - https://www.pib.gov.in/indexm.aspx?reg=3&lang=2
-      4. The Hindu Editorial & National News - https://epaper.thehindu.com/reader
-      5. Dainik Bhaskar (For local significant events)
+      1. Rajasthan Sujas (DIPR)
+      2. PIB India
+      3. The Hindu
+      4. Dainik Bhaskar
 
       Format strictly as beautiful Markdown:
-      - Add an inspiring Title at the top (e.g., 📰 **Today's Elite Current Affairs**).
-      - Number the 10 to 20  news points clearly.
-      - Use **Bold** for important keywords, names, schemes, and budget numbers,important dates.
+      - Add an inspiring Title at the top.
+      - Number the 10 to 20 news points clearly.
+      - Use **Bold** for keywords, names, schemes, numbers, and important dates.
       - Keep explanations simple, fact-based, and exam-oriented (What, Why, Impact).
-      - Add a small '🧠 Exam Fact' or '🔗 Static GK Link' at the end of each point (Highly important for RPSC/UPSC).
+      - Add a small '🧠 Exam Fact' or '🔗 Static GK Link' at the end of each point.
 
-      Do not add extra conversational text. Give pure, highly valuable exam content that renders beautifully in Flutter Markdown.
+      Do not add extra conversational text.
       """;
 
-      // AI ko request bhejna
       final response = await model.generateContent([Content.text(prompt)]);
-      
-      if (response.text == null || response.text!.isEmpty) {
-         return "🚨 **AI Error!**\nBackend generated an empty response. Please try again later.";
+      return response.text ?? "Error: Empty response";
+    } catch (e) {
+      return "🚨 AI Server Error: $e";
+    }
+  }
+
+  // =========================================================================
+  // 3. AI TEST ENGINE: GENERATE 10 MCQs FROM NEWS
+  // =========================================================================
+  Future<List<dynamic>> getOrGenerateDailyTest({
+    required DateTime date,
+    required String region,
+    required String language,
+    required String newsContent,
+  }) async {
+    try {
+      String monthKey = DateFormat('yyyy_MM').format(date);
+      String dayKey = DateFormat('yyyy_MM_dd').format(date);
+      String category = "${region}_$language";
+
+      DocumentReference testDocRef = _db
+          .collection('current_affairs_tests')
+          .doc(monthKey)
+          .collection(category)
+          .doc(dayKey);
+
+      DocumentSnapshot doc = await testDocRef.get();
+
+      if (doc.exists && doc.data() != null) {
+        developer.log("✅ Test found in Firebase", name: "Exambeing_Test");
+        return doc.get('questions') as List<dynamic>;
       }
 
-      return response.text!;
+      developer.log("🤖 Creating 10 Fresh MCQs...", name: "Exambeing_Test");
+      
+      final apiKey = dotenv.env['GEMINI_API_KEY'];
+      final model = GenerativeModel(
+        model: 'gemini-1.5-flash', 
+        apiKey: apiKey ?? "",
+      );
 
+      String prompt = """
+      Create exactly 10 high-level Multiple Choice Questions (MCQs) strictly based on the provided Current Affairs text.
+      Language: $language.
+      
+      News Text:
+      $newsContent
+
+      OUTPUT FORMAT:
+      Return ONLY a valid JSON array. No markdown tags.
+      [
+        {
+          "question": "Question text here?",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correctIndex": 0,
+          "explanation": "Why this is correct?"
+        }
+      ]
+      """;
+
+      final response = await model.generateContent([Content.text(prompt)]);
+      String res = response.text!.replaceAll("```json", "").replaceAll("```", "").trim();
+      List<dynamic> questions = jsonDecode(res);
+
+      if (questions.isNotEmpty) {
+        await testDocRef.set({
+          'questions': questions,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      return questions;
     } catch (e) {
-      developer.log("❌ GEMINI API ERROR: $e", name: "Exambeing_AI", error: e);
-      return "🚨 **AI Server Error!**\n\nAI se connect nahi ho paya. $e";
+      developer.log("❌ Test Error: $e");
+      return [];
     }
   }
 }
