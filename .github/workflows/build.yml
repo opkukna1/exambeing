@@ -67,6 +67,12 @@ jobs:
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
 
+      # 🔥 YAHAN NAYA STEP ADD KIYA HAI AI KI SECRET KEY KE LIYE 🔥
+      - name: 8.5 Create .env file for AI
+        run: |
+          echo "Creating .env file..."
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+
       # 🧩 Step 9: Build Signed AAB
       - name: 9. Build Signed AAB
         run: flutter build appbundle --release
