@@ -26,7 +26,7 @@ dependencies:
   # UI & Media Packages
   percent_indicator: ^4.2.3
   pinput: ^4.0.0
-  google_fonts: ^5.1.0
+  google_fonts: ^6.2.1
   screenshot: ^3.0.0
   share_plus: ^7.2.2
   
