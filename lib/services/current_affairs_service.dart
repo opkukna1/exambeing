@@ -38,7 +38,7 @@ class CurrentAffairsService {
         return doc.get('content');
       }
 
-      developer.log("🤖 Generating with Gemini...", name: "Exambeing_AI");
+      developer.log("🤖 Generating with Gemini 3.1 Lite...", name: "Exambeing_AI");
       String aiContent = await _generateCurrentAffairsFromAI(
         dateText: exactDateText,
         region: region,
@@ -73,7 +73,7 @@ class CurrentAffairsService {
     try {
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       final model = GenerativeModel(
-        model: 'gemini-1.5-flash', // Flash model is better for daily fast tasks
+        model: 'gemini-3.1-flash-lite-preview', // 🔥 Sahi Model wapas laga diya 🔥
         apiKey: apiKey ?? "",
       );
 
@@ -137,7 +137,7 @@ class CurrentAffairsService {
       
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       final model = GenerativeModel(
-        model: 'gemini-1.5-flash', 
+        model: 'gemini-3.1-flash-lite-preview', // 🔥 Sahi Model wapas laga diya 🔥
         apiKey: apiKey ?? "",
       );
 
@@ -187,13 +187,12 @@ class CurrentAffairsService {
     required String language,
   }) async {
     try {
-      String monthKey = DateFormat('yyyy_MM').format(monthDate); // e.g., 2026_03
-      String monthName = DateFormat('MMMM yyyy').format(monthDate); // e.g., March 2026
+      String monthKey = DateFormat('yyyy_MM').format(monthDate); 
+      String monthName = DateFormat('MMMM yyyy').format(monthDate); 
       String category = "${region}_$language";
 
       developer.log("📚 Fetching Monthly Magazine: $monthName | $category", name: "Exambeing_Mega");
 
-      // A. Pehle Firebase mein check karo (Cache logic)
       DocumentReference monthlyRef = _db.collection('monthly_magazines').doc(monthKey).collection(category).doc('compilation');
       DocumentSnapshot doc = await monthlyRef.get();
 
@@ -204,7 +203,6 @@ class CurrentAffairsService {
 
       developer.log("🤖 Compiling Monthly Magazine from Daily Data...", name: "Exambeing_Mega");
 
-      // B. Poore mahine ka daily data ikattha karo Firebase se
       QuerySnapshot dailyDocs = await _db.collection('current_affairs').doc(monthKey).collection(category).get();
       
       if (dailyDocs.docs.isEmpty) {
@@ -218,10 +216,9 @@ class CurrentAffairsService {
         rawMonthData.writeln("---");
       }
 
-      // C. Call Gemini 2.5 Flash for heavy lifting
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       final model = GenerativeModel(
-        model: 'gemini-2.5-flash', // 🔥 HIGH CAPACITY MODEL 🔥
+        model: 'gemini-2.5-flash', // Yeh 2.5 flash hi rahega Monthly ke liye
         apiKey: apiKey ?? "",
       );
 
@@ -246,7 +243,6 @@ class CurrentAffairsService {
       final response = await model.generateContent([Content.text(prompt)]);
       String compiledContent = response.text ?? "Error compiling magazine.";
 
-      // D. Nayi magazine Firebase mein permanently save karo
       if (!compiledContent.startsWith("Error")) {
         await monthlyRef.set({
           'content': compiledContent,
@@ -288,11 +284,10 @@ class CurrentAffairsService {
       
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       final model = GenerativeModel(
-        model: 'gemini-2.5-flash', // 🔥 HIGH CAPACITY MODEL 🔥
+        model: 'gemini-2.5-flash', // Yeh 2.5 flash hi rahega Monthly Test ke liye
         apiKey: apiKey ?? "",
       );
 
-      // Note: Hum AI se 50 questions maang rahe hain taaki API timeout ya JSON break na ho (100 mein JSON output cut ho jata hai kabhi kabhi). 50 is the perfect sweet spot for a Mega Mock.
       String prompt = """
       You are an elite Test Creator for UPSC/RPSC exams.
       Create a Mega Mock Test of exactly 50 high-quality Multiple Choice Questions (MCQs) strictly based on the provided Monthly Magazine text.
