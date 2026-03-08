@@ -12,8 +12,19 @@ import 'package:permission_handler/permission_handler.dart';
 // ✅ New AdManager Import
 import 'package:exambeing/services/ad_manager.dart';
 
+// 🔥 AI Secret Key ke liye DotEnv Import 🔥
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🔥🔥 Sabse pehle .env file load karni hai AI ke liye 🔥🔥
+  // Note: Agar yahan error aaye toh check karna ki pubspec.yaml mein flutter_dotenv package installed ho.
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint("DotEnv Error: .env file nahi mili ya load nahi hui: $e");
+  }
 
   // 1. Firebase Initialize
   await Firebase.initializeApp(
