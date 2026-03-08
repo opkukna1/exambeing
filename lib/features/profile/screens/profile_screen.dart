@@ -6,6 +6,7 @@ import 'package:exambeing/services/revision_db.dart';
 import 'package:exambeing/models/question_model.dart';
 import 'package:exambeing/services/ad_manager.dart';
 import 'package:exambeing/features/profile/screens/leaderboard_screen.dart';
+import 'package:share_plus/share_plus.dart'; // Naya import Share feature ke liye
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -95,6 +96,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // --- NAYA FUNCTION SHARE KARNE KE LIYE ---
+  void _shareApp() {
+    final String textToShare = 
+        "Crack your exams with Exambeing! 🚀\nGet Daily Current Affairs, Custom AI Tests & Smart Revision.\n\nDownload Now: https://play.google.com/store/apps/details?id=com.opkukna.exambeing";
+    Share.share(textToShare);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -152,6 +160,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 24),
               Text("Performance Overview", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+
+              // 🔥 NAYA SHARE BUTTON YAHAN ADD KIYA HAI 🔥
+              _buildModernShareButton(),
+
               const SizedBox(height: 16),
 
               GridView.count(
@@ -265,6 +278,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // 🔥 NAYA MODERN SHARE WIDGET 🔥
+  Widget _buildModernShareButton() {
+    return InkWell(
+      onTap: _shareApp,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.pink.shade50, // Halka pinkish tone background
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.pink.shade200, width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.favorite, color: Colors.pink.shade500, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              "Share App With Friends",
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Colors.pink.shade800,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.share_rounded, color: Colors.pink.shade600, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRankGridCard(int myCorrectCount) {
     return FutureBuilder<int>(
       // ✅ Using Correct Count for Rank
@@ -310,7 +358,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ... (Baki saare widgets same hain: _buildStatCard, _buildSubjectCard, _buildRevisionBox, _startRevisionTest etc.)
   Widget _buildStatCard(String title, String value, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
