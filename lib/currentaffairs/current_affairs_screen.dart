@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart'; // 🔥 Naya Premium HTML Viewer
+import 'package:printing/printing.dart'; // 🔥 PDF print karne ke liye
+import 'package:pdf/pdf.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Admin check ke liye
 import '../services/current_affairs_service.dart';
 import 'quiz_screen.dart'; 
 
@@ -30,6 +33,12 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
 
   final CurrentAffairsService _newsService = CurrentAffairsService();
 
+  // 🔥 ADMIN CHECK LOGIC 🔥
+  bool get isAdmin {
+    final user = FirebaseAuth.instance.currentUser;
+    return user != null && user.email == "opsiddh42@gmail.com";
+  }
+
   @override
   void initState() {
     super.initState();
@@ -47,7 +56,7 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
   void _handleTabSelection() {
     if (_tabController.indexIsChanging) {
       if (_tabController.index == 1 && _monthlyContent.isEmpty) {
-        _fetchMonthlyMagazine();
+        _fetchMonthlyMagazine(forceUpdate: false);
       }
     }
   }
@@ -80,10 +89,11 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
   }
 
   // ==================== MONTHLY LOGIC ====================
-  Future<void> _fetchMonthlyMagazine() async {
+  Future<void> _fetchMonthlyMagazine({bool forceUpdate = false}) async {
     setState(() { _isMonthlyLoading = true; _monthlyContent = ""; });
-    String result = await _newsService.getOrGenerateMonthlyCompilation(
+    String result = await _newsService.getMonthlyCompilation(
       monthDate: _selectedMonthlyDate, region: _selectedRegion, language: _selectedLanguage,
+      isAdmin: isAdmin, forceUpdate: forceUpdate,
     );
     if (mounted) setState(() { _monthlyContent = result; _isMonthlyLoading = false; });
   }
@@ -103,6 +113,23 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
     } catch (e) {
       if (mounted) Navigator.pop(context);
       _showErrorSnackBar("Mega Test failed: $e");
+    }
+  }
+
+  // ==================== PDF EXPORT LOGIC ====================
+  Future<void> _downloadPdf(String htmlContent, String fileName) async {
+    try {
+      await Printing.layoutPdf(
+        name: fileName,
+        onLayout: (PdfPageFormat format) async {
+          return await Printing.convertHtml(
+            format: format,
+            html: '<html><body style="font-family: sans-serif; padding: 20px;">$htmlContent</body></html>',
+          );
+        },
+      );
+    } catch (e) {
+      _showErrorSnackBar("PDF Download Error: $e");
     }
   }
 
@@ -126,15 +153,13 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
-  // Month/Year Picker Logic
   Future<void> _selectMonthYear(BuildContext context) async {
-    // Basic trick using standard date picker but forcing month selection view
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedMonthlyDate,
       firstDate: DateTime(2024, 1),
       lastDate: DateTime.now(),
-      initialDatePickerMode: DatePickerMode.year,
+      initialDatePickerMode: DatePickerMode.year, // Only Month/Year selection
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF5E35B1), onPrimary: Colors.white)),
         child: child!,
@@ -142,7 +167,7 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
     );
     if (picked != null) {
       setState(() { _selectedMonthlyDate = DateTime(picked.year, picked.month, 1); });
-      _fetchMonthlyMagazine();
+      _fetchMonthlyMagazine(forceUpdate: false);
     }
   }
 
@@ -161,7 +186,7 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
 
   void _onFilterChanged() {
     if (_tabController.index == 0) _fetchDailyNews();
-    else _fetchMonthlyMagazine();
+    else _fetchMonthlyMagazine(forceUpdate: false);
   }
 
   Widget _buildFilterChip(String label, String value, String currentValue, Function(String) onSelect) {
@@ -202,7 +227,8 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
     );
   }
 
-  Widget _buildMarkdownView(String content, bool isLoading, String loadingMsg) {
+  // 🔥 HTML VIEWER BANA DIYA 🔥
+  Widget _buildHtmlView(String content, bool isLoading, String loadingMsg) {
     if (isLoading) {
       return Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -212,19 +238,13 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
       );
     }
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 20, bottom: 90),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 90),
       child: Container(
         width: double.infinity, padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade200), boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 20, offset: Offset(0, 10))]),
-        child: MarkdownBody(
-          data: content, selectable: true,
-          styleSheet: MarkdownStyleSheet(
-            p: const TextStyle(fontSize: 16, height: 1.7, color: Color(0xFF2D3142)),
-            h1: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF1E1E1E)),
-            h2: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF5E35B1)),
-            strong: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF4527A0)),
-            listBullet: const TextStyle(color: Color(0xFFFF9800), fontSize: 18),
-          ),
+        child: HtmlWidget(
+          content,
+          textStyle: const TextStyle(fontSize: 16, height: 1.6, color: Color(0xFF2D3142)),
         ),
       ),
     );
@@ -256,21 +276,17 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
               borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
               boxShadow: [BoxShadow(color: Color(0x0A000000), blurRadius: 15, offset: Offset(0, 8))],
             ),
-            child: Column(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(children: [
-                      _buildFilterChip("Raj", "Rajasthan", _selectedRegion, (val) => setState(() => _selectedRegion = val)), const SizedBox(width: 8),
-                      _buildFilterChip("India", "India", _selectedRegion, (val) => setState(() => _selectedRegion = val)),
-                    ]),
-                    Row(children: [
-                      _buildFilterChip("अ", "Hindi", _selectedLanguage, (val) => setState(() => _selectedLanguage = val)), const SizedBox(width: 8),
-                      _buildFilterChip("A", "English", _selectedLanguage, (val) => setState(() => _selectedLanguage = val)),
-                    ]),
-                  ],
-                ),
+                Row(children: [
+                  _buildFilterChip("Raj", "Rajasthan", _selectedRegion, (val) => setState(() => _selectedRegion = val)), const SizedBox(width: 8),
+                  _buildFilterChip("India", "India", _selectedRegion, (val) => setState(() => _selectedRegion = val)),
+                ]),
+                Row(children: [
+                  _buildFilterChip("अ", "Hindi", _selectedLanguage, (val) => setState(() => _selectedLanguage = val)), const SizedBox(width: 8),
+                  _buildFilterChip("A", "English", _selectedLanguage, (val) => setState(() => _selectedLanguage = val)),
+                ]),
               ],
             ),
           ),
@@ -279,25 +295,90 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
             child: TabBarView(
               controller: _tabController,
               children: [
-                // TAB 1: DAILY
+                // ==================== TAB 1: DAILY ====================
                 Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      padding: const EdgeInsets.fromLTRB(20, 15, 20, 5),
                       child: _buildDateSelector(DateFormat('dd MMMM yyyy').format(_selectedDailyDate), () => _selectDailyDate(context), Icons.calendar_month_rounded),
                     ),
-                    Expanded(child: _buildMarkdownView(_dailyNewsContent, _isDailyLoading, "Reading Sujas & PIB...")),
+                    
+                    // Daily PDF Button
+                    if (_dailyNewsContent.isNotEmpty && !_isDailyLoading && !_dailyNewsContent.contains("🚨"))
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 5),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () => _downloadPdf(_dailyNewsContent, 'Exambeing_Daily_${DateFormat('dd_MMM').format(_selectedDailyDate)}'),
+                              icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 18),
+                              label: const Text("Download PDF"),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    Expanded(child: _buildHtmlView(_dailyNewsContent, _isDailyLoading, "Reading Sujas & PIB...")),
                   ],
                 ),
                 
-                // TAB 2: MONTHLY
+                // ==================== TAB 2: MONTHLY ====================
                 Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                      padding: const EdgeInsets.fromLTRB(20, 15, 20, 5),
                       child: _buildDateSelector(DateFormat('MMMM yyyy').format(_selectedMonthlyDate), () => _selectMonthYear(context), Icons.auto_stories),
                     ),
-                    Expanded(child: _buildMarkdownView(_monthlyContent, _isMonthlyLoading, "Compiling Mega Magazine...")),
+                    
+                    // Monthly Controls (PDF + Admin Update)
+                    if (_monthlyContent != "NOT_PUBLISHED" && _monthlyContent.isNotEmpty && !_isMonthlyLoading && !_monthlyContent.contains("🚨"))
+                       Padding(
+                         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 5),
+                         child: Row(
+                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                           children: [
+                             ElevatedButton.icon(
+                               onPressed: () => _downloadPdf(_monthlyContent, 'Exambeing_Magazine_${DateFormat('MMM_yyyy').format(_selectedMonthlyDate)}'),
+                               icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 18),
+                               label: const Text("Download PDF"),
+                               style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                             ),
+                             if (isAdmin)
+                               TextButton.icon(
+                                 onPressed: () => _fetchMonthlyMagazine(forceUpdate: true), 
+                                 icon: const Icon(Icons.refresh), 
+                                 label: const Text("Update Mag")
+                               ),
+                           ],
+                         ),
+                       ),
+
+                    // Magazine Content View
+                    Expanded(
+                      child: _isMonthlyLoading 
+                        ? const Center(child: CircularProgressIndicator(color: Color(0xFF5E35B1))) 
+                        : _monthlyContent == "NOT_PUBLISHED"
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.hourglass_empty, size: 50, color: Colors.grey.shade400),
+                                  const SizedBox(height: 10),
+                                  const Text("Magazine not published yet.", style: TextStyle(color: Colors.grey, fontSize: 16)),
+                                  if (isAdmin) const SizedBox(height: 20),
+                                  if (isAdmin) 
+                                    ElevatedButton.icon(
+                                      onPressed: () => _fetchMonthlyMagazine(forceUpdate: true), 
+                                      icon: const Icon(Icons.publish), 
+                                      label: const Text("Admin: Publish Now")
+                                    )
+                                ],
+                              )
+                            )
+                          : _buildHtmlView(_monthlyContent, false, ""),
+                    ),
                   ],
                 ),
               ],
@@ -306,7 +387,7 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
         ],
       ),
       
-      // FLOATING ACTION BUTTON (Dynamic based on Tab)
+      // FLOATING ACTION BUTTON
       floatingActionButton: _tabController.index == 0
           ? (!_isDailyLoading && _dailyNewsContent.isNotEmpty && !_dailyNewsContent.contains("🚨")
               ? FloatingActionButton.extended(
@@ -315,9 +396,9 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with Single
                   label: const Text("Attempt Daily Quiz", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
                 )
               : null)
-          : (!_isMonthlyLoading && _monthlyContent.isNotEmpty && !_monthlyContent.contains("🚨")
+          : (!_isMonthlyLoading && _monthlyContent.isNotEmpty && _monthlyContent != "NOT_PUBLISHED" && !_monthlyContent.contains("🚨")
               ? FloatingActionButton.extended(
-                  onPressed: _startMonthlyTest, backgroundColor: const Color(0xFFD32F2F), elevation: 4, // Red color for Mega Test
+                  onPressed: _startMonthlyTest, backgroundColor: const Color(0xFFD32F2F), elevation: 4, 
                   icon: const Icon(Icons.workspace_premium, color: Colors.white),
                   label: const Text("Attempt Mega Mock (50 Q)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
                 )
