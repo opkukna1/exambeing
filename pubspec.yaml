@@ -81,7 +81,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # 🔥 YAHAN PAR .env ADD KIYA HAI 🔥
   assets:
+    - .env
     - assets/logo.png
     - assets/icon/
     - assets/fonts/NotoSans.ttf
