@@ -13,9 +13,10 @@ import 'package:exambeing/services/ad_manager.dart';
 import 'package:exambeing/features/tests/screens/test_generator_screen.dart';
 import 'package:exambeing/services/ai_analysis_service.dart'; 
 import 'package:badges/badges.dart' as badges;
-
-// 🔥🔥🔥 NEW IMPORT
 import 'package:exambeing/features/study_plan/screens/buy_test_series_screen.dart'; 
+
+// 🔥🔥🔥 NEW IMPORT FOR CURRENT AFFAIRS
+import 'package:exambeing/currentaffairs/current_affairs_screen.dart'; // Apna rasta check kar lena agar alag folder ho
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,7 +35,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserName();
-    // _activateLuckyTrial(); // ❌ REMOVED: No more 3-month free popup
     AdManager.loadInterstitialAd();
     _saveDeviceToken(); 
   }
@@ -96,35 +96,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if(mounted) setState(() {}); 
     });
   }
-
-  // --- 3. LUCKY TRIAL LOGIC (DISABLED) ---
-  /* Future<void> _activateLuckyTrial() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    bool hasClaimedOffer = prefs.getBool('lucky_trial_claimed_${user.uid}') ?? false;
-    if (!hasClaimedOffer) {
-      try {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'isPremium': true, 'premiumExpiry': DateTime.now().add(const Duration(days: 90)).toIso8601String(), 'planType': 'Lucky Trial (3 Months)',
-        }, SetOptions(merge: true));
-        if (mounted) _showLuckyDialog();
-        await prefs.setBool('lucky_trial_claimed_${user.uid}', true);
-      } catch (e) { debugPrint("Error: $e"); }
-    }
-  }
-
-  void _showLuckyDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("🎉 Congratulations!"),
-        content: const Text("You got 3 Months Free Premium!"),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Claim"))],
-      ),
-    );
-  }
-  */
 
   // --- 4. 🤖 AI ANALYSIS LOGIC ---
   void _onAiAnalyzePressed() async {
@@ -231,7 +202,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 20),
 
-            // 🔥 NEW: Buy Test Series Button (Color Updated)
+            // 🔥 NEW: Current Affairs Button (Placed exactly above Buy Test Series)
+            _buildCurrentAffairsCard(),
+
+            const SizedBox(height: 20),
+
+            // 🔥 Buy Test Series Button
             _buildBuyTestSeriesCard(),
 
             const SizedBox(height: 20),
@@ -325,15 +301,72 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✅ UPDATED: Buy Test Series Card (Colors Matched with Theme)
+  // ✅ NEW: Current Affairs Card (Modern Deep Blue Gradient)
+  Widget _buildCurrentAffairsCard() {
+    return Container(
+      width: double.infinity, 
+      height: 80,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E3C72), Color(0xFF2A5298)], // A beautiful deep blue gradient
+          begin: Alignment.centerLeft, 
+          end: Alignment.centerRight
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+             Navigator.of(context, rootNavigator: true).push(
+               MaterialPageRoute(builder: (context) => const CurrentAffairsScreen()),
+             );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12), 
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), shape: BoxShape.circle), 
+                  child: const Icon(Icons.newspaper_rounded, color: Colors.white, size: 28)
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center, 
+                    crossAxisAlignment: CrossAxisAlignment.start, 
+                    children: const [
+                      Text("Daily Current Affairs", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      SizedBox(height: 4), 
+                      Text("Read Sujas, PIB & Give AI Test", style: TextStyle(color: Colors.white70, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)
+                    ]
+                  )
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8), 
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle), 
+                  child: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16)
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ EXISTING: Buy Test Series Card 
   Widget _buildBuyTestSeriesCard() {
     return Container(
       width: double.infinity, 
       height: 80,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        // 🔥 Changed Gradient to match other cards (Teal/Green mix or Deep Purple mix)
-        // Using a rich Teal-Green gradient to look professional and matching
         gradient: const LinearGradient(
           colors: [Color(0xFF00B09B), Color(0xFF96C93D)], 
           begin: Alignment.centerLeft, 
@@ -366,10 +399,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center, 
                     crossAxisAlignment: CrossAxisAlignment.start, 
-                    children: [
-                      const Text("Buy Test Series", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4), 
-                      const Text("Unlock all premium exams", style: TextStyle(color: Colors.white70, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)
+                    children: const [
+                      Text("Buy Test Series", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                      SizedBox(height: 4), 
+                      Text("Unlock all premium exams", style: TextStyle(color: Colors.white70, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)
                     ]
                   )
                 ),
@@ -419,7 +452,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return _buildCard(
       title: "Create\nCustom Test", subtitle: "By Topic",
       icon: Icons.auto_awesome, colors: [const Color(0xFF6A11CB), const Color(0xFF2575FC)],
-      // 🔥🔥 UPDATED: FULL SCREEN NAVIGATION 🔥🔥
       onTap: () => Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(builder: (context) => const TestGeneratorScreen())
       ),
