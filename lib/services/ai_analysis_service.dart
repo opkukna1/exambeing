@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_generative_ai/google_generative_ai.dart'; // <--- AI Package
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // <--- Secret Key Package
 
 class AiAnalysisService {
   
@@ -43,7 +45,6 @@ class AiAnalysisService {
         List<dynamic> logs = data['logs'] ?? [];
 
         if (logs.isNotEmpty) {
-          // New Data (Logs Array)
           for (var log in logs) {
             bool isCorrect = log['s'] ?? false;
             
@@ -55,7 +56,6 @@ class AiAnalysisService {
             totalQuestions++;
           }
         } else {
-          // Old Data (Fallback)
           int score = data['score'] ?? 0;
           int total = data['totalQuestions'] ?? 0;
           
@@ -75,7 +75,7 @@ class AiAnalysisService {
       double lowestPercent = 101;
 
       topicTotal.forEach((topic, total) {
-        if (total >= 5) { // Kam se kam 5 sawal attempt kiye ho tabhi judge karenge
+        if (total >= 5) { // Kam se kam 5 sawal attempt kiye ho
           int correct = topicCorrect[topic] ?? 0;
           double percent = (correct / total) * 100;
 
@@ -92,8 +92,8 @@ class AiAnalysisService {
 
       double overallPercentage = (totalCorrect / totalQuestions) * 100;
 
-      // E. GENERATE SMART RESPONSE
-      return _generatePersonalizedMessage(
+      // E. GENERATE SMART RESPONSE VIA GEMINI AI
+      return await _generateAiMessage(
         name: userName,
         percentage: overallPercentage,
         strong: strongTopic,
@@ -106,125 +106,62 @@ class AiAnalysisService {
     }
   }
 
-  // 3. THE BRAIN 🧠 (6 Smart Levels)
-  String _generatePersonalizedMessage({
+  // 3. THE BRAIN 🧠 (Powered by Gemini 3.1 Flash Lite)
+  Future<String> _generateAiMessage({
     required String name,
     required double percentage,
     required String strong,
     required String weak,
     required int totalQ,
-  }) {
-    
-    // LEVEL 1: Danger Zone (0% - 35%) 🔴
-    if (percentage < 35) {
+  }) async {
+    try {
+      // API Key .env se uthana
+      final apiKey = dotenv.env['GEMINI_API_KEY'];
+      if (apiKey == null || apiKey.isEmpty) {
+        return "Error: AI Tutor is currently sleeping. (API Key missing)";
+      }
+
+      // Gemini Model Initialize karna
+      final model = GenerativeModel(
+        model: 'gemini-3.1-flash-lite',
+        apiKey: apiKey,
+      );
+
+      // AI ko Exambeing ke tutor ki tarah train karne ke liye faadu Prompt
+      final prompt = """
+      You are an expert, encouraging, and highly observant AI Tutor for an exam preparation app named 'Exambeing'.
+      Write a short, personalized performance analysis for a student based on the following exact data:
+      
+      - Student Name: $name
+      - Overall Accuracy: ${percentage.toStringAsFixed(1)}%
+      - Total Questions Attempted: $totalQ
+      - Strongest Topic: $strong
+      - Weakest Topic: $weak
+
+      Rules for the response:
+      1. Write directly to the student in a conversational, motivating tone (mix of English and a little bit of casual Hindi if it sounds natural, like a friendly mentor).
+      2. Use Markdown formatting (headings, bullet points, bold text).
+      3. Start with a catchy headline.
+      4. Congratulate them on their strong topic.
+      5. Provide a specific, actionable tip to improve their weak topic. 
+      6. Keep it concise (under 150 words). Do not use generic filler text.
+      """;
+
+      // AI se response mangna
+      final response = await model.generateContent([Content.text(prompt)]);
+      
+      return response.text ?? "We couldn't analyze your performance right now. Please try taking another test!";
+      
+    } catch (e) {
+      debugPrint("Gemini AI Error: $e");
+      // Agar AI fail ho jaye (internet issue etc), toh ek default fallback message dikhayenge
       return """
-### 🛑 Needs Immediate Attention, $name!
-Your accuracy is currently low (${percentage.toStringAsFixed(1)}%). It seems you are rushing through tests without clearing concepts.
+### 📊 Basic Analysis for $name
+- **Score:** ${percentage.toStringAsFixed(1)}%
+- **Strong Topic:** $strong
+- **Needs Work:** $weak
 
-### 📊 Summary
-- **Questions Analyzed:** $totalQ
-- **Weakest Area:** **$weak** (Accuracy is critical here)
-
-### 💡 Smart Strategy (Don't Worry!)
-1. **Stop guessing!** Negative marking will hurt you in real exams.
-2. Go to the **'Quick Notes'** section right now.
-3. Read the theory for **$weak** specifically.
-4. Come back and attempt a small topic-wise test. You will definitely score better!
-""";
-    }
-
-    // LEVEL 2: Struggling (35% - 50%) 🟠
-    else if (percentage < 50) {
-      return """
-### ⚠️ Focus on Basics, $name
-You are attempting questions, but many are going wrong. You need to bridge the gap between "Learning" and "Testing".
-
-### 📊 Summary
-- **Overall Score:** ${percentage.toStringAsFixed(1)}%
-- **Struggling Topic:** **$weak**
-
-### 🟢 Good News
-- You have started building momentum in **$strong**. Keep it up!
-
-### 🚀 Action Plan
-- Before your next test, spend 15 minutes in **Quick Notes**.
-- Revise the key formulas/dates for **$weak**.
-- Then attempt the test. Your confidence will skyrocket! 🚀
-""";
-    }
-
-    // LEVEL 3: Average / Inconsistent (50% - 65%) 🟡
-    else if (percentage < 65) {
-      return """
-### 📈 You are Improving, $name!
-You have crossed the passing mark, but consistency is missing. Some topics are good, some need polish.
-
-### 📊 Summary
-- **Current Score:** ${percentage.toStringAsFixed(1)}% (Average)
-- **Strong Hold:** $strong
-
-### 🔍 Analysis
-- The topic **$weak** is pulling your average down.
-- It seems you get confused in tricky options.
-
-### 💡 Expert Tip
-- Don't just give tests blindly.
-- Open **Quick Notes** > Read **$weak** Summary > Then retake the test.
-- Accuracy > Speed right now.
-""";
-    }
-
-    // LEVEL 4: Good Performance (65% - 80%) 🟢
-    else if (percentage < 80) {
-      return """
-### 👏 Great Going, $name!
-You are performing well! You have a good grasp of most topics. Now we aim for excellence.
-
-### 📊 Summary
-- **Overall Score:** ${percentage.toStringAsFixed(1)}% (Good)
-- **Questions Attempted:** $totalQ
-
-### 🌟 Star Performer
-- Your performance in **$strong** is solid.
-
-### 🎯 Next Goal
-- To cross 85%, you need to fix **$weak**.
-- A quick revision from **Notes** will turn this weak topic into a strong one.
-- Keep practicing, you are on the right track!
-""";
-    }
-
-    // LEVEL 5: Excellent (80% - 90%) 🟣
-    else if (percentage < 90) {
-      return """
-### 🏆 Outstanding, $name!
-You are in the top tier of students! Your consistency is impressive.
-
-### 📊 Summary
-- **Score:** ${percentage.toStringAsFixed(1)}% (Excellent)
-- **Mastery:** You are dominating in **$strong**.
-
-### 🚀 Final Polish
-- Even at this level, **$weak** has slight scope for improvement.
-- Just a 5-minute glance at **Quick Notes** for $weak will make you unstoppable.
-- Try increasing your speed now.
-""";
-    }
-
-    // LEVEL 6: Topper Level (90%+) 🔥
-    else {
-      return """
-### 👑 Unstoppable! Take a Bow, $name!
-Your performance is phenomenal. You are exam-ready!
-
-### 📊 Summary
-- **Score:** ${percentage.toStringAsFixed(1)}% (Legendary)
-- **Accuracy:** Pin-point perfect.
-
-### 💡 Challenge for You
-- Since you have mastered **$strong** and **$weak**, try "Full Length Mock Tests".
-- Focus on time management now.
-- Teach concepts to others or revise **Quick Notes** just to stay sharp.
+*Note: Connect to the internet for a detailed AI Tutor analysis!*
 """;
     }
   }
