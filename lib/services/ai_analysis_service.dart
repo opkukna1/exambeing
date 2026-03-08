@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:google_generative_ai/google_generative_ai.dart'; // <--- AI Package
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // <--- Secret Key Package
+import 'package:google_generative_ai/google_generative_ai.dart'; 
+import 'package:flutter_dotenv/flutter_dotenv.dart'; 
 
 class AiAnalysisService {
   
@@ -106,7 +106,7 @@ class AiAnalysisService {
     }
   }
 
-  // 3. THE BRAIN 🧠 (Powered by Gemini 3.1 Flash Lite)
+  // 3. THE BRAIN 🧠 (Powered by Gemini)
   Future<String> _generateAiMessage({
     required String name,
     required double percentage,
@@ -121,30 +121,42 @@ class AiAnalysisService {
         return "Error: AI Tutor is currently sleeping. (API Key missing)";
       }
 
-      // Gemini Model Initialize karna
+      // 🔥 MODEL NAME CORRECTED 🔥
       final model = GenerativeModel(
-        model: 'gemini-3.1-flash-lite',
+        model: 'gemini-3.1-flash-lite-preview', // Sahi aur fast model
         apiKey: apiKey,
       );
 
-      // AI ko Exambeing ke tutor ki tarah train karne ke liye faadu Prompt
+      // 🔥 NEW ELITE EXAM STRATEGIST PROMPT 🔥
       final prompt = """
-      You are an expert, encouraging, and highly observant AI Tutor for an exam preparation app named 'Exambeing'.
-      Write a short, personalized performance analysis for a student based on the following exact data:
-      
-      - Student Name: $name
+      You are an elite exam strategist and mentor for a competitive exam preparation platform called "Exambeing".
+
+      Your job is to analyze the student's performance data and provide a sharp, practical coaching insight — not generic motivation.
+
+      Student Performance Data:
+      - Name: $name
       - Overall Accuracy: ${percentage.toStringAsFixed(1)}%
       - Total Questions Attempted: $totalQ
       - Strongest Topic: $strong
       - Weakest Topic: $weak
 
-      Rules for the response:
-      1. Write directly to the student in a conversational, motivating tone (mix of English and a little bit of casual Hindi if it sounds natural, like a friendly mentor).
-      2. Use Markdown formatting (headings, bullet points, bold text).
-      3. Start with a catchy headline.
-      4. Congratulate them on their strong topic.
-      5. Provide a specific, actionable tip to improve their weak topic. 
-      6. Keep it concise (under 150 words). Do not use generic filler text.
+      Instructions:
+
+      1. Start with a short motivational headline.
+      2. Briefly interpret what this accuracy level means for competitive exams like UPSC/RPSC.
+      3. Identify the student's likely preparation pattern from the data.
+      4. Praise the strongest topic and explain how the student can convert this strength into guaranteed exam marks.
+      5. Diagnose possible reasons for weakness in the weakest topic (concept gap, revision issue, memory-based subject etc).
+      6. Provide a **3-step practical improvement strategy** specifically for the weak topic.
+      7. Give one **smart exam strategy tip** (like elimination technique, revision pattern, mock test usage).
+      8. End with a short motivating line like a mentor encouraging a serious aspirant.
+
+      Rules:
+      - Use Markdown formatting (headings, bullet points).
+      - Keep response under 180 words.
+      - Write in natural Hinglish like a friendly mentor.
+      - Avoid generic advice like "study more" or "work hard".
+      - Sound like a real exam coach analyzing performance.
       """;
 
       // AI se response mangna
@@ -156,6 +168,10 @@ class AiAnalysisService {
       debugPrint("Gemini AI Error: $e");
       // Agar AI fail ho jaye (internet issue etc), toh ek default fallback message dikhayenge
       return """
+🚨 AI Error Details: $e
+
+---
+
 ### 📊 Basic Analysis for $name
 - **Score:** ${percentage.toStringAsFixed(1)}%
 - **Strong Topic:** $strong
