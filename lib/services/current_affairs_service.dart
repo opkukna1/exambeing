@@ -1,294 +1,362 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:printing/printing.dart'; 
+import 'package:pdf/pdf.dart';
 import 'package:intl/intl.dart';
-import 'dart:convert';
-import 'dart:developer' as developer;
+import 'package:firebase_auth/firebase_auth.dart'; 
+import '../services/current_affairs_service.dart';
+import 'quiz_screen.dart'; 
 
-class CurrentAffairsService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+class CurrentAffairsScreen extends StatefulWidget {
+  const CurrentAffairsScreen({super.key});
 
-  // =========================================================================
-  // 1. DAILY ENGINE: GET OR GENERATE HTML NEWS
-  // =========================================================================
-  Future<String> getDailyCurrentAffairs({
-    required DateTime date,
-    required String region,
-    required String language,
-  }) async {
-    try {
-      String monthKey = DateFormat('yyyy_MM').format(date);
-      String dayKey = DateFormat('yyyy_MM_dd').format(date);
-      String exactDateText = DateFormat('dd MMMM yyyy').format(date);
-      String category = "${region}_$language";
+  @override
+  State<CurrentAffairsScreen> createState() => _CurrentAffairsScreenState();
+}
 
-      developer.log("🔍 Fetching News: $dayKey | $category", name: "Exambeing_AI");
+class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  
+  // Shared States
+  String _selectedRegion = "Rajasthan";
+  String _selectedLanguage = "Hindi";
+  
+  // Daily States
+  DateTime _selectedDailyDate = DateTime.now();
+  bool _isDailyLoading = false;
+  String _dailyNewsContent = "";
+  
+  // Monthly States
+  DateTime _selectedMonthlyDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  bool _isMonthlyLoading = false;
+  String _monthlyContent = "";
 
-      DocumentReference docRef = _db.collection('current_affairs').doc(monthKey).collection(category).doc(dayKey);
-      DocumentSnapshot doc = await docRef.get();
+  final CurrentAffairsService _newsService = CurrentAffairsService();
 
-      if (doc.exists && doc.data() != null) {
-        developer.log("✅ Load from Firebase (Zero Cost)", name: "Exambeing_AI");
-        return doc.get('content');
-      }
+  // 🔥 ADMIN CHECK LOGIC 🔥
+  bool get isAdmin {
+    final user = FirebaseAuth.instance.currentUser;
+    return user != null && user.email == "opsiddh42@gmail.com";
+  }
 
-      developer.log("🤖 Generating Premium HTML Daily News with Gemini 3.1 Lite...", name: "Exambeing_AI");
-      String aiContent = await _generateCurrentAffairsFromAI(
-        dateText: exactDateText,
-        region: region,
-        language: language,
-      );
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabSelection);
+    _fetchDailyNews();
+  }
 
-      if (!aiContent.startsWith("🚨") && !aiContent.startsWith("Error")) {
-        await docRef.set({
-          'content': aiContent,
-          'createdAt': FieldValue.serverTimestamp(),
-          'date': dayKey,
-          'region': region,
-          'language': language,
-        });
-        developer.log("💾 Saved to Firebase", name: "Exambeing_AI");
-      }
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
-      return aiContent;
-    } catch (e) {
-      return "🚨 **Network Error!**\n\n$e";
+  void _handleTabSelection() {
+    if (_tabController.indexIsChanging && _tabController.index == 1 && _monthlyContent.isEmpty) {
+      _fetchMonthlyMagazine(forceUpdate: false);
     }
   }
 
-  // =========================================================================
-  // 2. THE BRAIN: AI GENERATION (Strict Rules + Premium HTML)
-  // =========================================================================
-  Future<String> _generateCurrentAffairsFromAI({
-    required String dateText,
-    required String region,
-    required String language,
-  }) async {
+  // ==================== DAILY LOGIC ====================
+  Future<void> _fetchDailyNews() async {
+    setState(() { _isDailyLoading = true; _dailyNewsContent = ""; });
+    String result = await _newsService.getDailyCurrentAffairs(
+      date: _selectedDailyDate, region: _selectedRegion, language: _selectedLanguage,
+    );
+    if (mounted) setState(() { _dailyNewsContent = result; _isDailyLoading = false; });
+  }
+
+  Future<void> _startDailyTest() async {
+    _showLoadingOverlay("AI is creating 10 MCQs...");
     try {
-      final apiKey = dotenv.env['GEMINI_API_KEY'];
-      final model = GenerativeModel(
-        model: 'gemini-3.1-flash-lite-preview', // 🔥 Daily Fast Model 🔥
-        apiKey: apiKey ?? "",
+      List<dynamic> testQuestions = await _newsService.getOrGenerateDailyTest(
+        date: _selectedDailyDate, region: _selectedRegion, language: _selectedLanguage, newsContent: _dailyNewsContent,
       );
-
-      String prompt = """
-      You are the Chief Current Affairs Editor for "Exambeing" App.
-      Target Date: $dateText
-      Target Region: $region
-      Language: $language
-
-      CRITICAL CONTENT RULES:
-      1. STRICT DATE: Provide ONLY recent news relevant to $dateText. DO NOT include news from 6 months or 1 year ago.
-      2. STRICT REGION: If Region is 'India', ONLY provide National/International news (NO Rajasthan local news). If Region is 'Rajasthan', ONLY provide Rajasthan state news.
-      
-      FORMATTING RULES (HTML for PDF Export):
-      1. Output ONLY pure, valid HTML code. DO NOT wrap the output in ```html. Start with a <div>.
-      2. BRANDING: Add a beautiful header containing "Exambeing Daily Current Affairs" and "Date: $dateText".
-      3. CSS STYLING: Use inline CSS for a premium look. Use Deep Purple (#5E35B1) for main headings. 
-      4. CONTENT: Number the news points. Bold important keywords, dates, and numbers.
-      5. SPECIAL BOXES: For every Government Scheme, App launch, or very important fact, place it inside a highlighted <div> box with a light background (e.g., background: #FFF3E0; border-left: 5px solid #FF9800; padding: 10px; margin: 10px 0; border-radius: 5px;).
-      """;
-
-      final response = await model.generateContent([Content.text(prompt)]);
-      
-      // Clean HTML output from markdown codeblocks if AI adds them
-      String compiledHtml = response.text!.replaceAll("```html", "").replaceAll("```", "").trim();
-      return compiledHtml;
-      
+      if (mounted) Navigator.pop(context);
+      if (testQuestions.isNotEmpty && mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => QuizScreen(
+          questions: testQuestions, title: "Daily Quiz - ${DateFormat('dd MMM').format(_selectedDailyDate)}",
+        )));
+      } else throw "No questions generated";
     } catch (e) {
-      return "🚨 AI Server Error: $e";
+      if (mounted) Navigator.pop(context);
+      _showErrorSnackBar("Test generation failed: $e");
     }
   }
 
-  // =========================================================================
-  // 3. AI TEST ENGINE: GENERATE 10 MCQs
-  // =========================================================================
-  Future<List<dynamic>> getOrGenerateDailyTest({
-    required DateTime date,
-    required String region,
-    required String language,
-    required String newsContent,
-  }) async {
+  // ==================== MONTHLY LOGIC ====================
+  Future<void> _fetchMonthlyMagazine({bool forceUpdate = false}) async {
+    setState(() { _isMonthlyLoading = true; _monthlyContent = ""; });
+    String result = await _newsService.getMonthlyCompilation(
+      monthDate: _selectedMonthlyDate, region: _selectedRegion, language: _selectedLanguage,
+      isAdmin: isAdmin, forceUpdate: forceUpdate,
+    );
+    if (mounted) setState(() { _monthlyContent = result; _isMonthlyLoading = false; });
+  }
+
+  Future<void> _startMonthlyTest() async {
+    _showLoadingOverlay("Generating Mega Test (50 Qs)... This may take 30s.");
     try {
-      String monthKey = DateFormat('yyyy_MM').format(date);
-      String dayKey = DateFormat('yyyy_MM_dd').format(date);
-      String category = "${region}_$language";
-
-      DocumentReference testDocRef = _db.collection('current_affairs_tests').doc(monthKey).collection(category).doc(dayKey);
-      DocumentSnapshot doc = await testDocRef.get();
-
-      if (doc.exists && doc.data() != null) return doc.get('questions') as List<dynamic>;
-
-      developer.log("🤖 Creating 10 Fresh MCQs...", name: "Exambeing_Test");
-      final apiKey = dotenv.env['GEMINI_API_KEY'];
-      final model = GenerativeModel(model: 'gemini-3.1-flash-lite-preview', apiKey: apiKey ?? "");
-
-      String prompt = """
-      Create exactly 10 high-level Multiple Choice Questions (MCQs) based on the text. Language: $language.
-      News Text: $newsContent
-      OUTPUT FORMAT: Return ONLY a valid JSON array. Format: [{"question": "", "options": ["","","",""], "correctIndex": 0, "explanation": ""}]
-      """;
-
-      final response = await model.generateContent([Content.text(prompt)]);
-      String res = response.text!.replaceAll("```json", "").replaceAll("```", "").trim();
-      List<dynamic> questions = jsonDecode(res);
-
-      if (questions.isNotEmpty) {
-        await testDocRef.set({'questions': questions, 'createdAt': FieldValue.serverTimestamp()});
-      }
-      return questions;
+      List<dynamic> testQuestions = await _newsService.getOrGenerateMonthlyTest(
+        monthDate: _selectedMonthlyDate, region: _selectedRegion, language: _selectedLanguage, monthlyContent: _monthlyContent,
+      );
+      if (mounted) Navigator.pop(context);
+      if (testQuestions.isNotEmpty && mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => QuizScreen(
+          questions: testQuestions, title: "Mega Mock - ${DateFormat('MMM yyyy').format(_selectedMonthlyDate)}",
+        )));
+      } else throw "Mega test generation failed";
     } catch (e) {
-      developer.log("❌ Test Error: $e");
-      return [];
+      if (mounted) Navigator.pop(context);
+      _showErrorSnackBar("Mega Test failed: $e");
     }
   }
 
-  // =========================================================================
-  // 🔥 4. MEGA ENGINE: HTML MONTHLY MAGAZINE (ADMIN CONTROLLED) 🔥
-  // =========================================================================
-  Future<String> getMonthlyCompilation({
-    required DateTime monthDate,
-    required String region,
-    required String language,
-    required bool isAdmin,
-    bool forceUpdate = false,
-  }) async {
+  // ==================== 🔥 LAZY HTML PDF EXPORT LOGIC 🔥 ====================
+  Future<void> _downloadDailyPdf() async {
+    _showLoadingOverlay("Preparing Premium PDF Layout...");
     try {
-      String monthKey = DateFormat('yyyy_MM').format(monthDate); 
-      String monthName = DateFormat('MMMM yyyy').format(monthDate); 
-      String category = "${region}_$language";
-
-      developer.log("📚 Fetching Monthly Magazine: $monthName | $category", name: "Exambeing_Mega");
-
-      DocumentReference monthlyRef = _db.collection('monthly_magazines').doc(monthKey).collection(category).doc('compilation');
-      DocumentSnapshot doc = await monthlyRef.get();
-
-      // Normal User ke liye, agar published hai toh direct bhejo
-      if (!forceUpdate && doc.exists && doc.data() != null) {
-        return doc.get('content');
-      }
-
-      // Agar published nahi hai aur user Admin nahi hai, toh mna kar do
-      if (!doc.exists && !isAdmin) {
-        return "NOT_PUBLISHED";
-      }
-
-      developer.log("🤖 Admin Compiling HTML Monthly Magazine from Daily Data...", name: "Exambeing_Mega");
-
-      QuerySnapshot dailyDocs = await _db.collection('current_affairs').doc(monthKey).collection(category).get();
-      
-      if (dailyDocs.docs.isEmpty) {
-        return "🚨 **No Data Found!**\nIs mahine ($monthName) ka daily data available nahi hai. AI compile nahi kar paya.";
-      }
-
-      StringBuffer rawMonthData = StringBuffer();
-      for (var d in dailyDocs.docs) {
-        rawMonthData.writeln("Date: ${d['date']}\n${d['content']}\n---");
-      }
-
-      final apiKey = dotenv.env['GEMINI_API_KEY'];
-      final model = GenerativeModel(
-        model: 'gemini-2.5-flash', // 🔥 HIGH CAPACITY MODEL for Monthly 🔥
-        apiKey: apiKey ?? "",
+      // 1. Fetch or Generate HTML from AI via Service
+      String htmlContent = await _newsService.getOrGenerateDailyHtml(
+        date: _selectedDailyDate, region: _selectedRegion, language: _selectedLanguage, markdownContent: _dailyNewsContent,
       );
-
-      String prompt = """
-      You are the Chief Editor for "Exambeing", a Premium UPSC/RPSC Exam Platform.
-      Create the Monthly Current Affairs Magazine for $region for the month of $monthName. Language: $language.
-
-      CRITICAL INSTRUCTIONS:
-      1. BRANDING: Start with a beautiful header containing "Exambeing Monthly Magazine - $monthName" and "Published by: Exambeing Team".
-      2. FORMAT: Output ONLY pure, valid HTML code. DO NOT wrap the output in ```html. Just raw HTML starting with <div>.
-      3. CSS STYLING: Use inline CSS for a premium look suitable for A4 PDF printing. Use deep purple (#5E35B1) for main headings.
-      4. CONTENT: Summarize the daily data. REMOVE outdated/repetitive news. Divide into clear categories (Polity, Economy, Sports, Awards, Rajasthan Special, etc.).
-      5. SPECIAL BOXES: For every major Government Scheme or important fact, put it inside a beautifully highlighted <div> box with a light colored background and a border (e.g., background: #E8EAF6; border-left: 5px solid #3F51B5; padding: 12px; border-radius: 6px; margin-bottom: 10px;).
+      if (mounted) Navigator.pop(context); 
       
-      Raw Month Data:
-      $rawMonthData
-      """;
-
-      final response = await model.generateContent([Content.text(prompt)]);
-      
-      String compiledHtml = response.text!.replaceAll("```html", "").replaceAll("```", "").trim();
-
-      if (compiledHtml.isNotEmpty && !compiledHtml.startsWith("Error")) {
-        await monthlyRef.set({
-          'content': compiledHtml,
-          'createdAt': FieldValue.serverTimestamp(),
-          'month': monthName,
-          'region': region,
-          'language': language,
-        });
-        developer.log("💾 Monthly Magazine Saved to Firebase!", name: "Exambeing_Mega");
-      }
-
-      return compiledHtml;
-
+      // 2. Print that HTML to PDF
+      await Printing.layoutPdf(
+        name: 'Exambeing_Daily_${DateFormat('dd_MMM').format(_selectedDailyDate)}',
+        onLayout: (PdfPageFormat format) async {
+          return await Printing.convertHtml(format: format, html: '<html><body style="font-family: sans-serif; padding:20px;">$htmlContent<br><br><center><small>Generated by Exambeing App</small></center></body></html>');
+        },
+      );
     } catch (e) {
-      developer.log("❌ Monthly Compilation Error: $e", name: "Exambeing_Mega");
-      return "🚨 Error compiling monthly data. Please check internet. $e";
+      if (mounted) Navigator.pop(context);
+      _showErrorSnackBar("PDF Error: $e");
     }
   }
 
-  // =========================================================================
-  // 🔥 5. MEGA ENGINE: MONTHLY 50-MCQ TEST - GEMINI 2.5 FLASH 🔥
-  // =========================================================================
-  Future<List<dynamic>> getOrGenerateMonthlyTest({
-    required DateTime monthDate,
-    required String region,
-    required String language,
-    required String monthlyContent,
-  }) async {
+  Future<void> _downloadMonthlyPdf({bool forceUpdateHtml = false}) async {
+    _showLoadingOverlay(forceUpdateHtml ? "Updating PDF Layout..." : "Preparing Mega PDF...");
     try {
-      String monthKey = DateFormat('yyyy_MM').format(monthDate);
-      String category = "${region}_$language";
-
-      DocumentReference testRef = _db.collection('monthly_magazines').doc(monthKey).collection(category).doc('mega_test');
-      DocumentSnapshot doc = await testRef.get();
-
-      if (doc.exists && doc.data() != null) return doc.get('questions') as List<dynamic>;
-
-      developer.log("🤖 Generating Mega Monthly Test (50 Questions)...", name: "Exambeing_Mega");
-      
-      final apiKey = dotenv.env['GEMINI_API_KEY'];
-      final model = GenerativeModel(
-        model: 'gemini-2.5-flash', 
-        apiKey: apiKey ?? "",
+      // 1. Fetch or Generate HTML from AI via Service
+      String htmlContent = await _newsService.getOrGenerateMonthlyHtml(
+        monthDate: _selectedMonthlyDate, region: _selectedRegion, language: _selectedLanguage, markdownContent: _monthlyContent, forceUpdate: forceUpdateHtml,
       );
-
-      String prompt = """
-      You are an elite Test Creator for UPSC/RPSC exams.
-      Create a Mega Mock Test of exactly 50 high-quality Multiple Choice Questions (MCQs) strictly based on the provided Monthly Magazine text.
-      Language: $language.
+      if (mounted) Navigator.pop(context); 
       
-      Monthly Magazine Text:
-      $monthlyContent
-
-      OUTPUT FORMAT:
-      Return ONLY a valid JSON array of objects. No markdown tags, no introduction.
-      Format:
-      [
-        {
-          "question": "Question text?",
-          "options": ["Opt A", "Opt B", "Opt C", "Opt D"],
-          "correctIndex": 0,
-          "explanation": "Why?"
-        }
-      ]
-      """;
-
-      final response = await model.generateContent([Content.text(prompt)]);
-      String res = response.text!.replaceAll("```json", "").replaceAll("```", "").trim();
-      List<dynamic> questions = jsonDecode(res);
-
-      if (questions.isNotEmpty) {
-        await testRef.set({'questions': questions, 'createdAt': FieldValue.serverTimestamp()});
+      if (!forceUpdateHtml) {
+        // 2. Print that HTML to PDF
+        await Printing.layoutPdf(
+          name: 'Exambeing_Magazine_${DateFormat('MMM_yyyy').format(_selectedMonthlyDate)}',
+          onLayout: (PdfPageFormat format) async {
+            return await Printing.convertHtml(format: format, html: '<html><body style="font-family: sans-serif; padding:20px;">$htmlContent<br><br><center><small>Generated by Exambeing App</small></center></body></html>');
+          },
+        );
+      } else {
+        _showErrorSnackBar("HTML PDF Layout Updated Successfully! ✅");
       }
-      return questions;
     } catch (e) {
-      developer.log("❌ Mega Test Error: $e", name: "Exambeing_Mega");
-      return [];
+      if (mounted) Navigator.pop(context);
+      _showErrorSnackBar("PDF Error: $e");
     }
+  }
+
+  // ==================== UI HELPERS ====================
+  void _showLoadingOverlay(String msg) {
+    showDialog(
+      context: context, barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const CircularProgressIndicator(color: Color(0xFFFF9800)), const SizedBox(height: 15),
+            Text(msg, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  }
+
+  Future<void> _selectMonthYear(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context, initialDate: _selectedMonthlyDate, firstDate: DateTime(2024, 1), lastDate: DateTime.now(),
+      initialDatePickerMode: DatePickerMode.year, 
+      builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF5E35B1), onPrimary: Colors.white)), child: child!),
+    );
+    if (picked != null) {
+      setState(() { _selectedMonthlyDate = DateTime(picked.year, picked.month, 1); });
+      _fetchMonthlyMagazine(forceUpdate: false);
+    }
+  }
+
+  Future<void> _selectDailyDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context, initialDate: _selectedDailyDate, firstDate: DateTime(2024, 1), lastDate: DateTime.now(),
+      builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF5E35B1), onPrimary: Colors.white)), child: child!),
+    );
+    if (picked != null && picked != _selectedDailyDate) {
+      setState(() => _selectedDailyDate = picked);
+      _fetchDailyNews();
+    }
+  }
+
+  void _onFilterChanged() {
+    if (_tabController.index == 0) _fetchDailyNews();
+    else _fetchMonthlyMagazine(forceUpdate: false);
+  }
+
+  Widget _buildFilterChip(String label, String value, String currentValue, Function(String) onSelect) {
+    bool isSelected = value == currentValue;
+    return GestureDetector(
+      onTap: () { if (!isSelected) { onSelect(value); _onFilterChanged(); } },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(gradient: isSelected ? const LinearGradient(colors: [Color(0xFF5E35B1), Color(0xFF7E57C2)]) : null, color: isSelected ? null : Colors.grey.shade100, borderRadius: BorderRadius.circular(20), border: Border.all(color: isSelected ? Colors.transparent : Colors.grey.shade300)),
+        child: Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, color: isSelected ? Colors.white : Colors.black54)),
+      ),
+    );
+  }
+
+  Widget _buildDateSelector(String label, VoidCallback onTap, IconData icon) {
+    return InkWell(
+      onTap: onTap, borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20), decoration: BoxDecoration(color: const Color(0xFFF3E5F5), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE1BEE7))),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(icon, color: const Color(0xFF5E35B1)), Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF4527A0))), const Icon(Icons.arrow_drop_down_circle_outlined, size: 20, color: Color(0xFF5E35B1))]),
+      ),
+    );
+  }
+
+  // 🔥 MAIN UI - MARKDOWN VIEWER 🔥
+  Widget _buildMarkdownView(String content, bool isLoading, String loadingMsg) {
+    if (isLoading) {
+      return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const CircularProgressIndicator(color: Color(0xFF5E35B1)), const SizedBox(height: 20), Text(loadingMsg, style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w600, fontSize: 16))]));
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 90),
+      child: Container(
+        width: double.infinity, padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.grey.shade200), boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 20, offset: Offset(0, 10))]),
+        child: MarkdownBody(
+          data: content, selectable: true,
+          styleSheet: MarkdownStyleSheet(
+            p: const TextStyle(fontSize: 16, height: 1.7, color: Color(0xFF2D3142)),
+            h1: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF1E1E1E)),
+            h2: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF5E35B1)),
+            strong: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF4527A0)),
+            listBullet: const TextStyle(color: Color(0xFFFF9800), fontSize: 18),
+            blockquoteDecoration: BoxDecoration(color: const Color(0xFFFFF3E0), border: const Border(left: BorderSide(color: Color(0xFFFF9800), width: 4)), borderRadius: BorderRadius.circular(4)),
+            blockquote: const TextStyle(color: Color(0xFFE65100), fontStyle: FontStyle.italic),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FE),
+      appBar: AppBar(
+        title: const Text('Current Affairs', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+        flexibleSpace: Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF4527A0), Color(0xFF5E35B1)]))),
+        foregroundColor: Colors.white, centerTitle: true, elevation: 0,
+        bottom: TabBar(controller: _tabController, indicatorColor: Colors.orangeAccent, indicatorWeight: 4, labelColor: Colors.white, unselectedLabelColor: Colors.white60, tabs: const [Tab(text: "Daily Updates"), Tab(text: "Monthly Magazine")]),
+      ),
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 15, 20, 15), decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)), boxShadow: [BoxShadow(color: Color(0x0A000000), blurRadius: 15, offset: Offset(0, 8))]),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(children: [ _buildFilterChip("Raj", "Rajasthan", _selectedRegion, (val) => setState(() => _selectedRegion = val)), const SizedBox(width: 8), _buildFilterChip("India", "India", _selectedRegion, (val) => setState(() => _selectedRegion = val))]),
+                Row(children: [ _buildFilterChip("अ", "Hindi", _selectedLanguage, (val) => setState(() => _selectedLanguage = val)), const SizedBox(width: 8), _buildFilterChip("A", "English", _selectedLanguage, (val) => setState(() => _selectedLanguage = val))]),
+              ],
+            ),
+          ),
+          
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // ==================== TAB 1: DAILY ====================
+                Column(
+                  children: [
+                    Padding(padding: const EdgeInsets.fromLTRB(20, 15, 20, 5), child: _buildDateSelector(DateFormat('dd MMMM yyyy').format(_selectedDailyDate), () => _selectDailyDate(context), Icons.calendar_month_rounded)),
+                    if (_dailyNewsContent.isNotEmpty && !_isDailyLoading && !_dailyNewsContent.contains("🚨"))
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 5),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _downloadDailyPdf, // 🔥 Triggers Lazy HTML Load
+                              icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 18), label: const Text("Download PDF"),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Expanded(child: _buildMarkdownView(_dailyNewsContent, _isDailyLoading, "Reading Sujas & PIB...")),
+                  ],
+                ),
+                
+                // ==================== TAB 2: MONTHLY ====================
+                Column(
+                  children: [
+                    Padding(padding: const EdgeInsets.fromLTRB(20, 15, 20, 5), child: _buildDateSelector(DateFormat('MMMM yyyy').format(_selectedMonthlyDate), () => _selectMonthYear(context), Icons.auto_stories)),
+                    if (_monthlyContent != "NOT_PUBLISHED" && _monthlyContent.isNotEmpty && !_isMonthlyLoading && !_monthlyContent.contains("🚨"))
+                       Padding(
+                         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 5),
+                         child: Row(
+                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                           children: [
+                             ElevatedButton.icon(
+                               onPressed: _downloadMonthlyPdf, // 🔥 Triggers Lazy HTML Load
+                               icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 18), label: const Text("Download PDF"),
+                               style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                             ),
+                             if (isAdmin)
+                               PopupMenuButton<String>(
+                                 onSelected: (value) {
+                                   if (value == 'update_text') _fetchMonthlyMagazine(forceUpdate: true);
+                                   if (value == 'update_pdf') _downloadMonthlyPdf(forceUpdateHtml: true);
+                                 },
+                                 itemBuilder: (context) => [
+                                   const PopupMenuItem(value: 'update_text', child: Text("Update Magazine Text")),
+                                   const PopupMenuItem(value: 'update_pdf', child: Text("Update PDF Layout")),
+                                 ],
+                                 child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(8)), child: const Row(children: [Icon(Icons.settings, size: 18), SizedBox(width: 4), Text("Admin Options", style: TextStyle(fontWeight: FontWeight.bold))])),
+                               ),
+                           ],
+                         ),
+                       ),
+                    Expanded(
+                      child: _isMonthlyLoading 
+                        ? const Center(child: CircularProgressIndicator(color: Color(0xFF5E35B1))) 
+                        : _monthlyContent == "NOT_PUBLISHED"
+                          ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.hourglass_empty, size: 50, color: Colors.grey.shade400), const SizedBox(height: 10), const Text("Magazine not published yet.", style: TextStyle(color: Colors.grey, fontSize: 16)), if (isAdmin) const SizedBox(height: 20), if (isAdmin) ElevatedButton.icon(onPressed: () => _fetchMonthlyMagazine(forceUpdate: true), icon: const Icon(Icons.publish), label: const Text("Admin: Publish Now"))]))
+                          : _buildMarkdownView(_monthlyContent, false, ""),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      
+      floatingActionButton: _tabController.index == 0
+          ? (!_isDailyLoading && _dailyNewsContent.isNotEmpty && !_dailyNewsContent.contains("🚨") ? FloatingActionButton.extended(onPressed: _startDailyTest, backgroundColor: const Color(0xFFFF9800), elevation: 4, icon: const Icon(Icons.rocket_launch, color: Colors.white), label: const Text("Attempt Daily Quiz", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800))) : null)
+          : (!_isMonthlyLoading && _monthlyContent.isNotEmpty && _monthlyContent != "NOT_PUBLISHED" && !_monthlyContent.contains("🚨") ? FloatingActionButton.extended(onPressed: _startMonthlyTest, backgroundColor: const Color(0xFFD32F2F), elevation: 4, icon: const Icon(Icons.workspace_premium, color: Colors.white), label: const Text("Attempt Mega Mock (50 Q)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800))) : null),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
   }
 }
