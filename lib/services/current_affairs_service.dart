@@ -45,7 +45,7 @@ class CurrentAffairsService {
     } catch (e) { return "🚨 **Network Error!**\n\n$e"; }
   }
 
-  // 🔥 PROMPT FIXED: 15 Points, Exam Facts, Schemes in Box 🔥
+  // 🔥 PROMPT FIXED: Zero Hallucination, 15 Points, Exam Facts, Schemes in Box 🔥
   Future<String> _generateCurrentAffairsFromAI({required String dateText, required String region, required String language}) async {
     try {
       final apiKey = dotenv.env['GEMINI_API_KEY'];
@@ -55,17 +55,18 @@ class CurrentAffairsService {
       You are the elite Chief Current Affairs Editor for the "Exambeing" competitive exam app (UPSC/RPSC).
       Target Date: $dateText. Region: $region. Language: $language.
 
-      CRITICAL CONTENT RULES:
-      1. STRICT DATE LIMIT: Provide ONLY fresh news exactly around $dateText. DO NOT provide old news.
-      2. STRICT REGION LIMIT: If Region is 'India', strictly provide National & International news ONLY. If Region is 'Rajasthan', strictly provide Rajasthan state news ONLY.
-      3. VOLUME: You MUST provide EXACTLY 15 to 20 highly important Current Affairs points.
-      4. SOURCES: Rajasthan Sujas (DIPR), PIB India, The Hindu, drishti ias, dainik bhaskar, rajasthan patrika and other.
+      CRITICAL CONTENT RULES (ZERO HALLUCINATION):
+      1. FACTUAL ACCURACY: You MUST provide ONLY 100% real, verified news. DO NOT invent, fake, or hallucinate any names, dates, schemes, or facts. No guesswork allowed.
+      2. STRICT DATE LIMIT: Provide fresh news strictly around $dateText. If exactly 15 valid news items are not available for this exact date, you may include highly important verified news from the last 2-3 days, but NEVER make up fake news just to fill the count.
+      3. STRICT REGION LIMIT: If Region is 'India', strictly provide National & International news ONLY. If Region is 'Rajasthan', strictly provide Rajasthan state news ONLY.
+      4. VOLUME: You MUST provide EXACTLY 15 to 20 highly important Current Affairs points. Focus purely on exam-oriented verified facts.
+      5. SOURCES: Rajasthan Sujas (DIPR), PIB India, The Hindu, drishti ias, dainik bhaskar, rajasthan patrika and other reliable sources.
 
       FORMATTING RULES:
       - Format strictly as beautiful Markdown. Add a Title: "# Exambeing Daily Current Affairs".
       - Number the 15 to 20 news points clearly. Use **Bold** for keywords, dates, and names.
       - 🧠 EXAM FACT: Add a small '🧠 Exam Fact' or '🔗 Static GK Link' at the end of EACH point.
-      - 📦 SCHEME BOX: If a news point is about a Government Scheme, Initiative, App, or Portal, YOU MUST highlight its core facts (Budget, Ministry, Aim, target, objective,dates) using a Markdown blockquote (>) so it looks like a box in the app.
+      - 📦 SCHEME BOX: If a news point is about a Government Scheme, Initiative, App, or Portal, YOU MUST highlight its core facts (Budget, Ministry, Aim, target, objective, dates) using a Markdown blockquote (>) so it looks like a box in the app.
       - BRANDING: End with a nice footer "❤️ Curated with love by Exambeing Team".
       """;
       final response = await model.generateContent([Content.text(prompt)]);
@@ -128,7 +129,9 @@ class CurrentAffairsService {
       developer.log("🤖 Creating 10 Fresh MCQs...", name: "Exambeing_Test");
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       final model = GenerativeModel(model: 'gemini-3.1-flash-lite-preview', apiKey: apiKey ?? ""); // Daily Model
-      String prompt = 'Create exactly 10 high-level MCQs in valid JSON array from this text. Format: [{"question": "", "options": ["","","",""], "correctIndex": 0, "explanation": ""}] \nText: $newsContent';
+      
+      // 🔥 Strict Test Rule: Sirf content se padh kar sawal banaye 🔥
+      String prompt = 'Create exactly 10 high-level MCQs in valid JSON array STRICTLY from this text. DO NOT use outside knowledge or hallucinate facts. Format: [{"question": "", "options": ["","","",""], "correctIndex": 0, "explanation": ""}] \nText: $newsContent';
       final response = await model.generateContent([Content.text(prompt)]);
       String res = response.text!.replaceAll("```json", "").replaceAll("```", "").trim();
       List<dynamic> questions = jsonDecode(res);
@@ -161,11 +164,13 @@ class CurrentAffairsService {
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey ?? ""); // 🔥 Monthly Mega Model 🔥
 
+      // 🔥 Monthly Anti-Hallucination Prompt 🔥
       String prompt = """
       You are the Chief Editor for "Exambeing". Create the Monthly Current Affairs Magazine for $region ($monthName). Language: $language.
       BRANDING: Start with "# Exambeing Mega Magazine - $monthName" and "**Published by: Exambeing Team**".
       FORMAT: Output strictly as beautiful Markdown. Use Headings, bullets, and bold text. NO HTML.
       CONTENT: Summarize daily data. REMOVE outdated/repetitive news. Divide into clear categories (Polity, Economy, Sports,Science and tech,person, etc.).
+      STRICT RULE (ZERO HALLUCINATION): Base your summary STRICTLY on the provided 'Raw Month Data'. DO NOT add outside facts or hallucinate any information.
       SPECIAL: Highlight important schemes and facts using Markdown blockquotes (>). Add "❤️ Exambeing" at the end.
       Raw Month Data: $rawMonthData
       """;
@@ -230,7 +235,9 @@ class CurrentAffairsService {
       developer.log("🤖 Generating Mega Monthly Test (50 Questions)...", name: "Exambeing_Mega");
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey ?? ""); // 🔥 Monthly Mega Model 🔥
-      String prompt = 'Create EXACTLY 50 MCQs in valid JSON array from this Monthly Magazine text. Format: [{"question": "", "options": ["","","",""], "correctIndex": 0, "explanation": ""}] \nText: $monthlyContent';
+      
+      // 🔥 Strict Test Rule: Sirf monthly magazine content se sawal banaye 🔥
+      String prompt = 'Create EXACTLY 50 MCQs in valid JSON array STRICTLY from this Monthly Magazine text. DO NOT invent facts or use outside knowledge. Format: [{"question": "", "options": ["","","",""], "correctIndex": 0, "explanation": ""}] \nText: $monthlyContent';
       final response = await model.generateContent([Content.text(prompt)]);
       String res = response.text!.replaceAll("```json", "").replaceAll("```", "").trim();
       List<dynamic> questions = jsonDecode(res);
