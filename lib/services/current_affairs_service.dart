@@ -128,25 +128,47 @@ class CurrentAffairsService {
   }
 
   // =========================================================================
-  // 5. DAILY TEST ENGINE (MODEL: 3.1 FLASH LITE)
+  // 5. DAILY TEST ENGINE (MODEL: 3.1 FLASH LITE) - FIXED JSON EXTRACTOR
   // =========================================================================
   Future<List<dynamic>> getOrGenerateDailyTest({required DateTime date, required String region, required String language, required String newsContent}) async {
     try {
+      if (newsContent.trim().isEmpty || newsContent == "NOT_PUBLISHED" || newsContent.startsWith("🚨")) {
+         throw "No news content available to generate a test.";
+      }
+
       String monthKey = DateFormat('yyyy_MM').format(date); String dayKey = DateFormat('yyyy_MM_dd').format(date); String category = "${region}_$language";
       DocumentReference testRef = _db.collection('current_affairs_tests').doc(monthKey).collection(category).doc(dayKey);
       DocumentSnapshot doc = await testRef.get();
-      if (doc.exists && doc.data() != null) return doc.get('questions') as List<dynamic>;
+      if (doc.exists && doc.data() != null && (doc.data() as Map<String, dynamic>).containsKey('questions')) {
+        return doc.get('questions') as List<dynamic>;
+      }
 
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       // 🔥 LITE MODEL TO SAVE API LIMITS 🔥
       final model = GenerativeModel(model: 'gemini-3.1-flash-lite-preview', apiKey: apiKey ?? ""); 
       String prompt = 'Create exactly 10 high-level MCQs in valid JSON array strictly from this text. Do NOT use outside knowledge. Format: [{"question": "", "options": ["","","",""], "correctIndex": 0, "explanation": ""}] \nText: $newsContent';
+      
       final response = await model.generateContent([Content.text(prompt)]);
-      String res = response.text!.replaceAll("```json", "").replaceAll("```", "").trim();
+      String res = response.text ?? "";
+
+      // 🔥 SMART JSON EXTRACTOR 🔥
+      int startIndex = res.indexOf('[');
+      int endIndex = res.lastIndexOf(']');
+      if (startIndex != -1 && endIndex != -1) {
+        res = res.substring(startIndex, endIndex + 1);
+      } else {
+        throw "AI returned an invalid JSON format.";
+      }
+
       List<dynamic> questions = jsonDecode(res);
-      if (questions.isNotEmpty) await testRef.set({'questions': questions, 'createdAt': FieldValue.serverTimestamp()});
+      if (questions.isNotEmpty) {
+        await testRef.set({'questions': questions, 'createdAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+      }
       return questions;
-    } catch (e) { return []; }
+    } catch (e) { 
+      developer.log("❌ Daily Test Error: $e");
+      throw e.toString(); 
+    }
   }
 
   // =========================================================================
@@ -201,24 +223,46 @@ class CurrentAffairsService {
   }
 
   // =========================================================================
-  // 8. 🔥 MEGA MONTHLY TEST (MODEL: 2.5 FLASH HEAVY DUTY) 🔥
+  // 8. 🔥 MEGA MONTHLY TEST (MODEL: 2.5 FLASH HEAVY DUTY) - FIXED JSON EXTRACTOR
   // =========================================================================
   Future<List<dynamic>> getOrGenerateMonthlyTest({required DateTime monthDate, required String region, required String language, required String monthlyContent}) async {
     try {
+      if (monthlyContent.trim().isEmpty || monthlyContent == "NOT_PUBLISHED" || monthlyContent.startsWith("🚨")) {
+         throw "No monthly magazine content available to generate a test.";
+      }
+
       String monthKey = DateFormat('yyyy_MM').format(monthDate); String category = "${region}_$language";
       DocumentReference testRef = _db.collection('monthly_magazines').doc(monthKey).collection(category).doc('mega_test');
       DocumentSnapshot doc = await testRef.get();
-      if (doc.exists && doc.data() != null) return doc.get('questions') as List<dynamic>;
+      if (doc.exists && doc.data() != null && (doc.data() as Map<String, dynamic>).containsKey('questions')) {
+        return doc.get('questions') as List<dynamic>;
+      }
 
       final apiKey = dotenv.env['GEMINI_API_KEY'];
       // 🔥 2.5 FLASH MODEL FOR COMPLEX MCQ GENERATION 🔥
       final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey ?? ""); 
       String prompt = 'Create EXACTLY 50 MCQs in valid JSON array STRICTLY from this Monthly Magazine text. DO NOT invent facts. Format: [{"question": "", "options": ["","","",""], "correctIndex": 0, "explanation": ""}] \nText: $monthlyContent';
+      
       final response = await model.generateContent([Content.text(prompt)]);
-      String res = response.text!.replaceAll("```json", "").replaceAll("```", "").trim();
+      String res = response.text ?? "";
+
+      // 🔥 SMART JSON EXTRACTOR 🔥
+      int startIndex = res.indexOf('[');
+      int endIndex = res.lastIndexOf(']');
+      if (startIndex != -1 && endIndex != -1) {
+        res = res.substring(startIndex, endIndex + 1);
+      } else {
+        throw "AI returned an invalid JSON format.";
+      }
+
       List<dynamic> questions = jsonDecode(res);
-      if (questions.isNotEmpty) await testRef.set({'questions': questions, 'createdAt': FieldValue.serverTimestamp()});
+      if (questions.isNotEmpty) {
+        await testRef.set({'questions': questions, 'createdAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+      }
       return questions;
-    } catch (e) { return []; }
+    } catch (e) { 
+      developer.log("❌ Mega Test Error: $e");
+      throw e.toString(); 
+    }
   }
 }
